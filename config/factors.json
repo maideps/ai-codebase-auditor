@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "factors": [
+    {
+      "id": "test-feedback",
+      "name": "Test presence and feedback speed",
+      "class": "blocking",
+      "description": "An agent can only verify its changes when tests exist and run in reasonable time."
+    },
+    {
+      "id": "type-strictness",
+      "name": "Type strictness",
+      "class": "blocking",
+      "description": "Static types or equivalent checks catch wrong changes before they run."
+    },
+    {
+      "id": "direct-api-calls",
+      "name": "Direct API calls",
+      "class": "blocking",
+      "description": "What a call does is visible at the call site, not hidden behind reflection, magic or dynamic dispatch."
+    },
+    {
+      "id": "file-size",
+      "name": "File size and context legibility",
+      "class": "constraining",
+      "description": "Files and the context needed to change them fit in an agent's working context."
+    },
+    {
+      "id": "module-boundaries",
+      "name": "Module boundary clarity",
+      "class": "constraining",
+      "description": "Modules have clear edges, so a change can be scoped to one area."
+    },
+    {
+      "id": "documented-intent",
+      "name": "Documented intent",
+      "class": "constraining",
+      "description": "Non-standard practices and project-specific rules are written down."
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "class": "constraining",
+      "description": "Logs, errors and metrics show what the code does when it runs."
+    },
+    {
+      "id": "dev-deploy-simplicity",
+      "name": "Dev and deploy simplicity",
+      "class": "constraining",
+      "description": "The project builds and runs locally with documented, scriptable steps."
+    },
+    {
+      "id": "dependency-currency",
+      "name": "Dependency and runtime currency",
+      "class": "constraining",
+      "description": "Dependencies and runtimes are supported versions, not end-of-life."
+    }
+  ]
+}

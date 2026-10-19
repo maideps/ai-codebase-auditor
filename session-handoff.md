@@ -4,45 +4,41 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Current Objective
 
-- Goal: adopt ai-harness-framework properly (handoff step 3), then seed the feature list and build feat-001.
-- Current status: harness bootstrapped and adopted; product tooling wired into every layer; CLI skeleton only. Nothing committed yet.
-- Branch / commit: `main`, no commits.
+- Goal: build the MVP audit pipeline one feature at a time (feat-001 to feat-008), then calibrate (feat-009).
+- Current status: harness adopted (commit bdabc39). Ten features declared. feat-001 (CLI skeleton and config loader) implemented and run through the gate; see `.harness/state/feat-001.json`. feat-001 work is not committed yet.
+- Branch / commit: `main` at bdabc39, with feat-001 changes uncommitted.
 
 ## Completed This Session
 
-- [x] Bootstrapped the harness with `create-harness` (13 CORE surfaces, 25 templates); harness repo left unmodified.
+- [x] Bootstrapped and adopted the harness; harness repo left unmodified by this session.
 - [x] Filed harness gaps upstream: maideps/ai-harness-framework#23, #24, #25.
-- [x] Removed the multi-repo skeleton; `verify-all` reports SKIP.
-- [x] Renamed `package.json`, chained harness checks with ESLint, tsc and Vitest; `e2e` is a smoke run of the built CLI (D-002, D-003).
-- [x] Added `src/cli.ts` (`--help`, `--version`), unit tests and `e2e/smoke.test.ts`.
-- [x] Filled README and docs; recorded D-001 to D-005; set `productRoots`.
+- [x] Declared feat-001 to feat-010 from `docs/HANDOFF.md`.
+- [x] feat-001: `audit <repo-path> [--config <file>]`, target check, factor config loader, `config/factors.json`.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Full chain | `npm run check` | PASS (44 s) | 5 unit tests, 3 smoke tests; verify-all SKIP (no multi-repo) |
-| Architecture | `npm run check-arch` | PASS, 6/6 rules | Run against a temporary index holding all 100 files, so arch-005 saw them |
-| Harness audit | `npm run harness-audit` | FAIL | Only "templates placed 18/25": the removed multi-repo files; same root cause as #24. Not part of check or CI |
-| Clean state | `npm run clean-check` | FAIL | Uncommitted changes only (no commits yet) |
+| Unit tests | `npx vitest run` | PASS, 36 tests | config, target, cli |
+| Smoke | `npm run e2e` | PASS, 6 tests | audits a temp git repo and checks it is unchanged |
+| Feature gate | `npm run verify-feature -- feat-001` | see shard | evidence and per-layer logs in `.harness/state/feat-001.json` and `.harness/logs/feat-001/` |
+| Architecture | `npm run check-arch` | PASS, 6/6 at bdabc39 | |
 
 ## Files Changed
 
-- `package.json`, `package-lock.json`, `.gitignore`, `LICENSE`, `.harness/manifest.json` (`productRoots`)
-- `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`
-- `tsconfig.json`, `tsconfig.build.json`, `vitest.config.ts`, `vitest.e2e.config.ts`, `eslint.config.js`
-- `README.md`, `DECISIONS.md`, `docs/*.md`, `docs/concept-and-architecture.md` (language decision)
+- `feature_list.json`, `.harness/state/feat-001.json`, `PROGRESS.md`, `progress/001-2026-10-19.md`
+- `src/cli.ts`, `src/result.ts`, `src/target.ts`, `src/config/factors.ts` and their tests, `e2e/smoke.test.ts`, `config/factors.json`
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/USAGE.md`, `docs/quality-document.md`, `docs/sprints/feat-001.md`
 
 ## Decisions Made
 
-- D-001 to D-005 in `DECISIONS.md`.
+- D-001 to D-005 in `DECISIONS.md` (adoption). feat-001 needed no new decision record: the config schema stays minimal until scoring (feat-006) adds thresholds.
 
 ## Blockers / Risks
 
-- `feature_list.json` still holds the template's "Example Feature" (feat-001).
 - Chained layer scripts are not explicitly supported by the harness; recheck them after every `harness-upgrade` (#25).
-- No progress session note under `progress/` yet.
 - `harness-audit` reports the removed multi-repo templates as missing; worth adding to maideps/ai-harness-framework#24.
+- Module dependency rules in `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`.
 
 ## Next Session Startup
 
@@ -53,4 +49,4 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Recommended Next Step
 
-- Commit the adoption, then replace the example feature with the ten features from `docs/HANDOFF.md` (WIP=1, in order) and start feat-001: CLI skeleton and config loader.
+- Commit feat-001, then start feat-002 (git-history collector). feat-002 to feat-005 can also run as parallel lanes (`npm run lane-new -- <id>`).

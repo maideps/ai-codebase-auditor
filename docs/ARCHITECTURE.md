@@ -2,11 +2,14 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (only `src/cli.ts` exists today):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (`cli.ts`, `result.ts`, `target.ts` and `config/` exist today):
 
 ```
 src/
   cli.ts              entry point: argument parsing, exit codes, wiring
+  result.ts           Result<T>: a value, or every validation error found
+  target.ts           resolves and checks the audited repository root (static)
+  config/factors.ts   loads and validates config/factors.json
   collectors/         read-only signal collection, one module per source
     git-history.ts      churn, authors, file age
     code-structure.ts   file size, module layout
@@ -34,6 +37,8 @@ repository (read-only)
 ## Dependency Rules
 
 - `cli` may depend on every other module. Nothing depends on `cli`.
+- `result` and `config` depend on nothing in `src/` but each other; any module may use them. `target` is used only by `cli`.
+- Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
 - `report` depends on the types of `decision` and `scoring` only; it formats, it never computes scores.
 - `decision` depends on `scoring` types and the harness requirements file; it never reads the repository.
 - `scoring` depends on collector output types and `config/factors.json`; it never reads the repository.

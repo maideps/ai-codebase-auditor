@@ -6,11 +6,18 @@ How to run the CLI, how verification is wired, and how features move through the
 
 ```bash
 npm run build
+node dist/cli.js audit <repo-path>                  # default factors from config/factors.json
+node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js --help
-node dist/cli.js --version
 ```
 
-Exit codes: `0` success, `2` usage error. The `audit <repo-path>` command arrives with feat-001; this section will document its options and output files then.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target and the factor list. Collectors, scores and reports arrive with feat-002 to feat-008. Relative paths resolve against the current directory.
+
+Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid config). Every input problem is printed, one `error:` line each, not just the first.
+
+### Factor configuration
+
+`config/factors.json` lists the readiness factors. Each factor has a kebab-case `id`, a `name`, a `class` (`blocking` or `constraining`) and a `description`. Unknown keys are rejected, so a typo cannot silently change a factor, and at least one factor must be blocking because the lowest blocking factor sets the readiness level. Thresholds join the schema with the scoring engine (feat-006).
 
 Audited repositories should be cloned outside this project, for example under `D:\7-Maide\Projects\audit-targets\`. Never clone them into this repository.
 

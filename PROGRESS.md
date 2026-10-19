@@ -11,12 +11,12 @@ After adding or updating a session note, regenerate this file with `node scripts
 - Primary startup command: `./init.sh`
 - Primary verification command: `make check` (make-free equivalent: `npm run check`)
 - Active feature: none
-- Passing features (0): none
+- Passing features (1): feat-001 — CLI skeleton and config loader
 - Failing/blocked features: none
-- Planned features (1): feat-001 — Example Feature
-- Last evidence: none
+- Planned features (9): feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap
+- Last evidence: feat-001 — CLI skeleton and config loader — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-19T23:20:37.213Z)
 
 ## Session Index
 
-- No sessions recorded yet.
+- [Session 001 — 2026-10-19 — Harness adoption, feature list, feat-001 CLI skeleton and config loader](progress/001-2026-10-19.md)
 <!-- END GENERATED PROGRESS -->

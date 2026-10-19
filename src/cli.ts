@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
-// Command-line entry point. The audit commands arrive with feat-001 (CLI
-// skeleton and config loader); until then the CLI only answers --help and
-// --version, which is enough for the e2e smoke run to exercise the build.
+// Command-line entry point: argument parsing, exit codes and wiring. The audit
+// command validates its target and factor config; collectors arrive with
+// feat-002 to feat-005.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
+import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
+import { resolveTarget, type AuditTarget } from "./target.js";
 
 export interface CliResult {
   exitCode: number;
@@ -14,22 +17,87 @@ export interface CliResult {
   stderr: string;
 }
 
-export const USAGE = `Usage: ai-codebase-auditor [options]
+const EXIT_OK = 0;
+const EXIT_USAGE = 2;
+
+export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>]
+       ai-codebase-auditor --help | --version
+
+Audits a local git repository for AI-agent readiness. The repository is only
+read, never modified or executed.
+
+Commands:
+  audit <repo-path>      Audit the git working tree at <repo-path>
 
 Options:
-  -h, --help     Show this help
-  -v, --version  Show the version
+  -c, --config <file>    Factor configuration (default: config/factors.json)
+  -h, --help             Show this help
+  -v, --version          Show the version
 `;
 
-export function runCli(args: readonly string[], version: string): CliResult {
-  const [first] = args;
-  if (first === undefined || first === "-h" || first === "--help") {
-    return { exitCode: 0, stdout: USAGE, stderr: "" };
+function usageError(errors: readonly string[]): CliResult {
+  const lines = errors.map((error) => `error: ${error}`).join("\n");
+  return { exitCode: EXIT_USAGE, stdout: "", stderr: `${lines}\n\nRun 'ai-codebase-auditor --help' for usage.\n` };
+}
+
+function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig): string {
+  const blocking = config.factors.filter((factor) => factor.class === "blocking").length;
+  const idWidth = Math.max(...config.factors.map((factor) => factor.id.length)) + 2;
+  const rows = config.factors.map(
+    (factor) => `  ${factor.class.padEnd(14)}${factor.id.padEnd(idWidth)}${factor.name}`,
+  );
+  return [
+    `Target: ${target.path}`,
+    `Config: ${configPath}`,
+    `Factors: ${config.factors.length} (${blocking} blocking, ${config.factors.length - blocking} constraining)`,
+    ...rows,
+    "",
+    "No collectors are implemented yet, so no signals were read and nothing was scored.",
+    "",
+  ].join("\n");
+}
+
+function runAudit(args: readonly string[], cwd: string): CliResult {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: [...args],
+      options: {
+        config: { type: "string", short: "c" },
+        help: { type: "boolean", short: "h" },
+      },
+      allowPositionals: true,
+      strict: true,
+    });
+  } catch (error) {
+    return usageError([(error as Error).message]);
   }
-  if (first === "-v" || first === "--version") {
-    return { exitCode: 0, stdout: `${version}\n`, stderr: "" };
+  if (parsed.values.help) return { exitCode: EXIT_OK, stdout: USAGE, stderr: "" };
+
+  const { positionals } = parsed;
+  const [repoPath] = positionals;
+  if (repoPath === undefined) return usageError(["audit needs a repository path"]);
+  if (positionals.length > 1) return usageError([`audit takes one repository path, got ${positionals.length}`]);
+
+  const configPath = parsed.values.config === undefined ? DEFAULT_CONFIG_PATH : path.resolve(cwd, parsed.values.config);
+  const target = resolveTarget(repoPath, cwd);
+  const config = loadFactorConfig(configPath);
+  if (!target.ok || !config.ok) {
+    return usageError([...(target.ok ? [] : target.errors), ...(config.ok ? [] : config.errors)]);
   }
-  return { exitCode: 2, stdout: "", stderr: `Unknown argument: ${first}\n\n${USAGE}` };
+  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value), stderr: "" };
+}
+
+export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
+  const [command, ...rest] = args;
+  if (command === undefined || command === "-h" || command === "--help") {
+    return { exitCode: EXIT_OK, stdout: USAGE, stderr: "" };
+  }
+  if (command === "-v" || command === "--version") {
+    return { exitCode: EXIT_OK, stdout: `${version}\n`, stderr: "" };
+  }
+  if (command === "audit") return runAudit(rest, cwd);
+  return usageError([command.startsWith("-") ? `unknown option ${command}` : `unknown command ${command}`]);
 }
 
 // package.json sits one level above both src/ and dist/.

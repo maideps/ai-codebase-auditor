@@ -2,15 +2,266 @@
   "features": [
     {
       "id": "feat-001",
-      "name": "Example Feature",
-      "behavior": "Describe the single target behavior this feature implements.",
-      "verification": "Describe how completion is verified end-to-end.",
+      "name": "CLI skeleton and config loader",
+      "behavior": "`ai-codebase-auditor audit <repo-path>` checks that the path exists and is a git working tree, loads and validates the factor configuration from config/factors.json (or --config <file>), and prints the target and a summary of the loaded factors. Invalid arguments, a bad path or an invalid config exit with code 2 and a message naming each problem. No collectors run yet, and nothing is written to the target.",
+      "verification": "Unit tests cover argument parsing, target validation and every config validation error. The e2e smoke run audits a temporary git repository with the default config, and with a broken config file.",
       "dependencies": [],
       "layers": [
         {
           "label": "Layer 1: Static checks",
           "cmd": "npm run lint",
-          "repair": "Fix static-analysis errors and rerun the layer command."
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/cli src/config src/target",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-002",
+      "name": "Git-history collector",
+      "behavior": "Reads the target's history with read-only git commands and returns per-file signals with evidence: commit count over the full history and the last 12 months, distinct authors, and first and last commit dates, plus repository totals. A missing git binary or a shallow clone is reported as not measurable, never guessed.",
+      "verification": "Unit tests run the collector against temporary fixture repositories with known commits, authors and dates, including a shallow clone. No test touches a real clone.",
+      "dependencies": [
+        "feat-001"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/git-history",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-003",
+      "name": "Code-structure collector",
+      "behavior": "Lists the target's tracked files (skipping vendored and binary files) and returns per-file line and byte counts, the file-size distribution and the top-level module layout, each signal citing the files it counted. Uses scc when it is installed and a built-in line counter otherwise, and records which one ran.",
+      "verification": "Unit tests run against a fixture tree with known sizes, vendored and binary files, with and without scc available.",
+      "dependencies": [
+        "feat-001"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/code-structure",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-004",
+      "name": "Tests and docs detector",
+      "behavior": "Detects test presence (test directories, test file patterns, test runner configs), CI configuration, README and contributor docs, and written non-standard practices (project-specific rules stated in AGENTS.md, CONTRIBUTING or similar), each with the matching paths as evidence. The mere presence of an agent context file scores nothing on its own. It never runs the target's tests.",
+      "verification": "Unit tests cover fixture repositories with and without tests, CI files and docs, across several language conventions.",
+      "dependencies": [
+        "feat-001"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/tests-docs",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-005",
+      "name": "Dependency collector",
+      "behavior": "Parses dependency manifests statically (package.json, requirements.txt, setup.py, pyproject.toml, composer.json, Gemfile, pom.xml, build.gradle) and declared runtime versions, and flags end-of-life runtimes against a dated table in config/. Unrecognized manifests are listed as not measured. Nothing is installed or resolved over the network.",
+      "verification": "Unit tests parse fixture manifests for each supported format and check end-of-life flags against the dated table.",
+      "dependencies": [
+        "feat-001"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/dependencies",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-006",
+      "name": "Scoring engine",
+      "behavior": "Turns collector signals into a 1 to 5 score per factor using thresholds in config/factors.json; each score lists its evidence. A factor without evidence gets no score and is reported as not measured. A documented, dated deferral raises a score by one level. The lowest blocking factor sets the readiness level, and scores are never averaged.",
+      "verification": "Table-driven unit tests cover every threshold edge, the deferral rule, missing evidence and the lowest-blocking-factor rule.",
+      "dependencies": [
+        "feat-002",
+        "feat-003",
+        "feat-004",
+        "feat-005"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/scoring",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-007",
+      "name": "Decision engine",
+      "behavior": "Maps the factor profile to one verdict: adopt when no blocking factor is weak, adapt when specific factors fail but modules are individually workable, prepare first when tests and boundaries are both missing. Assigns each module a risk zone (green, yellow, red). Every verdict names the rule and the factor scores that triggered it.",
+      "verification": "Unit tests cover each verdict rule, its boundaries and risk-zone assignment, including red zones for auth, billing and permission paths.",
+      "dependencies": [
+        "feat-006"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/decision",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-008",
+      "name": "Markdown and JSON report writers",
+      "behavior": "Writes the audit result as a Markdown report and a JSON file with the same content: readiness level, verdict and its rule, each factor's score and evidence, not-measured signals and module risk zones. Output is deterministic for the same input and goes to --out <dir>, never into the audited repository.",
+      "verification": "Snapshot tests for both formats, a determinism test (two runs, identical bytes), and an e2e audit of a fixture repository that checks the target is unchanged.",
+      "dependencies": [
+        "feat-007"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/report",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-009",
+      "name": "Calibration run on the five test repos",
+      "behavior": "Audits DOOM, moin-1.9, phpBB, Struts and Redmine from clones kept outside this repository, stores the reports and human calibration labels (true positive, false positive, not observable) in a case-study folder, and compares each verdict with its expected one. DOOM and Redmine must land at opposite ends.",
+      "verification": "The case-study folder holds all five reports and labels, a summary table of expected versus actual verdicts, and any scoring changes the run forced, each recorded in DECISIONS.md.",
+      "dependencies": [
+        "feat-008"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
         },
         {
           "label": "Layer 2: Runtime tests",
@@ -20,7 +271,38 @@
         {
           "label": "Layer 3: System confirmation",
           "cmd": "npm run check",
-          "repair": "Resolve remaining issues and rerun full verification."
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-010",
+      "name": "Version 2: harness adaptation plan and modernization roadmap",
+      "behavior": "From the factor profile and a separate harness-requirements file, generates the harness adaptation plan (which ai-harness-framework rules, context files and guardrails to change for this repository, and why) and a modernization roadmap ordered by expected score gain against effort.",
+      "verification": "Unit tests map each factor gap to its adaptation, and the calibration repositories produce plans whose every item cites a factor score.",
+      "dependencies": [
+        "feat-009"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/plan",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
         }
       ]
     }
