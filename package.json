@@ -1,0 +1,68 @@
+{
+  "name": "ai-codebase-auditor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Audits a codebase, legacy systems first, and decides whether AI coding agents can safely work in it: adopt, adapt or prepare first",
+  "license": "MIT",
+  "author": "Maidelín Prieto",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maideps/ai-codebase-auditor.git"
+  },
+  "type": "module",
+  "files": [
+    "dist/",
+    "config/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all",
+    "lint": "node scripts/framework-check.mjs lint && eslint src e2e",
+    "typecheck": "node scripts/framework-check.mjs typecheck && tsc --noEmit",
+    "test": "node scripts/framework-check.mjs test && vitest run",
+    "build": "node scripts/framework-check.mjs build && tsc -p tsconfig.build.json",
+    "e2e": "tsc -p tsconfig.build.json && vitest run --config vitest.e2e.config.ts",
+    "dev": "node scripts/framework-check.mjs dev",
+    "check-arch": "node scripts/framework-check.mjs check-arch",
+    "verify-feature": "node scripts/framework-check.mjs verify-feature",
+    "verify-all": "node scripts/framework-check.mjs verify-all",
+    "lane-new": "node scripts/framework-check.mjs lane-new",
+    "lane-list": "node scripts/framework-check.mjs lane-list",
+    "lane-land": "node scripts/framework-check.mjs lane-land",
+    "lane-drop": "node scripts/framework-check.mjs lane-drop",
+    "migrate-feature-state": "node scripts/framework-check.mjs migrate-feature-state",
+    "add-feature": "node scripts/framework-check.mjs add-feature",
+    "activate": "node scripts/framework-check.mjs activate",
+    "vcr": "npm run check && npm run check-arch && node scripts/framework-check.mjs record-trail vcr",
+    "session-start": "node scripts/framework-check.mjs session-trace start",
+    "session-end": "node scripts/framework-check.mjs session-trace end",
+    "clean-check": "node scripts/framework-check.mjs clean-state-check",
+    "harness-docs": "node scripts/harness-docs.mjs",
+    "create-harness": "node scripts/create-harness.mjs",
+    "harness-upgrade": "node scripts/harness-upgrade.mjs",
+    "harness-audit": "node scripts/harness-audit.mjs",
+    "backup-list": "node scripts/harness-backup.mjs list",
+    "backup-pin": "node scripts/harness-backup.mjs pin",
+    "backup-unpin": "node scripts/harness-backup.mjs unpin",
+    "backup-restore": "node scripts/harness-backup.mjs restore",
+    "report": "node scripts/harness-report.mjs",
+    "sweep": "node scripts/harness-sweep.mjs",
+    "setup": "node scripts/framework-check.mjs setup",
+    "help": "node scripts/framework-check.mjs help"
+  },
+  "bin": {
+    "ai-codebase-auditor": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^3.2.7"
+  }
+}
