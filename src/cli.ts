@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
-// command validates its target and factor config; collectors arrive with
-// feat-002 to feat-005.
+// command validates its target and factor config, then runs the collectors
+// built so far (git history); the rest arrive with feat-003 to feat-005.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
+import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
 
@@ -40,7 +42,20 @@ function usageError(errors: readonly string[]): CliResult {
   return { exitCode: EXIT_USAGE, stdout: "", stderr: `${lines}\n\nRun 'ai-codebase-auditor --help' for usage.\n` };
 }
 
-function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig): string {
+function formatGitHistory(history: Measurement<GitHistory>): string[] {
+  if (history.status === "not-measured") return [`Git history: not measured (${history.reason})`];
+  const { totals } = history.value;
+  const day = (timestamp: string | null) => timestamp?.slice(0, 10) ?? "none";
+  return [
+    "Git history (non-merge commits):",
+    `  commits: ${totals.commits} (${totals.commitsLastYear} in the last 12 months)`,
+    `  authors: ${totals.authors}`,
+    `  first commit: ${day(totals.firstCommit)}, last commit: ${day(totals.lastCommit)}`,
+    `  tracked files: ${totals.trackedFiles}`,
+  ];
+}
+
+function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, history: Measurement<GitHistory>): string {
   const blocking = config.factors.filter((factor) => factor.class === "blocking").length;
   const idWidth = Math.max(...config.factors.map((factor) => factor.id.length)) + 2;
   const rows = config.factors.map(
@@ -52,7 +67,9 @@ function formatSummary(target: AuditTarget, configPath: string, config: FactorCo
     `Factors: ${config.factors.length} (${blocking} blocking, ${config.factors.length - blocking} constraining)`,
     ...rows,
     "",
-    "No collectors are implemented yet, so no signals were read and nothing was scored.",
+    ...formatGitHistory(history),
+    "",
+    "Not collected yet: code structure, tests and docs, dependencies. Nothing is scored yet.",
     "",
   ].join("\n");
 }
@@ -85,7 +102,8 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   if (!target.ok || !config.ok) {
     return usageError([...(target.ok ? [] : target.errors), ...(config.ok ? [] : config.errors)]);
   }
-  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value), stderr: "" };
+  const history = collectGitHistory(target.value.path);
+  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, history), stderr: "" };
 }
 
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {

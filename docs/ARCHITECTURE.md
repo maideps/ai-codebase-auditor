@@ -2,7 +2,7 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (`cli.ts`, `result.ts`, `target.ts` and `config/` exist today):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `collectors/git-history.ts` exists today):
 
 ```
 src/
@@ -10,7 +10,9 @@ src/
   result.ts           Result<T>: a value, or every validation error found
   target.ts           resolves and checks the audited repository root (static)
   config/factors.ts   loads and validates config/factors.json
+  testing/            test-only helpers (git fixture repos); not built
   collectors/         read-only signal collection, one module per source
+    types.ts            Measurement<T>: measured with evidence, or not measured with a reason
     git-history.ts      churn, authors, file age
     code-structure.ts   file size, module layout
     tests-docs.ts       test and doc presence, CI files
@@ -25,7 +27,7 @@ config/
 ```
 repository (read-only)
    │
-   ├─ collectors ── Signal[] (value + evidence)
+   ├─ collectors ── Measurement<T> per collector (value + evidence, or a not-measured reason)
    │
    ├─ scoring ───── FactorScore[] (1–5, evidence, deferral flag)
    │                  ▲ config/factors.json
@@ -42,8 +44,11 @@ repository (read-only)
 - `report` depends on the types of `decision` and `scoring` only; it formats, it never computes scores.
 - `decision` depends on `scoring` types and the harness requirements file; it never reads the repository.
 - `scoring` depends on collector output types and `config/factors.json`; it never reads the repository.
-- Collectors depend on nothing but Node built-ins and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
-- Only collectors touch the file system or spawn processes. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
+- Collectors depend on nothing but Node built-ins, `collectors/types.ts` and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
+- A collector that cannot measure returns `not-measured` with a reason; it never throws for an expected condition (missing tool, shallow clone, empty repository) and never substitutes a guess.
+- Only collectors spawn processes, and only collectors, `target` and `config` read the file system. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
+- Git runs pinned to the target: `GIT_CEILING_DIRECTORIES` stops it from finding an enclosing repository, inherited `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are cleared, optional locks are off, and `core.fsmonitor` is disabled so a target's own config cannot start a program.
+- `src/testing/` is imported only by tests and is excluded from the build.
 
 Encode these rules as entries in `.harness/arch-rules.json` once the modules exist.
 

@@ -5,8 +5,8 @@ Fill this at session end for large sessions; keep it current otherwise.
 ## Current Objective
 
 - Goal: build the MVP audit pipeline one feature at a time (feat-001 to feat-008), then calibrate (feat-009).
-- Current status: harness adopted (commit bdabc39). Ten features declared. feat-001 (CLI skeleton and config loader) implemented and run through the gate; see `.harness/state/feat-001.json`. feat-001 work is not committed yet.
-- Branch / commit: `main` at bdabc39, with feat-001 changes uncommitted.
+- Current status: feat-001 passing (a6f76eb). feat-002 (git-history collector) implemented and run through the gate; see `.harness/state/feat-002.json`.
+- Branch / commit: `main`; see `git log --oneline -5`.
 
 ## Completed This Session
 
@@ -14,31 +14,32 @@ Fill this at session end for large sessions; keep it current otherwise.
 - [x] Filed harness gaps upstream: maideps/ai-harness-framework#23, #24, #25.
 - [x] Declared feat-001 to feat-010 from `docs/HANDOFF.md`.
 - [x] feat-001: `audit <repo-path> [--config <file>]`, target check, factor config loader, `config/factors.json`.
+- [x] feat-002: git-history collector, `Measurement<T>`, git fixture helper, D-006.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Unit tests | `npx vitest run` | PASS, 36 tests | config, target, cli |
-| Smoke | `npm run e2e` | PASS, 6 tests | audits a temp git repo and checks it is unchanged |
-| Feature gate | `npm run verify-feature -- feat-001` | see shard | evidence and per-layer logs in `.harness/state/feat-001.json` and `.harness/logs/feat-001/` |
+| Unit tests | `npx vitest run` | PASS, 49 tests | config, target, cli, git-history |
+| Smoke | `npm run e2e` | PASS, 6 tests | audits a fixture repo with history and checks it, .git included, is unchanged |
+| Feature gates | `npm run verify-feature -- <id>` | feat-001 PASS (clean tree), feat-002 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
 | Architecture | `npm run check-arch` | PASS, 6/6 at bdabc39 | |
 
 ## Files Changed
 
-- `feature_list.json`, `.harness/state/feat-001.json`, `PROGRESS.md`, `progress/001-2026-10-19.md`
-- `src/cli.ts`, `src/result.ts`, `src/target.ts`, `src/config/factors.ts` and their tests, `e2e/smoke.test.ts`, `config/factors.json`
-- `README.md`, `docs/ARCHITECTURE.md`, `docs/USAGE.md`, `docs/quality-document.md`, `docs/sprints/feat-001.md`
+- feat-002: `src/collectors/types.ts`, `src/collectors/git-history.ts` and its tests, `src/testing/git-fixture.ts`, `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`, `tsconfig.build.json`
+- Docs: `README.md`, `DECISIONS.md` (D-006), `docs/ARCHITECTURE.md`, `docs/USAGE.md`, `docs/TOOLS.md`, `docs/STANDARDS.md`, `docs/quality-document.md`, `docs/sprints/feat-002.md`, `progress/002-2026-10-19.md`
 
 ## Decisions Made
 
-- D-001 to D-005 in `DECISIONS.md` (adoption). feat-001 needed no new decision record: the config schema stays minimal until scoring (feat-006) adds thresholds.
+- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening).
 
 ## Blockers / Risks
 
 - Chained layer scripts are not explicitly supported by the harness; recheck them after every `harness-upgrade` (#25).
 - `harness-audit` reports the removed multi-repo templates as missing; worth adding to maideps/ai-harness-framework#24.
 - Module dependency rules in `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`.
+- Git history holds the whole log in memory; check it on the large calibration repositories (feat-009).
 
 ## Next Session Startup
 
@@ -49,4 +50,4 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Recommended Next Step
 
-- Commit feat-001, then start feat-002 (git-history collector). feat-002 to feat-005 can also run as parallel lanes (`npm run lane-new -- <id>`).
+- Start feat-003 (code-structure collector). feat-003 to feat-005 are independent and can also run as parallel lanes (`npm run lane-new -- <id>`).

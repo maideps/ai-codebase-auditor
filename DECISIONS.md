@@ -82,3 +82,21 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: no accidental publish of a skeleton.
 - Negative: `private` must be removed, and a publish workflow added, before the first release.
+
+### D-006: Collectors return Measurement<T>; git history counting conventions and git hardening
+
+**Date:** 2026-10-19
+**Status:** accepted
+**Context:** feat-002 is the first collector. Scoring (feat-006) needs every value to carry its evidence and needs to tell "measured as zero" from "could not measure". Git history can be counted several ways, and audited repositories are untrusted: their own git config and location must not change what runs or which repository is read.
+**Decision:**
+- Every collector returns `Measurement<T>`: `measured` with a value and evidence (the exact commands and the counting caveats), or `not-measured` with a reason. Expected conditions (missing git, no commits, shallow clone, unreadable repository) are `not-measured`, never exceptions or guesses.
+- Git history counts non-merge commits, does not follow renames, counts authors by email after `.mailmap` case-insensitively, uses author dates, and reports per-file values only for files tracked at HEAD. A shallow clone is not measured, because its counts would be silently low.
+- Git runs with `GIT_CEILING_DIRECTORIES` set to the target's parent, inherited `GIT_DIR`/`GIT_WORK_TREE`/`GIT_INDEX_FILE` cleared, `GIT_OPTIONAL_LOCKS=0` and `-c core.fsmonitor=false`, and only `rev-parse`, `ls-tree` and `log`.
+**Alternatives considered:**
+- Count merge commits — Rejected because in merge-heavy repositories they inflate churn without changing files.
+- Follow renames (`--follow`) — Rejected for the MVP because it works per file only, which means one git process per file on large repositories.
+- Measure a shallow clone and flag it — Rejected because a low count looks like a real signal to a reader skimming the report.
+- A git library such as isomorphic-git — Rejected because the git CLI is everywhere, faster on large histories, and keeps the dependency list empty.
+**Consequences:**
+- Positive: every number is reproducible from the cited commands; an empty `.git` directory or an enclosing repository can never be audited by mistake.
+- Negative: renamed files look younger than they are; the whole log is held in memory (fine for the calibration set, to revisit for very large histories).

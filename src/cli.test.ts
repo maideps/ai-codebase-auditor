@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readVersion, runCli, USAGE } from "./cli.js";
+import { createFixtureRepo } from "./testing/git-fixture.js";
 
 const root = mkdtempSync(path.join(os.tmpdir(), "aca-cli-"));
 const repo = path.join(root, "repo");
@@ -40,7 +41,27 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain(`Target: ${repo}`);
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+Test presence and feedback speed/);
-    expect(result.stdout).toContain("No collectors are implemented yet");
+    expect(result.stdout).toContain("Not collected yet: code structure, tests and docs, dependencies.");
+  });
+
+  it("reports git history as not measured when git cannot read the target", () => {
+    const result = runCli(["audit", repo], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Git history: not measured \(git failed: .+\)/);
+  });
+
+  it("summarizes the git history of a real repository", () => {
+    const real = createFixtureRepo([
+      { author: "a@example.com", date: "2020-03-01T00:00:00Z", files: { "a.txt": "1" } },
+      { author: "b@example.com", date: "2021-04-02T00:00:00Z", files: { "b.txt": "1" } },
+    ]);
+    const result = runCli(["audit", real], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Git history (non-merge commits):");
+    expect(result.stdout).toContain("  commits: 2 (0 in the last 12 months)");
+    expect(result.stdout).toContain("  authors: 2");
+    expect(result.stdout).toContain("  first commit: 2020-03-01, last commit: 2021-04-02");
+    expect(result.stdout).toContain("  tracked files: 2");
   });
 
   it("resolves a relative target and --config against cwd", () => {

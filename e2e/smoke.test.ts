@@ -1,13 +1,15 @@
 // Smoke run against the built CLI (dist/cli.js), as a user would invoke it.
 // The e2e script builds first. Each run audits a throwaway git repository in a
-// temp directory and checks the repository is left exactly as it was.
+// temp directory and checks the repository, .git included, is left exactly as
+// it was.
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import { createFixtureRepo } from "../src/testing/git-fixture.js";
 
 const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
@@ -36,9 +38,10 @@ let scratch: string;
 
 beforeAll(() => {
   scratch = mkdtempSync(path.join(os.tmpdir(), "aca-e2e-"));
-  repo = path.join(scratch, "target");
-  execFileSync("git", ["init", "-q", repo]);
-  writeFileSync(path.join(repo, "README.md"), "# target\n", "utf8");
+  repo = createFixtureRepo([
+    { author: "a@example.com", date: "2023-05-01T00:00:00Z", files: { "README.md": "# target\n", "src/app.js": "1\n" } },
+    { author: "b@example.com", date: "2024-06-01T00:00:00Z", files: { "src/app.js": "2\n" } },
+  ]);
 });
 
 describe("built CLI", () => {
@@ -62,13 +65,15 @@ describe("built CLI", () => {
 });
 
 describe("audit", () => {
-  it("summarizes the default factors and leaves the repository untouched", () => {
+  it("summarizes factors and git history, and leaves the repository untouched", () => {
     const before = snapshot(repo);
     const result = run("audit", repo);
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(`Target: ${repo}`);
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
+    expect(result.stdout).toContain("  commits: 2 (");
+    expect(result.stdout).toContain("  first commit: 2023-05-01, last commit: 2024-06-01");
     expect(snapshot(repo)).toEqual(before);
   });
 

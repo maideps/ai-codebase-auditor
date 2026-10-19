@@ -2,7 +2,7 @@
 
 A command-line tool that audits a codebase, legacy systems first, and answers one question: is it safe and productive to let AI coding agents work in it, and if not, what has to change first? It collects measurable signals from the repository and its git history, scores each factor from 1 to 5 with cited evidence, and returns a verdict: **adopt**, **adapt** or **prepare first**. It never modifies or executes the audited repository.
 
-Status: `audit <repo-path>` validates the target and the factor configuration (feat-001); collectors, scoring and reports come next. The pipeline is built one feature at a time; see `feature_list.json` and [PROGRESS.md](PROGRESS.md).
+Status: `audit <repo-path>` validates the target and the factor configuration (feat-001) and collects git history (feat-002); the other collectors, scoring and reports come next. The pipeline is built one feature at a time; see `feature_list.json` and [PROGRESS.md](PROGRESS.md).
 
 Concept, prior art and design: [docs/concept-and-architecture.md](docs/concept-and-architecture.md).
 

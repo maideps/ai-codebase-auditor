@@ -11,7 +11,18 @@ node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js --help
 ```
 
-`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target and the factor list. Collectors, scores and reports arrive with feat-002 to feat-008. Relative paths resolve against the current directory.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list and the git-history totals. Relative paths resolve against the current directory. The remaining collectors, scores and reports arrive with feat-003 to feat-008.
+
+### Git history
+
+The git-history collector runs only read-only git commands (`rev-parse`, `ls-tree`, `log`) against the target and reports, for the repository and for each file tracked at HEAD: non-merge commits over the full history and the last 12 months, distinct authors, and first and last commit dates. Conventions, also listed in the evidence of every measurement:
+
+- merge commits are excluded;
+- renames are not followed, so a renamed file's history starts at the rename;
+- authors are counted by email after `.mailmap`, case-insensitively;
+- dates are author dates, and the 12-month window ends at the time of the run.
+
+It reports **not measured** instead of guessing when git is missing, the repository has no commits, the clone is shallow (history incomplete; re-clone without `--depth`), or git cannot read the repository.
 
 Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid config). Every input problem is printed, one `error:` line each, not just the first.
 
