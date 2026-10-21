@@ -175,3 +175,21 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: every score names its rule and evidence; teams tune numbers without code changes; the readiness level never hides an unmeasured blocking factor.
 - Negative: readiness stays provisional until a call-site collector exists; thresholds are first guesses checked on two local repositories and must be calibrated in feat-009; test feedback speed and package-level currency are not measured.
+
+### D-011: Verdict rules, module splitting and path-based red zones
+
+**Date:** 2026-10-21
+**Status:** accepted (rules reviewed before implementation; see docs/sprints/feat-007.md)
+**Context:** feat-007 turns the factor profile into adopt, adapt or prepare first, and assigns risk zones. The feature text ties *prepare first* to missing tests and boundaries, but module-boundaries has no signal yet. Top-level directories are too coarse to zone: a booking app keeps 195 of its files under `web/`. A sanity check on four local repositories showed "session" and "invoice" make poor red terms.
+**Decision:**
+- Ordered verdict rules: no verdict without test-feedback; *prepare first* when test-feedback ≤ 2 and boundaries are not established (unmeasured counts as not established); *adapt* when any scored factor is ≤ 2; *adopt* otherwise. Provisional while a blocking factor is unmeasured. Verdicts use final scores, deferrals included.
+- Modules start as top-level directories; one holding over half of the source files is split into subdirectories, up to 3 levels. Zones use test-feedback's base score and the file-size factor's score-3 limits, so green adds no new thresholds.
+- Red is decided per path, by whole-word terms in directory and file names (camelCase and separators split), configurable in `config/decision.json`. "session" and "invoice" were left out after they marked a handoff doc, a booking action and an invoice-processing product red.
+**Alternatives considered:**
+- *Prepare first* only when there are no tests at all — Rejected in review: thin or unrunnable tests leave an agent equally unable to verify changes.
+- Weak blocking factors only for *adapt* — Rejected in review: a weak constraining factor (end-of-life runtime, unwritten rules) still needs adapted agent rules.
+- Never *adopt* while a blocking factor is unmeasured — Rejected in review: it would make *adopt* impossible today, so calibration could never test it.
+- One zone per top-level directory — Rejected in review: too coarse for repositories with one big application directory.
+**Consequences:**
+- Positive: every verdict and zone states its rule; red paths stay visible inside green modules.
+- Negative: path terms miss sensitive code in neutrally named files and can flag unrelated words; zones rely on a repository-level test signal; calibration (feat-009) may show Redmine at *adapt* rather than the expected *adopt*.

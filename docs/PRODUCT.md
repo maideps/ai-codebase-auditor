@@ -17,7 +17,7 @@ Full concept, prior art and research: [concept-and-architecture.md](concept-and-
 - Feed the JSON report to CI or to an agent, so later sessions start from measured facts instead of guesses.
 - Re-run after changes (new tests, smaller files, written conventions) to see which factor moved and whether the verdict changed.
 
-Today `audit` prints the collected signals, a score per factor and the readiness level; the verdict and the Markdown and JSON report files arrive with feat-007 and feat-008.
+Today `audit` prints the collected signals, a score per factor, the readiness level, the verdict and the risk zones; the Markdown and JSON report files arrive with feat-008.
 
 ## Scoring Rules
 
@@ -25,7 +25,8 @@ Today `audit` prints the collected signals, a score per factor and the readiness
 - Scores are never averaged. The lowest scored **blocking** factor sets the readiness level; while a blocking factor cannot be measured, the level is reported as provisional and names it.
 - Blocking factors: test presence and feedback speed, type strictness, direct API calls. Constraining factors: file size and context legibility, module boundary clarity, documented intent, observability, dev and deploy simplicity, dependency and runtime currency. The split lives in `config/factors.json`, so a team can tune it.
 - A documented, dated deferral scores one level higher than an undocumented gap, up to 3, and only while its revisit date has not passed.
-- Each module gets a risk zone: green (autonomous edits), yellow (only after characterization tests exist), red (auth, billing, permissions: proposals only).
+- Each module gets a risk zone: green (autonomous edits), yellow (only after characterization tests exist), red (auth, billing, permissions: proposals only). Red is decided per path, so a red file inside a green module is still proposals-only.
+- The verdict is adopt, adapt or prepare first, by explicit rules over the factor scores; every verdict names its rule and the scores that triggered it.
 - Proposed, not yet decided: signals that cannot be verified from repository contents, such as branch protection or CI results, are listed as "not verified" instead of scored.
 
 ## Non-Goals

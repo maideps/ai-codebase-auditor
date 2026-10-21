@@ -73,7 +73,7 @@ Each declared runtime is assessed against `config/runtime-eol.json`: the lowest 
 
 `config/runtime-eol.json` is a dated snapshot of [endoflife.date](https://endoflife.date) (Node.js, Python, PHP, Ruby; Java from Eclipse Temurin, with Oracle JDK dates for cycles Temurin never shipped). The audit warns when the table is more than a year old. To refresh it, fetch `https://endoflife.date/api/<product>.json` for `nodejs`, `python`, `php`, `ruby`, `eclipse-temurin` and `oracle-jdk`, keep each cycle's `cycle` and `eol` date, set `asOf` to the fetch date, and commit the table on its own so the change is reviewable.
 
-Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config, thresholds, end-of-life table or deferrals file). Every input problem is printed, one `error:` line each, not just the first.
+Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config, thresholds, decision config, end-of-life table or deferrals file). Every input problem is printed, one `error:` line each, not just the first.
 
 ### Factor configuration
 
@@ -99,6 +99,26 @@ A team can record a known gap as a documented, dated decision and pass it with `
 ```
 
 A current deferral raises that factor's score by one level, up to 3: a deferral acknowledges a gap, it does not fix it. The output shows the base score and the deferral. A deferral whose `revisitBy` date has passed, or whose factor is not measured, is shown but not applied. Unknown factor ids and invalid dates are input errors (exit 2).
+
+### Verdict and risk zones
+
+The verdict comes from the factor scores, by the first rule that applies (weak means a score of 2 or less, `weakMax` in `config/decision.json`):
+
+1. **none**: test-feedback is not measured, so there is no basis for a verdict.
+2. **prepare first**: test-feedback is weak and module boundaries are not established. While module-boundaries has no signal, boundaries count as not established, so weak tests alone give *prepare first*.
+3. **adapt**: any scored factor is weak, blocking or constraining. Each weak factor is listed as an adaptation to make.
+4. **adopt**: no scored factor is weak.
+
+Verdicts use final scores, so a current deferral counts. A verdict is **provisional** while a blocking factor is not measured, and it names the factor.
+
+Risk zones cover source files that are not tests:
+
+- **Modules** start as top-level directories. A directory holding more than half of all source files (`splitShare`) is split into its subdirectories, plus `<dir>/(files)` for its own files, down to `maxDepth` levels.
+- **Green** (agents may edit): the repository's test-feedback base score is at least `greenMinTestScore` (3), and the module's p90 lines and share of files over 1000 lines stay within the file-size factor's score-3 thresholds.
+- **Yellow** (characterization tests first): otherwise, with the reason.
+- **Red** (proposals only): a path with a sensitive term (`redTerms`: auth, login, password, permission, role, billing, payment, secret and similar) as a whole word of a directory or file name, split on separators and camelCase. A red directory is listed once. A module whose source files are all red is red.
+
+Zones use test-feedback's base score, because a deferral adds no tests. Directories without source files are listed as not zoned.
 
 Audited repositories should be cloned outside this project, for example under `D:\7-Maide\Projects\audit-targets\`. Never clone them into this repository.
 

@@ -2,8 +2,8 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target, factor config, end-of-life table and optional
-// deferrals, runs the four collectors, and scores every factor. The verdict
-// arrives with feat-007.
+// deferrals, runs the four collectors, scores every factor, and decides the
+// verdict and risk zones. Report files arrive with feat-008.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
@@ -17,6 +17,9 @@ import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
 import { checkDeferralFactors, loadDeferrals, type Deferral } from "./config/deferrals.js";
 import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "./config/runtime-eol.js";
+import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig } from "./config/decision.js";
+import { decide } from "./decision/decide.js";
+import type { Decision } from "./decision/types.js";
 import { checkThresholds, scoreFactors } from "./scoring/score.js";
 import type { CollectorResults, Scoring } from "./scoring/types.js";
 import type { Result } from "./result.js";
@@ -154,11 +157,41 @@ function formatScores(scoring: Scoring): string[] {
     ...rows,
     "",
     readiness,
-    "Verdict: not decided yet (decision engine, feat-007)",
   ];
 }
 
-function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, collected: CollectorResults, scoring: Scoring): string {
+const VERDICT_LABEL = { adopt: "adopt", adapt: "adapt", "prepare-first": "prepare first" } as const;
+
+function formatDecision(decision: Decision): string[] {
+  const { verdict, zones } = decision;
+  const provisional = verdict.provisional ? ` (provisional: ${verdict.unmeasuredBlocking.join(", ")} not measured)` : "";
+  const head = verdict.verdict === null ? "Verdict: none" : `Verdict: ${VERDICT_LABEL[verdict.verdict]}${provisional}`;
+  const width = Math.max(0, ...zones.modules.map((module) => module.module.length)) + 2;
+  return [
+    head,
+    `  rule: ${verdict.rule}`,
+    "",
+    "Risk zones (green: agents may edit; yellow: characterization tests first; red: proposals only):",
+    ...(zones.note ? [`  ${zones.note}`] : []),
+    ...zones.modules.map(
+      (module) =>
+        `  ${module.zone.padEnd(8)}${module.module.padEnd(width)}${module.sourceFiles} source file${module.sourceFiles === 1 ? "" : "s"}${module.redFiles > 0 ? `, ${module.redFiles} red` : ""}: ${module.reason}`,
+    ),
+    ...(zones.redPaths.length > 0
+      ? ["  red paths:", ...zones.redPaths.map((red) => `    ${red.path}${red.kind === "directory" ? "/" : ""} (${red.term})`)]
+      : zones.note ? [] : ["  red paths: none"]),
+    ...(zones.unzoned.length > 0 ? [`  not zoned (no source files): ${zones.unzoned.join(", ")}`] : []),
+  ];
+}
+
+function formatSummary(
+  target: AuditTarget,
+  configPath: string,
+  config: FactorConfig,
+  collected: CollectorResults,
+  scoring: Scoring,
+  decision: Decision,
+): string {
   const blocking = config.factors.filter((factor) => factor.class === "blocking").length;
   return [
     `Target: ${target.path}`,
@@ -174,6 +207,8 @@ function formatSummary(target: AuditTarget, configPath: string, config: FactorCo
     ...formatDependencies(collected.dependencies),
     "",
     ...formatScores(scoring),
+    "",
+    ...formatDecision(decision),
     "",
   ].join("\n");
 }
@@ -205,15 +240,17 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   const target = resolveTarget(repoPath, cwd);
   const config = loadFactorConfig(configPath);
   const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
+  const decisionConfig = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
   const deferralsPath = parsed.values.deferrals === undefined ? null : path.resolve(cwd, parsed.values.deferrals);
   const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
   const errors = [
     ...(target.ok ? [] : target.errors),
     ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
     ...(eolTable.ok ? [] : eolTable.errors),
+    ...(decisionConfig.ok ? [] : decisionConfig.errors),
     ...(deferrals.ok ? (config.ok && deferralsPath ? checkDeferralFactors(deferrals.value, config.value, deferralsPath) : []) : deferrals.errors),
   ];
-  if (!target.ok || !config.ok || !eolTable.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
+  if (!target.ok || !config.ok || !eolTable.ok || !decisionConfig.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
   const collected: CollectorResults = {
     history: collectGitHistory(target.value.path),
     structure: collectCodeStructure(target.value.path),
@@ -221,7 +258,8 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
     dependencies: collectDependencies(target.value.path, { table: eolTable.value }),
   };
   const scoring = scoreFactors(collected, config.value, { deferrals: deferrals.value });
-  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected, scoring), stderr: "" };
+  const decision = decide(scoring, collected, config.value, decisionConfig.value);
+  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected, scoring, decision), stderr: "" };
 }
 
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {

@@ -5,7 +5,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 ## Current Objective
 
 - Goal: build the MVP audit pipeline one feature at a time (feat-001 to feat-008), then calibrate (feat-009).
-- Current status: feat-001 to feat-005 passing. feat-006 (scoring engine) implemented and run through the gate; see `.harness/state/feat-006.json`. The decision engine (feat-007) is next.
+- Current status: feat-001 to feat-006 passing. feat-007 (decision engine) implemented and run through the gate; see `.harness/state/feat-007.json`. Report writers (feat-008) are next.
 - Branch / commit: `main`; see `git log --oneline -5`.
 
 ## Completed This Session
@@ -19,18 +19,20 @@ Fill this at session end for large sessions; keep it current otherwise.
 - [x] feat-004 (2026-10-21): tests-and-docs detector, shared `collectors/tree.ts`, D-008.
 - [x] feat-005 (2026-10-21): dependency collector, dated runtime EOL table from endoflife.date, D-009.
 - [x] feat-006 (2026-10-21): scoring engine with reviewed thresholds, deferrals, type-checker detection, D-010.
+- [x] feat-007 (2026-10-21): decision engine with reviewed verdict and zone rules, D-011.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Unit tests | `npx vitest run` | PASS, 255 tests | config, target, cli, all four collectors, scoring, deferrals |
+| Unit tests | `npx vitest run` | PASS, 295 tests | config, target, cli, all four collectors, scoring, deferrals, decision |
 | Smoke | `npm run e2e` | PASS, 6 tests | audits a fixture repo with history, a test file, a CI file, a declared Node.js runtime, a vendored and a binary file, and checks it, .git included, is unchanged |
-| Feature gates | `npm run verify-feature -- <id>` | feat-001 to feat-005 PASS (clean tree), feat-006 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
+| Feature gates | `npm run verify-feature -- <id>` | feat-001 to feat-006 PASS (clean tree), feat-007 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
 | Architecture | `npm run check-arch` | PASS, 6/6 at bdabc39 | |
 
 ## Files Changed
 
+- feat-007: `src/decision/` and tests, `src/config/decision.ts` and test, `config/decision.json`, `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`; docs, D-011, `docs/sprints/feat-007.md`, `progress/007-2026-10-21.md`
 - feat-006: `src/scoring/` and tests, `src/config/deferrals.ts` and test, `src/config/factors.ts` (thresholds), `config/factors.json`, `src/file-kinds.ts`, `src/collectors/tests-docs.ts` (type checkers), `src/collectors/code-structure.ts`, `src/testing/collected.ts`, `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`; docs, D-010, `docs/sprints/feat-006.md`, `progress/006-2026-10-21.md`
 - feat-005: `src/collectors/dependencies.ts`, `src/collectors/dependencies/` (parsers, versions, toml) and tests, `src/config/runtime-eol.ts` and test, `config/runtime-eol.json`, `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`, `vitest.config.ts`, `vitest.e2e.config.ts`; docs, D-009, `docs/sprints/feat-005.md`, `progress/005-2026-10-21.md`
 - feat-004: `src/collectors/tests-docs.ts` and its tests, `src/collectors/tree.ts`, `src/collectors/code-structure.ts` (helpers moved out), `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`; docs, D-008, `docs/sprints/feat-004.md`, `progress/004-2026-10-21.md`
@@ -40,7 +42,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Decisions Made
 
-- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening), D-007 (code-structure counting, exclusions, scc as enrichment), D-008 (path-based test and docs detection, stated rules), D-009 (static dependency parsing, dated EOL table), D-010 (scoring rules, provisional readiness, capped deferrals).
+- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening), D-007 (code-structure counting, exclusions, scc as enrichment), D-008 (path-based test and docs detection, stated rules), D-009 (static dependency parsing, dated EOL table), D-010 (scoring rules, provisional readiness, capped deferrals), D-011 (verdict rules, module splitting, red paths).
 
 ## Blockers / Risks
 
@@ -62,4 +64,4 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Recommended Next Step
 
-- Start feat-007 (decision engine): adopt, adapt or prepare first from the factor profile, with the rule and scores behind each verdict, and risk zones per module.
+- Start feat-008 (Markdown and JSON report writers): deterministic files under --out, never inside the audited repository.

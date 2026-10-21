@@ -42,6 +42,8 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+-\s+not measured: code structure not measured \(git failed: .+\)/);
     expect(result.stdout).toContain("Readiness level: not determined (no blocking factor could be scored)");
+    expect(result.stdout).toMatch(/Verdict: none\n {2}rule: no verdict: test-feedback is not measured \(code structure not measured \(git failed: .+\)\)/);
+    expect(result.stdout).toMatch(/ {2}no zones: code structure not measured \(git failed: .+\)/);
   });
 
   it("reports git-based collectors as not measured when git cannot read the target", () => {
@@ -202,7 +204,11 @@ describe("runCli: scores", () => {
     expect(result.stdout).toMatch(/blocking\s+type-strictness\s+1\s+weighted typed share 0\.00/);
     expect(result.stdout).toMatch(/blocking\s+direct-api-calls\s+-\s+not measured: no collector signal yet/);
     expect(result.stdout).toContain("Readiness level: 1 of 5, set by type-strictness (provisional: direct-api-calls not measured)");
-    expect(result.stdout).toContain("Verdict: not decided yet");
+    // Tests score 5, but nothing is typed and the only doc is a README: adapt, with modules green.
+    expect(result.stdout).toContain("Verdict: adapt (provisional: direct-api-calls not measured)");
+    expect(result.stdout).toContain("  rule: 2 weak factors (score ≤ 2): type-strictness 1, documented-intent 2");
+    expect(result.stdout).toMatch(/ {2}green {3}src +2 source files: test-feedback 5 ≥ 3/);
+    expect(result.stdout).toContain("  red paths: none");
   });
 
   it("applies a current deferral and shows it", () => {

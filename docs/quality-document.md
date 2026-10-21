@@ -18,6 +18,8 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | scoring (`src/scoring/`, thresholds in `config/factors.json`) | A | A | A | A | A |
 | config/deferrals (`src/config/deferrals.ts`) | A | A | A | A | A |
 | file-kinds (`src/file-kinds.ts`) | B | A | B | A | A |
+| decision (`src/decision/`, `config/decision.json`) | A | A | A | A | A |
+| config/decision (`src/config/decision.ts`) | A | A | A | A | A |
 | testing (`src/testing/git-fixture.ts`) | n/a | A | B | A | A |
 
 - `cli`: unit tests cover every command and error path, and the e2e smoke run covers the built binary, including that the audited repository is left unchanged. No coverage tool is configured, hence B.
@@ -32,11 +34,13 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `scoring`: table-driven tests on every threshold edge for six rules (just below, at, just above), each not-measured path, readiness (lowest blocking, constraining ignored, ties, provisional, none scored), deferrals (raise, cap, expiry boundary, unmeasured factor, effect on readiness) and threshold validation.
 - `config/deferrals`: validation of every field, revisit-before-recorded, unknown factors, missing files.
 - `file-kinds`: pure data, covered through the collector and scoring tests rather than its own suite, hence B.
+- `decision`: 29 tests cover every verdict rule and boundary (scores 2 and 3, measured and unmeasured boundaries, deferred scores), provisional marking, red terms (camelCase, digits, whole words, no match on session, invoice, author, rolex), red-directory collapsing, green and yellow at the file-size edges, all-red modules, splitting at the share and depth limits, and test files left unzoned.
+- `config/decision`: 11 tests on validation and the default terms.
 - `testing`: test-only, excluded from the build.
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-006 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-007 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; collector performance unmeasured on large repositories; scc output format unverified against a real install
 
@@ -49,6 +53,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-004 added the tests-and-docs detector and moved tree helpers to `collectors/tree.ts` (D-008).
 - 2026-10-21: feat-005 added the dependency collector and the dated runtime end-of-life table (D-009); raised the Vitest timeouts to 30 s because git-spawning tests passed 5 s under parallel load.
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
+- 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 
 ---
 
