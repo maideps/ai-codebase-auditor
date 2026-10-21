@@ -39,7 +39,16 @@ let scratch: string;
 beforeAll(() => {
   scratch = mkdtempSync(path.join(os.tmpdir(), "aca-e2e-"));
   repo = createFixtureRepo([
-    { author: "a@example.com", date: "2023-05-01T00:00:00Z", files: { "README.md": "# target\n", "src/app.js": "1\n" } },
+    {
+      author: "a@example.com",
+      date: "2023-05-01T00:00:00Z",
+      files: {
+        "README.md": "# target\n",
+        "src/app.js": "1\n",
+        "vendor/lib.js": "v\n",
+        "assets/logo.png": Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]),
+      },
+    },
     { author: "b@example.com", date: "2024-06-01T00:00:00Z", files: { "src/app.js": "2\n" } },
   ]);
 });
@@ -65,7 +74,7 @@ describe("built CLI", () => {
 });
 
 describe("audit", () => {
-  it("summarizes factors and git history, and leaves the repository untouched", () => {
+  it("summarizes factors, git history and code structure, and leaves the repository untouched", () => {
     const before = snapshot(repo);
     const result = run("audit", repo);
     expect(result.stderr).toBe("");
@@ -74,6 +83,7 @@ describe("audit", () => {
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
     expect(result.stdout).toContain("  commits: 2 (");
     expect(result.stdout).toContain("  first commit: 2023-05-01, last commit: 2024-06-01");
+    expect(result.stdout).toContain("  files: 2 measured, 2 excluded (binary 1, vendored 1)");
     expect(snapshot(repo)).toEqual(before);
   });
 

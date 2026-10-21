@@ -2,7 +2,7 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `collectors/git-history.ts` exists today):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `collectors/code-structure.ts` exists today):
 
 ```
 src/
@@ -13,8 +13,9 @@ src/
   testing/            test-only helpers (git fixture repos); not built
   collectors/         read-only signal collection, one module per source
     types.ts            Measurement<T>: measured with evidence, or not measured with a reason
+    git.ts              shared git runner, pinned to the target (not a collector)
     git-history.ts      churn, authors, file age
-    code-structure.ts   file size, module layout
+    code-structure.ts   file size, size distribution, top-level modules
     tests-docs.ts       test and doc presence, CI files
     dependencies.ts     manifest versions, end-of-life runtimes
   scoring/            signals → factor scores 1–5, each with evidence
@@ -44,10 +45,11 @@ repository (read-only)
 - `report` depends on the types of `decision` and `scoring` only; it formats, it never computes scores.
 - `decision` depends on `scoring` types and the harness requirements file; it never reads the repository.
 - `scoring` depends on collector output types and `config/factors.json`; it never reads the repository.
-- Collectors depend on nothing but Node built-ins, `collectors/types.ts` and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
+- Collectors depend on nothing but Node built-ins, `collectors/types.ts`, the shared runner `collectors/git.ts` and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
 - A collector that cannot measure returns `not-measured` with a reason; it never throws for an expected condition (missing tool, shallow clone, empty repository) and never substitutes a guess.
 - Only collectors spawn processes, and only collectors, `target` and `config` read the file system. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
-- Git runs pinned to the target: `GIT_CEILING_DIRECTORIES` stops it from finding an enclosing repository, inherited `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are cleared, optional locks are off, and `core.fsmonitor` is disabled so a target's own config cannot start a program.
+- File content is read only for regular files inside the target: symlinks and submodules are skipped by their tree mode, and a file whose real path leaves the target is skipped too.
+- Git runs pinned to the target (in `collectors/git.ts`): `GIT_CEILING_DIRECTORIES` stops it from finding an enclosing repository, inherited `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are cleared, optional locks are off, and `core.fsmonitor` is disabled so a target's own config cannot start a program.
 - `src/testing/` is imported only by tests and is excluded from the build.
 
 Encode these rules as entries in `.harness/arch-rules.json` once the modules exist.

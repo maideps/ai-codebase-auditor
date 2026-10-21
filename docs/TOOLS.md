@@ -22,7 +22,7 @@ Audited repositories are untrusted input: agents read them statically and never 
 | Tool | Used for | Status |
 |---|---|---|
 | git | History signals: churn, authors, file age. Read-only `rev-parse`, `ls-tree` and `log` only, pinned to the target (see [ARCHITECTURE.md](ARCHITECTURE.md#dependency-rules)) | Used by the git-history collector; without it, history is reported as not measured |
-| [scc](https://github.com/boyter/scc) | Per-file lines, bytes and keyword complexity as JSON (MIT) | Planned for the code-structure collector |
+| [scc](https://github.com/boyter/scc) | Per-file language, code lines and keyword complexity as JSON (MIT); run as `scc --by-file --format json .` in the target | Optional, used by the code-structure collector when on PATH. Its JSON shape is parsed from scc's documented format and tested against a stand-in; not yet checked against a real scc install |
 | [Lizard](https://github.com/terryyin/lizard) | Per-function cyclomatic complexity across 25+ languages | Candidate; license still to check |
 | [Code Maat](https://adamtornhill.com/code/maatdistro.htm) | Hotspots and change coupling from git logs | Candidate; license and input format still to check |
 

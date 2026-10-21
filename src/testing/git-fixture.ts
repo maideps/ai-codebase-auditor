@@ -8,8 +8,8 @@ import os from "node:os";
 import path from "node:path";
 
 export interface FixtureCommit {
-  /** Path → new content, or null to delete the file. */
-  files: Record<string, string | null>;
+  /** Path → new content (text or bytes), or null to delete the file. */
+  files: Record<string, string | Buffer | null>;
   /** Author email; the name is derived from it. */
   author: string;
   /** ISO date used as both author and committer date. */
@@ -40,7 +40,7 @@ export function commitFixture(repo: string, commit: FixtureCommit): void {
       rmSync(full);
     } else {
       mkdirSync(path.dirname(full), { recursive: true });
-      writeFileSync(full, content, "utf8");
+      writeFileSync(full, content);
     }
   }
   git(repo, ["add", "-A"]);

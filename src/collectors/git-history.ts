@@ -1,8 +1,7 @@
 // Git-history collector: churn, authors and file age from read-only git
 // commands. Feeds hotspot and risk-zone signals; it never writes to the target.
 
-import { spawnSync } from "node:child_process";
-import path from "node:path";
+import { createGitRunner, GitError, hasCommits } from "./git.js";
 import type { Evidence, Measurement } from "./types.js";
 
 export interface FileHistory {
@@ -53,37 +52,6 @@ const NOTES = [
   "dates are author dates",
 ];
 
-class GitError extends Error {}
-
-function makeRunner(repo: string, gitBinary: string, evidence: Evidence) {
-  // Pin git to the target: never search parent directories for a repository,
-  // never inherit a GIT_DIR from the caller, never take optional locks.
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_CEILING_DIRECTORIES: path.dirname(repo), GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" };
-  delete env.GIT_DIR;
-  delete env.GIT_WORK_TREE;
-  delete env.GIT_INDEX_FILE;
-
-  return (args: readonly string[], allowedStatuses: readonly number[] = [0]): { status: number; stdout: string } => {
-    evidence.commands.push(`git ${args.filter((arg) => !arg.startsWith("--format=")).join(" ")}`);
-    const run = spawnSync(gitBinary, ["--no-pager", "-c", "core.fsmonitor=false", "-C", repo, ...args], {
-      env,
-      encoding: "utf8",
-      maxBuffer: 1024 * 1024 * 1024,
-      windowsHide: true,
-    });
-    if (run.error) {
-      const code = (run.error as NodeJS.ErrnoException).code;
-      throw new GitError(code === "ENOENT" ? "git is not installed or not on PATH" : `git could not run (${code ?? run.error.message})`);
-    }
-    const status = run.status ?? 1;
-    if (!allowedStatuses.includes(status)) {
-      const message = run.stderr.trim().split(/\r?\n/)[0] ?? "";
-      throw new GitError(`git failed: ${message || `exit code ${status}`}`);
-    }
-    return { status, stdout: run.stdout };
-  };
-}
-
 function parseLog(stdout: string): Commit[] {
   return stdout
     .split(RECORD)
@@ -118,13 +86,13 @@ export function collectGitHistory(repoPath: string, options: GitHistoryOptions =
   const since = new Date(until);
   since.setUTCFullYear(since.getUTCFullYear() - 1);
   const evidence: Evidence = { commands: [], notes: [...NOTES] };
-  const git = makeRunner(repoPath, options.gitBinary ?? "git", evidence);
+  const git = createGitRunner(repoPath, options.gitBinary ?? "git", evidence);
 
   try {
     if (git(["rev-parse", "--is-shallow-repository"]).stdout.trim() === "true") {
       return { status: "not-measured", reason: "shallow clone: history is incomplete", evidence };
     }
-    if (git(["rev-parse", "--verify", "-q", "HEAD"], [0, 1]).status === 1) {
+    if (!hasCommits(git)) {
       return { status: "not-measured", reason: "repository has no commits", evidence };
     }
     const tracked = git(["ls-tree", "-r", "-z", "--name-only", "HEAD"]).stdout.split("\0").filter(Boolean);

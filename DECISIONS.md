@@ -100,3 +100,22 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: every number is reproducible from the cited commands; an empty `.git` directory or an enclosing repository can never be audited by mistake.
 - Negative: renamed files look younger than they are; the whole log is held in memory (fine for the calibration set, to revisit for very large histories).
+
+### D-007: Code structure counts with a built-in counter; scc only enriches
+
+**Date:** 2026-10-21
+**Status:** accepted
+**Context:** feat-003 measures file size and layout. scc gives language, code lines and complexity but may not be installed, and its line semantics differ from a plain newline count. Legacy repositories often commit vendored libraries, lock files, minified bundles and binaries, which would swamp a size distribution. Tracked symlinks can point outside the target.
+**Decision:**
+- The file list is the tree at HEAD (`git ls-tree -r -z HEAD`), matching the git-history collector; content is read from the working tree.
+- Lines and bytes always come from a built-in counter (newline count, plus one for a final line without a newline). scc, when on PATH, only adds language, code lines and complexity, matched by path; its absence or failure is recorded, not fatal.
+- Vendored, generated, binary, symlink, submodule and missing files are excluded from every count and listed with their reason. Symlinks and submodules are recognized by tree mode and never read; a file whose real path leaves the target is skipped.
+- Distribution uses nearest-rank percentiles and fixed line buckets (0-200, 201-500, 501-1000, 1001-2000, 2001+); thresholds that turn these into a score belong to the scoring engine (feat-006).
+- The git runner moves to `collectors/git.ts`, shared by both git-based collectors.
+**Alternatives considered:**
+- Use scc's counts when available and the built-in counter otherwise — Rejected because the same repository would report different sizes depending on the machine.
+- Honor `linguist-vendored` and `linguist-generated` attributes — Deferred: a useful refinement, but it needs `git check-attr` per file and the path rules cover the calibration set.
+- Scan the working tree instead of HEAD — Rejected because untracked build output would count as code.
+**Consequences:**
+- Positive: sizes are reproducible from the cited commands on any machine; exclusions are visible, so a reader can see what was left out.
+- Negative: scc's JSON shape is assumed from its documentation until a real install is checked; UTF-16 text files count as binary, as in git; every included file is read fully into memory.

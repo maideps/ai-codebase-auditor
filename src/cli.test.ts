@@ -41,13 +41,14 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain(`Target: ${repo}`);
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+Test presence and feedback speed/);
-    expect(result.stdout).toContain("Not collected yet: code structure, tests and docs, dependencies.");
+    expect(result.stdout).toContain("Not collected yet: tests and docs, dependencies.");
   });
 
-  it("reports git history as not measured when git cannot read the target", () => {
+  it("reports git-based collectors as not measured when git cannot read the target", () => {
     const result = runCli(["audit", repo], "1.2.3");
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/Git history: not measured \(git failed: .+\)/);
+    expect(result.stdout).toMatch(/Code structure: not measured \(git failed: .+\)/);
   });
 
   it("summarizes the git history of a real repository", () => {
@@ -62,6 +63,24 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain("  authors: 2");
     expect(result.stdout).toContain("  first commit: 2020-03-01, last commit: 2021-04-02");
     expect(result.stdout).toContain("  tracked files: 2");
+  });
+
+  it("summarizes the code structure of a real repository", () => {
+    const real = createFixtureRepo([
+      {
+        author: "a@example.com",
+        date: "2026-01-01T00:00:00Z",
+        files: { "README.md": "r\n", "src/big.ts": "x\n".repeat(1500), "src/small.ts": "1\n2\n", "vendor/lib.js": "v\n" },
+      },
+    ]);
+    const result = runCli(["audit", real], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Code structure (files tracked at HEAD):");
+    expect(result.stdout).toContain("  files: 3 measured, 1 excluded (vendored 1)");
+    expect(result.stdout).toContain("  lines: 1503 total; per file p50 2, p90 1500, max 1500 (src/big.ts)");
+    expect(result.stdout).toContain("  files over 1000 lines: 1");
+    expect(result.stdout).toContain("  top-level modules: 2 (largest: src, 1502 lines)");
+    expect(result.stdout).toMatch(/ {2}scc: (used for language, code lines and complexity|not used \(.+\))/);
   });
 
   it("resolves a relative target and --config against cwd", () => {

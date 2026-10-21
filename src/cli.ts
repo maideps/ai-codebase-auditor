@@ -2,12 +2,14 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target and factor config, then runs the collectors
-// built so far (git history); the rest arrive with feat-003 to feat-005.
+// built so far (git history, code structure); the rest arrive with feat-004
+// and feat-005.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { collectCodeStructure, type CodeStructure } from "./collectors/code-structure.js";
 import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
 import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
@@ -55,7 +57,31 @@ function formatGitHistory(history: Measurement<GitHistory>): string[] {
   ];
 }
 
-function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, history: Measurement<GitHistory>): string {
+function formatCodeStructure(structure: Measurement<CodeStructure>): string[] {
+  if (structure.status === "not-measured") return [`Code structure: not measured (${structure.reason})`];
+  const { distribution, excluded, modules, scc } = structure.value;
+  const reasons = new Map<string, number>();
+  for (const file of excluded) reasons.set(file.reason, (reasons.get(file.reason) ?? 0) + 1);
+  const excludedDetail = [...reasons.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([reason, count]) => `${reason} ${count}`).join(", ");
+  const over1000 = distribution.buckets.filter((bucket) => bucket.label === "1001-2000" || bucket.label === "2001+").reduce((sum, bucket) => sum + bucket.files, 0);
+  const largestFile = distribution.largest[0];
+  const largestModule = [...modules].sort((a, b) => b.lines - a.lines)[0];
+  return [
+    "Code structure (files tracked at HEAD):",
+    `  files: ${distribution.files} measured, ${excluded.length} excluded${excludedDetail ? ` (${excludedDetail})` : ""}`,
+    `  lines: ${distribution.totalLines} total; per file p50 ${distribution.p50Lines}, p90 ${distribution.p90Lines}, max ${distribution.maxLines}${largestFile ? ` (${largestFile.path})` : ""}`,
+    `  files over 1000 lines: ${over1000}`,
+    `  top-level modules: ${modules.length}${largestModule ? ` (largest: ${largestModule.name}, ${largestModule.lines} lines)` : ""}`,
+    `  scc: ${scc.status === "used" ? "used for language, code lines and complexity" : `not used (${scc.reason})`}`,
+  ];
+}
+
+interface Collected {
+  history: Measurement<GitHistory>;
+  structure: Measurement<CodeStructure>;
+}
+
+function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, collected: Collected): string {
   const blocking = config.factors.filter((factor) => factor.class === "blocking").length;
   const idWidth = Math.max(...config.factors.map((factor) => factor.id.length)) + 2;
   const rows = config.factors.map(
@@ -67,9 +93,11 @@ function formatSummary(target: AuditTarget, configPath: string, config: FactorCo
     `Factors: ${config.factors.length} (${blocking} blocking, ${config.factors.length - blocking} constraining)`,
     ...rows,
     "",
-    ...formatGitHistory(history),
+    ...formatGitHistory(collected.history),
     "",
-    "Not collected yet: code structure, tests and docs, dependencies. Nothing is scored yet.",
+    ...formatCodeStructure(collected.structure),
+    "",
+    "Not collected yet: tests and docs, dependencies. Nothing is scored yet.",
     "",
   ].join("\n");
 }
@@ -102,8 +130,11 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   if (!target.ok || !config.ok) {
     return usageError([...(target.ok ? [] : target.errors), ...(config.ok ? [] : config.errors)]);
   }
-  const history = collectGitHistory(target.value.path);
-  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, history), stderr: "" };
+  const collected: Collected = {
+    history: collectGitHistory(target.value.path),
+    structure: collectCodeStructure(target.value.path),
+  };
+  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected), stderr: "" };
 }
 
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
