@@ -2,8 +2,8 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target and factor config, then runs the collectors
-// built so far (git history, code structure); the rest arrive with feat-004
-// and feat-005.
+// built so far (git history, code structure, tests and docs); dependencies
+// arrive with feat-005.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { collectCodeStructure, type CodeStructure } from "./collectors/code-structure.js";
 import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
+import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
@@ -76,9 +77,33 @@ function formatCodeStructure(structure: Measurement<CodeStructure>): string[] {
   ];
 }
 
+function countBy<T>(items: readonly T[], key: (item: T) => string): string {
+  const counts = new Map<string, number>();
+  for (const item of items) counts.set(key(item), (counts.get(key(item)) ?? 0) + 1);
+  return [...counts.entries()].map(([name, count]) => `${name} ${count}`).join(", ");
+}
+
+function formatTestsDocs(testsDocs: Measurement<TestsDocs>): string[] {
+  if (testsDocs.status === "not-measured") return [`Tests and docs: not measured (${testsDocs.reason})`];
+  const { tests, ci, docs, statedRules } = testsDocs.value;
+  const list = (paths: readonly string[]) => (paths.length > 0 ? paths.join(", ") : "none");
+  const ruleFiles = new Set(statedRules.map((rule) => rule.path)).size;
+  return [
+    "Tests and docs (paths tracked at HEAD; nothing is run):",
+    `  test files: ${tests.files.length}${tests.files.length > 0 ? ` (${tests.conventions.map((c) => `${c.convention} ${c.files}`).join(", ")})` : ""}`,
+    `  test runner configs: ${tests.runnerConfigs.length > 0 ? tests.runnerConfigs.map((r) => `${r.runner} (${r.path})`).join(", ") : "none"}`,
+    `  CI: ${ci.length > 0 ? countBy(ci, (file) => file.system) : "none"}`,
+    `  README: ${list(docs.readme)}; contributing: ${list(docs.contributing)}`,
+    `  architecture: ${docs.architecture.length}, decision records: ${docs.decisionRecords.length}, conventions: ${docs.conventions.length}, docs/ files: ${docs.docsDirectory.length}, module READMEs: ${docs.moduleReadmes.length}`,
+    `  agent context: ${list(docs.agentContext)}${docs.agentContext.length > 0 ? " (presence alone scores nothing)" : ""}`,
+    `  stated rules: ${statedRules.length} lines in ${ruleFiles} files`,
+  ];
+}
+
 interface Collected {
   history: Measurement<GitHistory>;
   structure: Measurement<CodeStructure>;
+  testsDocs: Measurement<TestsDocs>;
 }
 
 function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, collected: Collected): string {
@@ -97,7 +122,9 @@ function formatSummary(target: AuditTarget, configPath: string, config: FactorCo
     "",
     ...formatCodeStructure(collected.structure),
     "",
-    "Not collected yet: tests and docs, dependencies. Nothing is scored yet.",
+    ...formatTestsDocs(collected.testsDocs),
+    "",
+    "Not collected yet: dependencies. Nothing is scored yet.",
     "",
   ].join("\n");
 }
@@ -133,6 +160,7 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   const collected: Collected = {
     history: collectGitHistory(target.value.path),
     structure: collectCodeStructure(target.value.path),
+    testsDocs: collectTestsDocs(target.value.path),
   };
   return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected), stderr: "" };
 }

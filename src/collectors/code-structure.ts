@@ -3,9 +3,9 @@
 // from the working tree, never through links, and never writes anything.
 
 import { spawnSync } from "node:child_process";
-import { closeSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from "node:fs";
-import path from "node:path";
+import { realpathSync } from "node:fs";
 import { createGitRunner, GitError, hasCommits } from "./git.js";
+import { isVendored, listTree, readTrackedFile, VENDORED_SEGMENTS, type TreeEntry } from "./tree.js";
 import type { Evidence, Measurement } from "./types.js";
 
 export interface FileSize {
@@ -49,13 +49,11 @@ export interface CodeStructureOptions {
   scc?: { command: string; args?: string[] };
 }
 
-const VENDORED_SEGMENTS = new Set(["node_modules", "bower_components", "vendor", "vendors", "third_party", "third-party", "thirdparty", "Pods"]);
 const GENERATED_NAMES = new Set([
   "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock",
   "Gemfile.lock", "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum",
 ]);
 const GENERATED_PATTERN = /\.min\.(?:js|css)$|\.map$/;
-const BINARY_SNIFF_BYTES = 8000;
 const SCC_ARGS = ["--by-file", "--format", "json", "."];
 const BUCKETS = [
   { label: "0-200", max: 200 },
@@ -74,40 +72,13 @@ const NOTES = [
   "symlinks and submodules are never followed",
 ];
 
-interface TreeEntry {
-  mode: string;
-  path: string;
-}
-
-function parseTree(stdout: string): TreeEntry[] {
-  return stdout
-    .split("\0")
-    .filter(Boolean)
-    .map((line) => {
-      const tab = line.indexOf("\t");
-      return { mode: line.slice(0, line.indexOf(" ")), path: line.slice(tab + 1) };
-    });
-}
-
 function classifyByPath(entry: TreeEntry): ExclusionReason | null {
   if (entry.mode === "160000") return "submodule";
   if (entry.mode === "120000") return "symlink";
-  const segments = entry.path.split("/");
-  if (segments.slice(0, -1).some((segment) => VENDORED_SEGMENTS.has(segment))) return "vendored";
-  const name = segments[segments.length - 1] ?? "";
+  if (isVendored(entry.path)) return "vendored";
+  const name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
   if (GENERATED_NAMES.has(name) || GENERATED_PATTERN.test(name)) return "generated";
   return null;
-}
-
-function isBinary(file: string): boolean {
-  const fd = openSync(file, "r");
-  try {
-    const buffer = Buffer.alloc(BINARY_SNIFF_BYTES);
-    const read = readSync(fd, buffer, 0, BINARY_SNIFF_BYTES, 0);
-    return buffer.subarray(0, read).includes(0);
-  } finally {
-    closeSync(fd);
-  }
 }
 
 function countLines(content: Buffer): number {
@@ -121,20 +92,9 @@ type Measured = { kind: "file"; file: FileSize } | { kind: "excluded"; reason: E
 function measureFile(realRepo: string, repo: string, entry: TreeEntry): Measured {
   const byPath = classifyByPath(entry);
   if (byPath) return { kind: "excluded", reason: byPath };
-  const full = path.join(repo, ...entry.path.split("/"));
-  let stats;
-  try {
-    stats = lstatSync(full);
-  } catch {
-    return { kind: "excluded", reason: "missing" };
-  }
-  if (stats.isSymbolicLink()) return { kind: "excluded", reason: "symlink" };
-  if (!stats.isFile()) return { kind: "excluded", reason: "missing" };
-  // A directory on the way could still be a link out of the target.
-  const real = realpathSync(full);
-  if (path.relative(realRepo, real).startsWith("..")) return { kind: "excluded", reason: "symlink" };
-  if (isBinary(full)) return { kind: "excluded", reason: "binary" };
-  const content = readFileSync(full);
+  const read = readTrackedFile(realRepo, repo, entry, { skipBinary: true });
+  if ("skipped" in read) return { kind: "excluded", reason: read.skipped };
+  const { content } = read;
   return {
     kind: "file",
     file: { path: entry.path, lines: countLines(content), bytes: content.length, language: null, code: null, complexity: null },
@@ -243,7 +203,7 @@ export function collectCodeStructure(repoPath: string, options: CodeStructureOpt
   let entries: TreeEntry[];
   try {
     if (!hasCommits(git)) return { status: "not-measured", reason: "repository has no commits", evidence };
-    entries = parseTree(git(["ls-tree", "-r", "-z", "HEAD"]).stdout);
+    entries = listTree(git);
   } catch (error) {
     if (error instanceof GitError) return { status: "not-measured", reason: error.message, evidence };
     throw error;

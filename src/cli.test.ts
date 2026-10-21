@@ -41,7 +41,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain(`Target: ${repo}`);
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+Test presence and feedback speed/);
-    expect(result.stdout).toContain("Not collected yet: tests and docs, dependencies.");
+    expect(result.stdout).toContain("Not collected yet: dependencies.");
   });
 
   it("reports git-based collectors as not measured when git cannot read the target", () => {
@@ -49,6 +49,34 @@ describe("runCli: audit", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/Git history: not measured \(git failed: .+\)/);
     expect(result.stdout).toMatch(/Code structure: not measured \(git failed: .+\)/);
+    expect(result.stdout).toMatch(/Tests and docs: not measured \(git failed: .+\)/);
+  });
+
+  it("summarizes tests and docs of a real repository", () => {
+    const real = createFixtureRepo([
+      {
+        author: "a@example.com",
+        date: "2026-01-01T00:00:00Z",
+        files: {
+          "README.md": "# r\n",
+          "AGENTS.md": "- Never push to main.\n",
+          "src/app.ts": "x\n",
+          "src/app.test.ts": "t\n",
+          "tests/test_api.py": "t\n",
+          ".github/workflows/ci.yml": "on: push\n",
+          "pytest.ini": "[pytest]\n",
+        },
+      },
+    ]);
+    const result = runCli(["audit", real], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Tests and docs (paths tracked at HEAD; nothing is run):");
+    expect(result.stdout).toContain("  test files: 2 (*.test.* / *.spec.* 1, test_*.py / *_test.py 1)");
+    expect(result.stdout).toContain("  test runner configs: pytest (pytest.ini)");
+    expect(result.stdout).toContain("  CI: GitHub Actions 1");
+    expect(result.stdout).toContain("  README: README.md; contributing: none");
+    expect(result.stdout).toContain("  agent context: AGENTS.md (presence alone scores nothing)");
+    expect(result.stdout).toContain("  stated rules: 1 lines in 1 files");
   });
 
   it("summarizes the git history of a real repository", () => {

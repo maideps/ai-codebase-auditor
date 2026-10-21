@@ -119,3 +119,21 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: sizes are reproducible from the cited commands on any machine; exclusions are visible, so a reader can see what was left out.
 - Negative: scc's JSON shape is assumed from its documentation until a real install is checked; UTF-16 text files count as binary, as in git; every included file is read fully into memory.
+
+### D-008: Tests and docs are detected from paths; written rules are extracted, not judged
+
+**Date:** 2026-10-21
+**Status:** accepted
+**Context:** feat-004 feeds the blocking test-feedback factor and the documented-intent factor. The audit must never run a target's tests (PRODUCT.md non-goals), so test presence has to come from static evidence. Research (arXiv 2602.11988) found that agent context files help mainly when they state non-standard practices, so the presence of AGENTS.md must not count on its own.
+**Decision:**
+- Test files are matched by per-language name conventions first, then by "source file under a test directory"; each file records the convention that matched, so a reader can audit the match. Runner configs are matched by file name, plus three small manifest reads (`pyproject.toml`, `setup.cfg`, `package.json`), where npm's placeholder test script counts as no runner.
+- CI is detected by file location for ten systems and reported as configured, never as passing.
+- Agent context files are listed separately and marked presence-only. What counts is the stated rules: rule-keyword lines from agent context, contributing, architecture and convention docs, outside code blocks, with file and line. The detector does not decide which rules are non-standard; that needs judgment, and the scoring step decides how rules count.
+- Shared tree helpers move to `collectors/tree.ts`: the HEAD tree listing, the vendored rule and `readTrackedFile`, which never opens symlinks or submodules, refuses paths that leave the target, and sniffs binaries before reading.
+**Alternatives considered:**
+- Run the target's test command to measure feedback speed — Rejected: running untrusted code is a non-goal; speed stays not measured until a static signal exists.
+- Parse test files to count test cases — Rejected for the MVP: it needs per-language parsers (out of scope, D-001).
+- Classify rules as standard or non-standard with an LLM — Rejected for collectors: LLM steps never produce measured signals; this may become an optional, flagged summary later.
+**Consequences:**
+- Positive: every detection names the path and the rule that matched; nothing in the target runs.
+- Negative: name conventions miss tests in unconventional places (for example inline Rust `#[cfg(test)]` modules) and can count fixtures under test directories; keyword rule extraction includes some descriptive "must" sentences and misses rules phrased without the keywords.

@@ -11,7 +11,7 @@ node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js --help
 ```
 
-`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, the git-history totals and the code-structure summary. Relative paths resolve against the current directory. The remaining collectors, scores and reports arrive with feat-004 to feat-008.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, the git-history totals, the code-structure summary and the tests-and-docs summary. Relative paths resolve against the current directory. The dependency collector, scores and reports arrive with feat-005 to feat-008.
 
 ### Git history
 
@@ -37,6 +37,16 @@ Files left out of every count are listed with their reason:
 - **missing**: tracked at HEAD but absent from the working tree.
 
 Line and byte counts always come from the built-in counter, so runs are comparable whether or not scc is installed. When [scc](https://github.com/boyter/scc) is on PATH it adds each file's language, code lines and complexity; the output says whether it was used and why not.
+
+### Tests and docs
+
+The tests-and-docs detector works from the paths tracked at HEAD (vendored paths ignored) plus a few small reads. It never runs the target's tests or tools.
+
+- **Test files**, by the first convention that matches: `__tests__/`, `*.test.*` / `*.spec.*` (JavaScript and TypeScript), `test_*.py` / `*_test.py`, `*_test.go`, `*_spec.rb`, `*_test.rb`, `*Test.php`, `*Test.java` / `*Tests.java` / `*IT.java`, `*Test.kt`, `*Test.cs`, and finally any source file under a `test`, `tests`, `spec`, `specs` or `t` directory.
+- **Test runner configs**: Jest, Vitest (named variants such as `vitest.e2e.config.ts` included), Karma, Mocha, Cypress, Playwright, pytest (`pytest.ini`, `conftest.py`, or a `[tool.pytest]` section in `pyproject.toml` / `[tool:pytest]` in `setup.cfg`), tox, PHPUnit, RSpec, and a `package.json` test script other than npm's placeholder.
+- **CI**: GitHub Actions, GitLab CI, Travis CI, CircleCI, Jenkins, Azure Pipelines, AppVeyor, Bitbucket Pipelines, Drone, Buildkite. A CI file shows CI is configured, not that it passes.
+- **Docs**: root and module READMEs, CONTRIBUTING (root, `.github/`, `docs/`), architecture or design docs, decision records (`adr/`, `decisions/`), convention and style docs, files under `docs/` or `doc/`, and agent context files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `codex.md`, `.cursorrules`, `.cursor/rules/`, `.windsurfrules`, `.github/copilot-instructions.md`). Agent context files are listed for presence only: presence alone scores nothing.
+- **Stated rules**: lines containing must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside fenced code blocks, each with its file and line. This finds written rules; whether a rule is non-standard for its stack still needs judgment. Rule files that are symlinks, binary or over 1 MB are listed as unread.
 
 Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid config). Every input problem is printed, one `error:` line each, not just the first.
 
