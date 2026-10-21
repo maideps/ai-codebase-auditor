@@ -155,3 +155,23 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: every runtime verdict cites the declaring file, the spec, the cycle and the dated source; nothing runs or fetches.
 - Negative: dependency versions are not checked for age or known vulnerabilities (that needs registry data); the table must be refreshed by hand; regular-expression parsers miss unusual Gemfile, Gradle and setup.py constructs.
+
+### D-010: Scoring rules, measured-only readiness and capped deferrals
+
+**Date:** 2026-10-21
+**Status:** accepted (thresholds reviewed before implementation; see docs/sprints/feat-006.md)
+**Context:** feat-006 turns collector values into 1-5 factor scores. Three of the nine factors (direct-api-calls, module-boundaries, observability) have no collector signal yet. With language mix alone, every Ruby, PHP and Python repository would score 1 on the blocking type-strictness factor, including Redmine, the calibration control expected to reach *adopt*.
+**Decision:**
+- One pure rule per measurable factor (`src/scoring/rules.ts`). Every threshold and weight is in `config/factors.json`; startup rejects missing, unused, decreasing or out-of-range thresholds.
+- Type strictness weighs source lines by language (strong 1.0, C-family 0.75, dynamic 0), with dynamic code at 0.6 when a type checker for its language is configured, and TypeScript at 0.8 without a strict tsconfig. The tests-and-docs detector now finds type-checker configs.
+- Factors without a signal are not measured and get no score. Readiness is the lowest score among scored blocking factors, and is marked provisional, naming the unmeasured blocking factors.
+- Deferrals come from `--deferrals <file>`, not from the audited repository. A current deferral raises a score by one level, capped at 3; an expired one, or one for an unmeasured factor, is reported but not applied.
+- Shared file classification (`src/file-kinds.ts`) defines "source file" and "lock file" once for collectors and scoring.
+**Alternatives considered:**
+- Language mix only for type strictness — Rejected in review: it penalizes every dynamic-language codebase, whether or not it uses a type checker.
+- Weak proxies for the three signal-less factors — Rejected in review: a score without a real signal breaks "no evidence, no score".
+- An uncapped deferral (+1 up to 5) — Rejected in review: a deferral acknowledges a gap; it should not make the factor look healthy.
+- Treat an unmeasured blocking factor as score 1 — Rejected: it would make every readiness level 1 today, measuring the tool's gaps instead of the repository's.
+**Consequences:**
+- Positive: every score names its rule and evidence; teams tune numbers without code changes; the readiness level never hides an unmeasured blocking factor.
+- Negative: readiness stays provisional until a call-site collector exists; thresholds are first guesses checked on two local repositories and must be calibrated in feat-009; test feedback speed and package-level currency are not measured.

@@ -4,6 +4,7 @@
 
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
+import { isLockFile } from "../file-kinds.js";
 import { createGitRunner, GitError, hasCommits } from "./git.js";
 import { isVendored, listTree, readTrackedFile, VENDORED_SEGMENTS, type TreeEntry } from "./tree.js";
 import type { Evidence, Measurement } from "./types.js";
@@ -49,10 +50,6 @@ export interface CodeStructureOptions {
   scc?: { command: string; args?: string[] };
 }
 
-const GENERATED_NAMES = new Set([
-  "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock",
-  "Gemfile.lock", "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum",
-]);
 const GENERATED_PATTERN = /\.min\.(?:js|css)$|\.map$/;
 const SCC_ARGS = ["--by-file", "--format", "json", "."];
 const BUCKETS = [
@@ -77,7 +74,7 @@ function classifyByPath(entry: TreeEntry): ExclusionReason | null {
   if (entry.mode === "120000") return "symlink";
   if (isVendored(entry.path)) return "vendored";
   const name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
-  if (GENERATED_NAMES.has(name) || GENERATED_PATTERN.test(name)) return "generated";
+  if (isLockFile(entry.path) || GENERATED_PATTERN.test(name)) return "generated";
   return null;
 }
 

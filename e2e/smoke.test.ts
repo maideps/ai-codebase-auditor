@@ -90,6 +90,7 @@ describe("audit", () => {
     expect(result.stdout).toContain("  test files: 1 (*.test.* / *.spec.* 1)");
     expect(result.stdout).toContain("  CI: Travis CI 1");
     expect(result.stdout).toContain("    node >=14 (package.json, engines.node): end-of-life since 2023-04-30");
+    expect(result.stdout).toMatch(/Readiness level: [1-5] of 5, set by [a-z-]+ \(provisional: direct-api-calls not measured\)/);
     expect(snapshot(repo)).toEqual(before);
   });
 

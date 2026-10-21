@@ -15,6 +15,9 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | collectors/tests-docs (`src/collectors/tests-docs.ts`) | A | A | A | A | A |
 | collectors/dependencies (`src/collectors/dependencies.ts`, `dependencies/`) | A | A | A | A | A |
 | config/runtime-eol (`src/config/runtime-eol.ts`, `config/runtime-eol.json`) | A | A | A | A | A |
+| scoring (`src/scoring/`, thresholds in `config/factors.json`) | A | A | A | A | A |
+| config/deferrals (`src/config/deferrals.ts`) | A | A | A | A | A |
+| file-kinds (`src/file-kinds.ts`) | B | A | B | A | A |
 | testing (`src/testing/git-fixture.ts`) | n/a | A | B | A | A |
 
 - `cli`: unit tests cover every command and error path, and the e2e smoke run covers the built binary, including that the audited repository is left unchanged. No coverage tool is configured, hence B.
@@ -26,11 +29,14 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `collectors/tests-docs`: 11 tests cover nine test conventions across seven languages, five runner configs including manifest-declared ones, named Vitest variants and npm's placeholder, three CI systems, every docs category, rule extraction (list markers, code fences, soft wording), presence-only agent context, a symlinked rules file and an unchanged-target check. Performance A: path matching plus a few small reads.
 - `collectors/dependencies`: 29 parser tests (every supported format and runtime file, issues, unsupported manifests), 39 version tests (spec forms, cycles, coarse and unbounded specs) and 9 collector tests (mixed repository, vendored and unparseable manifests, every assessment status, the EOL-date boundary, an unchanged-target check).
 - `config/runtime-eol`: the committed table loads; validation rejects bad versions, dates, unknown runtimes and duplicate cycles.
+- `scoring`: table-driven tests on every threshold edge for six rules (just below, at, just above), each not-measured path, readiness (lowest blocking, constraining ignored, ties, provisional, none scored), deferrals (raise, cap, expiry boundary, unmeasured factor, effect on readiness) and threshold validation.
+- `config/deferrals`: validation of every field, revisit-before-recorded, unknown factors, missing files.
+- `file-kinds`: pure data, covered through the collector and scoring tests rather than its own suite, hence B.
 - `testing`: test-only, excluded from the build.
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-005 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-006 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; collector performance unmeasured on large repositories; scc output format unverified against a real install
 
@@ -42,6 +48,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-003 added the code-structure collector and moved the git runner to `collectors/git.ts` (D-007).
 - 2026-10-21: feat-004 added the tests-and-docs detector and moved tree helpers to `collectors/tree.ts` (D-008).
 - 2026-10-21: feat-005 added the dependency collector and the dated runtime end-of-life table (D-009); raised the Vitest timeouts to 30 s because git-spawning tests passed 5 s under parallel load.
+- 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 
 ---
 

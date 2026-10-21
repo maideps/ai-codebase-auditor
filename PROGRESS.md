@@ -10,10 +10,10 @@ After adding or updating a session note, regenerate this file with `node scripts
 - Project root: this repository
 - Primary startup command: `./init.sh`
 - Primary verification command: `make check` (make-free equivalent: `npm run check`)
-- Active feature: none
+- Active feature: feat-006 — Scoring engine
 - Passing features (5): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector
 - Failing/blocked features: none
-- Planned features (5): feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap
+- Planned features (4): feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap
 - Last evidence: feat-005 — Dependency collector — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-21T21:14:13.067Z)
 
 ## Session Index
@@ -23,4 +23,5 @@ After adding or updating a session note, regenerate this file with `node scripts
 - [Session 003 — 2026-10-21 — feat-003 Code-structure collector](progress/003-2026-10-21.md)
 - [Session 004 — 2026-10-21 — feat-004 Tests and docs detector](progress/004-2026-10-21.md)
 - [Session 005 — 2026-10-21 — feat-005 Dependency collector](progress/005-2026-10-21.md)
+- [Session 006 — 2026-10-21 — feat-006 Scoring engine](progress/006-2026-10-21.md)
 <!-- END GENERATED PROGRESS -->

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
-// command validates its target, factor config and runtime end-of-life table,
-// then runs the four collectors (git history, code structure, tests and docs,
-// dependencies). Scoring arrives with feat-006.
+// command validates its target, factor config, end-of-life table and optional
+// deferrals, runs the four collectors, and scores every factor. The verdict
+// arrives with feat-007.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
@@ -15,7 +15,11 @@ import { collectGitHistory, type GitHistory } from "./collectors/git-history.js"
 import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
+import { checkDeferralFactors, loadDeferrals, type Deferral } from "./config/deferrals.js";
 import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "./config/runtime-eol.js";
+import { checkThresholds, scoreFactors } from "./scoring/score.js";
+import type { CollectorResults, Scoring } from "./scoring/types.js";
+import type { Result } from "./result.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
 
 export interface CliResult {
@@ -27,7 +31,7 @@ export interface CliResult {
 const EXIT_OK = 0;
 const EXIT_USAGE = 2;
 
-export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>]
+export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>]
        ai-codebase-auditor --help | --version
 
 Audits a local git repository for AI-agent readiness. The repository is only
@@ -38,6 +42,7 @@ Commands:
 
 Options:
   -c, --config <file>    Factor configuration (default: config/factors.json)
+  -d, --deferrals <file> Documented, dated deferrals that raise a gap's score by one level, up to 3
   -h, --help             Show this help
   -v, --version          Show the version
 `;
@@ -128,24 +133,37 @@ function formatDependencies(dependencies: Measurement<Dependencies>): string[] {
   ];
 }
 
-interface Collected {
-  history: Measurement<GitHistory>;
-  structure: Measurement<CodeStructure>;
-  testsDocs: Measurement<TestsDocs>;
-  dependencies: Measurement<Dependencies>;
+function formatScores(scoring: Scoring): string[] {
+  const idWidth = Math.max(...scoring.factors.map((factor) => factor.id.length)) + 2;
+  const rows = scoring.factors.flatMap((factor) => {
+    const head = `  ${factor.class.padEnd(14)}${factor.id.padEnd(idWidth)}`;
+    const lines = [factor.score === null ? `${head}-  not measured: ${factor.reason ?? ""}` : `${head}${factor.score}  ${factor.rule ?? ""}`];
+    if (factor.partial) lines.push(`${" ".repeat(head.length + 3)}partial: ${factor.partial}`);
+    if (factor.deferral) {
+      lines.push(`${" ".repeat(head.length + 3)}deferral recorded ${factor.deferral.recorded} (${factor.deferral.reason}): ${factor.deferral.note}`);
+    }
+    return lines;
+  });
+  const { level, setBy, provisional, unmeasuredBlocking } = scoring.readiness;
+  const readiness =
+    level === null
+      ? "Readiness level: not determined (no blocking factor could be scored)"
+      : `Readiness level: ${level} of 5, set by ${setBy ?? "?"}${provisional ? ` (provisional: ${unmeasuredBlocking.join(", ")} not measured)` : ""}`;
+  return [
+    "Scores (1-5; the lowest blocking factor sets the readiness level, never an average):",
+    ...rows,
+    "",
+    readiness,
+    "Verdict: not decided yet (decision engine, feat-007)",
+  ];
 }
 
-function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, collected: Collected): string {
+function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, collected: CollectorResults, scoring: Scoring): string {
   const blocking = config.factors.filter((factor) => factor.class === "blocking").length;
-  const idWidth = Math.max(...config.factors.map((factor) => factor.id.length)) + 2;
-  const rows = config.factors.map(
-    (factor) => `  ${factor.class.padEnd(14)}${factor.id.padEnd(idWidth)}${factor.name}`,
-  );
   return [
     `Target: ${target.path}`,
     `Config: ${configPath}`,
     `Factors: ${config.factors.length} (${blocking} blocking, ${config.factors.length - blocking} constraining)`,
-    ...rows,
     "",
     ...formatGitHistory(collected.history),
     "",
@@ -155,7 +173,7 @@ function formatSummary(target: AuditTarget, configPath: string, config: FactorCo
     "",
     ...formatDependencies(collected.dependencies),
     "",
-    "Nothing is scored yet.",
+    ...formatScores(scoring),
     "",
   ].join("\n");
 }
@@ -167,6 +185,7 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
       args: [...args],
       options: {
         config: { type: "string", short: "c" },
+        deferrals: { type: "string", short: "d" },
         help: { type: "boolean", short: "h" },
       },
       allowPositionals: true,
@@ -186,16 +205,23 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   const target = resolveTarget(repoPath, cwd);
   const config = loadFactorConfig(configPath);
   const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
-  if (!target.ok || !config.ok || !eolTable.ok) {
-    return usageError([...(target.ok ? [] : target.errors), ...(config.ok ? [] : config.errors), ...(eolTable.ok ? [] : eolTable.errors)]);
-  }
-  const collected: Collected = {
+  const deferralsPath = parsed.values.deferrals === undefined ? null : path.resolve(cwd, parsed.values.deferrals);
+  const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
+  const errors = [
+    ...(target.ok ? [] : target.errors),
+    ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
+    ...(eolTable.ok ? [] : eolTable.errors),
+    ...(deferrals.ok ? (config.ok && deferralsPath ? checkDeferralFactors(deferrals.value, config.value, deferralsPath) : []) : deferrals.errors),
+  ];
+  if (!target.ok || !config.ok || !eolTable.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
+  const collected: CollectorResults = {
     history: collectGitHistory(target.value.path),
     structure: collectCodeStructure(target.value.path),
     testsDocs: collectTestsDocs(target.value.path),
     dependencies: collectDependencies(target.value.path, { table: eolTable.value }),
   };
-  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected), stderr: "" };
+  const scoring = scoreFactors(collected, config.value, { deferrals: deferrals.value });
+  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected, scoring), stderr: "" };
 }
 
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {

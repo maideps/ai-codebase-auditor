@@ -5,13 +5,28 @@
       "id": "test-feedback",
       "name": "Test presence and feedback speed",
       "class": "blocking",
-      "description": "An agent can only verify its changes when tests exist and run in reasonable time."
+      "description": "An agent can only verify its changes when tests exist and run in reasonable time.",
+      "thresholds": {
+        "minRatio3": 0.05,
+        "minRatio4": 0.15,
+        "minRatio5": 0.3
+      }
     },
     {
       "id": "type-strictness",
       "name": "Type strictness",
       "class": "blocking",
-      "description": "Static types or equivalent checks catch wrong changes before they run."
+      "description": "Static types or equivalent checks catch wrong changes before they run.",
+      "thresholds": {
+        "minShare2": 0.15,
+        "minShare3": 0.4,
+        "minShare4": 0.65,
+        "minShare5": 0.85,
+        "weightStrong": 1,
+        "weightWeak": 0.75,
+        "weightCheckedDynamic": 0.6,
+        "weightTypeScriptNonStrict": 0.8
+      }
     },
     {
       "id": "direct-api-calls",
@@ -23,7 +38,17 @@
       "id": "file-size",
       "name": "File size and context legibility",
       "class": "constraining",
-      "description": "Files and the context needed to change them fit in an agent's working context."
+      "description": "Files and the context needed to change them fit in an agent's working context.",
+      "thresholds": {
+        "maxP90Lines5": 200,
+        "maxP90Lines4": 400,
+        "maxP90Lines3": 800,
+        "maxP90Lines2": 1500,
+        "maxShareOver1000Lines5": 0.01,
+        "maxShareOver1000Lines4": 0.03,
+        "maxShareOver1000Lines3": 0.07,
+        "maxShareOver1000Lines2": 0.15
+      }
     },
     {
       "id": "module-boundaries",
@@ -35,7 +60,12 @@
       "id": "documented-intent",
       "name": "Documented intent",
       "class": "constraining",
-      "description": "Non-standard practices and project-specific rules are written down."
+      "description": "Non-standard practices and project-specific rules are written down.",
+      "thresholds": {
+        "minRules3": 3,
+        "minRules4": 10,
+        "minRules5": 25
+      }
     },
     {
       "id": "observability",
@@ -53,7 +83,12 @@
       "id": "dependency-currency",
       "name": "Dependency and runtime currency",
       "class": "constraining",
-      "description": "Dependencies and runtimes are supported versions, not end-of-life."
+      "description": "Dependencies and runtimes are supported versions, not end-of-life.",
+      "thresholds": {
+        "warnMonths": 12,
+        "eolYears2": 1,
+        "eolYears1": 3
+      }
     }
   ]
 }

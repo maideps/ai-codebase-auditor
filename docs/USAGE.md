@@ -8,6 +8,7 @@ How to run the CLI, how verification is wired, and how features move through the
 npm run build
 node dist/cli.js audit <repo-path>                  # default factors from config/factors.json
 node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
+node dist/cli.js audit <repo-path> --deferrals deferrals.json
 node dist/cli.js --help
 ```
 
@@ -72,11 +73,32 @@ Each declared runtime is assessed against `config/runtime-eol.json`: the lowest 
 
 `config/runtime-eol.json` is a dated snapshot of [endoflife.date](https://endoflife.date) (Node.js, Python, PHP, Ruby; Java from Eclipse Temurin, with Oracle JDK dates for cycles Temurin never shipped). The audit warns when the table is more than a year old. To refresh it, fetch `https://endoflife.date/api/<product>.json` for `nodejs`, `python`, `php`, `ruby`, `eclipse-temurin` and `oracle-jdk`, keep each cycle's `cycle` and `eol` date, set `asOf` to the fetch date, and commit the table on its own so the change is reviewable.
 
-Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config or end-of-life table). Every input problem is printed, one `error:` line each, not just the first.
+Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config, thresholds, end-of-life table or deferrals file). Every input problem is printed, one `error:` line each, not just the first.
 
 ### Factor configuration
 
-`config/factors.json` lists the readiness factors. Each factor has a kebab-case `id`, a `name`, a `class` (`blocking` or `constraining`) and a `description`. Unknown keys are rejected, so a typo cannot silently change a factor, and at least one factor must be blocking because the lowest blocking factor sets the readiness level. Thresholds join the schema with the scoring engine (feat-006).
+`config/factors.json` lists the readiness factors. Each factor has a kebab-case `id`, a `name`, a `class` (`blocking` or `constraining`) and a `description`. Unknown keys are rejected, so a typo cannot silently change a factor, and at least one factor must be blocking because the lowest blocking factor sets the readiness level. A factor with a scoring rule also has a `thresholds` object with exactly the keys its rule reads; missing, unused, decreasing or out-of-range thresholds are input errors. A factor id without a rule is reported as not measured.
+
+### Scores and readiness
+
+After the collectors, `audit` prints one line per factor: its class, its score (or `-` when not measured, with the reason), and the rule that produced it, with `partial:` lines for what the score does not cover. Then the readiness level: the lowest score among scored blocking factors, never an average. While a blocking factor is not measured, the level is marked **provisional** and the factor is named. The rules and thresholds are in [docs/sprints/feat-006.md](sprints/feat-006.md) and `config/factors.json`.
+
+Not measured today, for lack of a collector signal: direct-api-calls (blocking), module-boundaries and observability. So every readiness level is provisional until a call-site collector exists.
+
+### Deferrals
+
+A team can record a known gap as a documented, dated decision and pass it with `--deferrals <file>`:
+
+```json
+{
+  "version": 1,
+  "deferrals": [
+    { "factor": "type-strictness", "recorded": "2026-09-01", "reason": "migrating to TypeScript in Q1", "revisitBy": "2027-03-31" }
+  ]
+}
+```
+
+A current deferral raises that factor's score by one level, up to 3: a deferral acknowledges a gap, it does not fix it. The output shows the base score and the deferral. A deferral whose `revisitBy` date has passed, or whose factor is not measured, is shown but not applied. Unknown factor ids and invalid dates are input errors (exit 2).
 
 Audited repositories should be cloned outside this project, for example under `D:\7-Maide\Projects\audit-targets\`. Never clone them into this repository.
 

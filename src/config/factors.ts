@@ -1,6 +1,6 @@
-// Factor configuration: which readiness factors exist and which are blocking.
-// Kept in a file so a team can tune it; thresholds join the schema with the
-// scoring engine (feat-006).
+// Factor configuration: which readiness factors exist, which are blocking, and
+// the thresholds the scoring engine applies to each. Kept in a file so a team
+// can tune it; the scoring engine checks which threshold keys a factor needs.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,8 @@ export interface Factor {
   name: string;
   class: FactorClass;
   description: string;
+  /** Rule parameters for the scoring engine; which keys apply depends on the factor. */
+  thresholds?: Record<string, number>;
 }
 
 export interface FactorConfig {
@@ -24,7 +26,7 @@ export interface FactorConfig {
 export const DEFAULT_CONFIG_PATH = fileURLToPath(new URL("../../config/factors.json", import.meta.url));
 
 const ROOT_KEYS = new Set(["version", "factors"]);
-const FACTOR_KEYS = new Set(["id", "name", "class", "description"]);
+const FACTOR_KEYS = new Set(["id", "name", "class", "description", "thresholds"]);
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -66,6 +68,23 @@ export function parseFactorConfig(raw: unknown, source: string): Result<FactorCo
     const { id, name, description } = entry;
     const factorClass = entry.class;
     let valid = true;
+    let thresholds: Record<string, number> | undefined;
+    if (entry.thresholds !== undefined) {
+      if (!isRecord(entry.thresholds)) {
+        report(`${at}.thresholds must be an object`);
+        valid = false;
+      } else {
+        thresholds = {};
+        for (const [key, value] of Object.entries(entry.thresholds)) {
+          if (typeof value !== "number" || !Number.isFinite(value)) {
+            report(`${at}.thresholds.${key} must be a number`);
+            valid = false;
+          } else {
+            thresholds[key] = value;
+          }
+        }
+      }
+    }
     if (typeof id !== "string" || !KEBAB_CASE.test(id)) {
       report(`${at}.id must be a kebab-case string`);
       valid = false;
@@ -88,12 +107,14 @@ export function parseFactorConfig(raw: unknown, source: string): Result<FactorCo
       valid = false;
     }
     if (valid) {
-      factors.push({
+      const factor: Factor = {
         id: id as string,
         name: name as string,
         class: factorClass as FactorClass,
         description: description as string,
-      });
+      };
+      if (thresholds) factor.thresholds = thresholds;
+      factors.push(factor);
     }
   });
 

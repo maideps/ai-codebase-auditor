@@ -54,6 +54,17 @@ describe("parseFactorConfig", () => {
     expect(errorsOf(raw)).toContain(expected);
   });
 
+  it("accepts numeric thresholds and rejects other values", () => {
+    expect(parseFactorConfig({ version: 1, factors: [factor({ thresholds: { minRatio3: 0.05 } })] }, "factors.json")).toEqual({
+      ok: true,
+      value: { version: 1, factors: [factor({ thresholds: { minRatio3: 0.05 } })] },
+    });
+    expect(errorsOf({ version: 1, factors: [factor({ thresholds: { minRatio3: "0.05" } })] })).toContain(
+      "factors.json: factors[0].thresholds.minRatio3 must be a number",
+    );
+    expect(errorsOf({ version: 1, factors: [factor({ thresholds: [1] })] })).toContain("factors.json: factors[0].thresholds must be an object");
+  });
+
   it("rejects duplicate ids", () => {
     expect(errorsOf({ version: 1, factors: [factor(), factor()] })).toContain(
       "factors.json: factors[1].id duplicates test-feedback",

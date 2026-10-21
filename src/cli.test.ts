@@ -40,8 +40,8 @@ describe("runCli: audit", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(`Target: ${repo}`);
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
-    expect(result.stdout).toMatch(/blocking\s+test-feedback\s+Test presence and feedback speed/);
-    expect(result.stdout).toContain("Nothing is scored yet.");
+    expect(result.stdout).toMatch(/blocking\s+test-feedback\s+-\s+not measured: code structure not measured \(git failed: .+\)/);
+    expect(result.stdout).toContain("Readiness level: not determined (no blocking factor could be scored)");
   });
 
   it("reports git-based collectors as not measured when git cannot read the target", () => {
@@ -173,6 +173,69 @@ describe("runCli: audit", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain(`error: target ${missing} does not exist`);
     expect(result.stderr).toContain(`error: ${broken}: factors must be a non-empty array`);
+  });
+});
+
+describe("runCli: scores", () => {
+  // Plain JavaScript with tests, CI and a README: well tested, untyped.
+  const scored = createFixtureRepo([
+    {
+      author: "a@example.com",
+      date: "2026-01-01T00:00:00Z",
+      files: {
+        "README.md": "# r\n",
+        "src/a.js": "a\n",
+        "src/b.js": "b\n",
+        "src/a.test.js": "t\n",
+        "jest.config.js": "module.exports = {};\n",
+        ".github/workflows/ci.yml": "on: push\n",
+      },
+    },
+  ]);
+
+  it("prints a score per factor and the readiness level set by the lowest blocking factor", () => {
+    const result = runCli(["audit", scored], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Scores (1-5; the lowest blocking factor sets the readiness level, never an average):");
+    // a.js, b.js and jest.config.js are source files: 1 test file for 3.
+    expect(result.stdout).toMatch(/blocking\s+test-feedback\s+5\s+ratio 0\.33/);
+    expect(result.stdout).toMatch(/blocking\s+type-strictness\s+1\s+weighted typed share 0\.00/);
+    expect(result.stdout).toMatch(/blocking\s+direct-api-calls\s+-\s+not measured: no collector signal yet/);
+    expect(result.stdout).toContain("Readiness level: 1 of 5, set by type-strictness (provisional: direct-api-calls not measured)");
+    expect(result.stdout).toContain("Verdict: not decided yet");
+  });
+
+  it("applies a current deferral and shows it", () => {
+    const deferrals = path.join(root, "deferrals.json");
+    writeFileSync(deferrals, JSON.stringify({ version: 1, deferrals: [{ factor: "type-strictness", recorded: "2026-09-01", reason: "adding JSDoc types" }] }), "utf8");
+    const result = runCli(["audit", scored, "--deferrals", deferrals], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/blocking\s+type-strictness\s+2\s/);
+    expect(result.stdout).toContain("deferral recorded 2026-09-01 (adding JSDoc types): raised from 1 to 2");
+    expect(result.stdout).toContain("Readiness level: 2 of 5, set by type-strictness");
+  });
+
+  it("rejects deferrals for unknown factors and invalid deferral files", () => {
+    const unknown = path.join(root, "unknown-deferral.json");
+    writeFileSync(unknown, JSON.stringify({ version: 1, deferrals: [{ factor: "made-up", recorded: "2026-09-01", reason: "r" }] }), "utf8");
+    const unknownResult = runCli(["audit", scored, "--deferrals", unknown], "1.2.3");
+    expect(unknownResult.exitCode).toBe(2);
+    expect(unknownResult.stderr).toContain(`error: ${unknown}: deferrals[0].factor made-up is not a configured factor`);
+    const invalid = path.join(root, "invalid-deferral.json");
+    writeFileSync(invalid, JSON.stringify({ version: 1, deferrals: [{ factor: "file-size", recorded: "soon", reason: "r" }] }), "utf8");
+    expect(runCli(["audit", scored, "-d", invalid], "1.2.3").stderr).toContain(`error: ${invalid}: deferrals[0].recorded must be a YYYY-MM-DD date`);
+  });
+
+  it("rejects thresholds a factor's rule cannot use", () => {
+    const config = path.join(root, "bad-thresholds.json");
+    writeFileSync(
+      config,
+      JSON.stringify({ version: 1, factors: [{ id: "test-feedback", name: "Tests", class: "blocking", description: "d", thresholds: { minRatio3: 0.05 } }] }),
+      "utf8",
+    );
+    const result = runCli(["audit", scored, "--config", config], "1.2.3");
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(`error: ${config}: test-feedback thresholds.minRatio4 is missing`);
   });
 });
 

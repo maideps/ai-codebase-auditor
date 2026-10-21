@@ -148,6 +148,43 @@ describe("collectTestsDocs on a polyglot repository", () => {
   });
 });
 
+describe("collectTestsDocs type checkers", () => {
+  it("detects type-checker configs per language, reading tsconfig through comments", () => {
+    const value = measured(repoWith({
+      "main.ts": "x\n",
+      "tsconfig.json": '{\n  // project config, see https://example.com\n  "compilerOptions": { "strict": true }\n}\n',
+      "web/tsconfig.json": '{ "compilerOptions": { "checkJs": true, /* loose */ "strict": false } }\n',
+      "jsconfig.json": '{ "compilerOptions": { "checkJs": true } }\n',
+      "mypy.ini": "[mypy]\n",
+      "setup.cfg": "[mypy]\nstrict = True\n",
+      "pyproject.toml": "[tool.pyright]\ntypeCheckingMode = \"strict\"\n",
+      "pyrightconfig.json": "{}\n",
+      "phpstan.neon.dist": "parameters:\n  level: 8\n",
+      "psalm.xml": "<psalm/>\n",
+      "sorbet/config": "--dir=.\n",
+      Steepfile: "target :app do\nend\n",
+    }));
+    expect(value.typeCheckers).toEqual([
+      { path: "Steepfile", checker: "Steep", language: "ruby" },
+      { path: "jsconfig.json", checker: "checkJs", language: "javascript" },
+      { path: "mypy.ini", checker: "mypy", language: "python" },
+      { path: "phpstan.neon.dist", checker: "PHPStan", language: "php" },
+      { path: "psalm.xml", checker: "Psalm", language: "php" },
+      { path: "pyproject.toml", checker: "Pyright", language: "python" },
+      { path: "pyrightconfig.json", checker: "Pyright", language: "python" },
+      { path: "setup.cfg", checker: "mypy", language: "python" },
+      { path: "sorbet/config", checker: "Sorbet", language: "ruby" },
+      { path: "tsconfig.json", checker: "TypeScript (strict)", language: "typescript" },
+      { path: "web/tsconfig.json", checker: "TypeScript", language: "typescript" },
+      { path: "web/tsconfig.json", checker: "TypeScript checkJs", language: "javascript" },
+    ]);
+  });
+
+  it("finds none in a repository without checker configs", () => {
+    expect(measured(repoWith({ "app.py": "x\n", "pyproject.toml": "[tool.pytest.ini_options]\n" })).typeCheckers).toEqual([]);
+  });
+});
+
 describe("collectTestsDocs on sparse repositories", () => {
   it("reports no tests when only the npm default test script exists", () => {
     const value = measured(repoWith({

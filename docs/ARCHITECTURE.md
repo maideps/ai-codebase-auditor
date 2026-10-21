@@ -2,15 +2,17 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `collectors/dependencies/` exists today):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `scoring/` exists today; `decision/` and `report/` are next):
 
 ```
 src/
   cli.ts              entry point: argument parsing, exit codes, wiring
   result.ts           Result<T>: a value, or every validation error found
+  file-kinds.ts       source extensions, language typing, lock-file names (pure data)
   target.ts           resolves and checks the audited repository root (static)
   config/factors.ts   loads and validates config/factors.json
   config/runtime-eol.ts loads and validates config/runtime-eol.json
+  config/deferrals.ts loads and validates a --deferrals file
   testing/            test-only helpers (git fixture repos); not built
   collectors/         read-only signal collection, one module per source
     types.ts            Measurement<T>: measured with evidence, or not measured with a reason
@@ -21,7 +23,7 @@ src/
     tests-docs.ts       test files and runners, CI files, docs, stated rules
     dependencies.ts     manifests, declared runtimes, end-of-life assessment
     dependencies/       parsers.ts (one static parser per manifest), versions.ts (spec → lowest version → cycle), toml.ts
-  scoring/            signals → factor scores 1–5, each with evidence
+  scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           factor profile → adopt | adapt | prepare first
   report/             markdown.ts, json.ts
 config/
@@ -48,7 +50,7 @@ repository (read-only)
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
 - `report` depends on the types of `decision` and `scoring` only; it formats, it never computes scores.
 - `decision` depends on `scoring` types and the harness requirements file; it never reads the repository.
-- `scoring` depends on collector output types and `config/factors.json`; it never reads the repository.
+- `scoring` depends on collector output types, `file-kinds` and loaded config (factors with thresholds, deferrals); it is pure and never reads the repository. Every threshold lives in `config/factors.json`; rules hold no default numbers, and `checkThresholds` rejects missing, unused or out-of-order thresholds at startup.
 - Collectors depend on nothing but Node built-ins, `collectors/types.ts`, the shared helpers `collectors/git.ts` and `collectors/tree.ts`, and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
 - A collector that cannot measure returns `not-measured` with a reason; it never throws for an expected condition (missing tool, shallow clone, empty repository) and never substitutes a guess.
 - Only collectors spawn processes, and only collectors, `target` and `config` read the file system. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.

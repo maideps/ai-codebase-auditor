@@ -4,6 +4,7 @@
 // never runs the target's tests or tools.
 
 import { realpathSync } from "node:fs";
+import { extensionOf, SOURCE_EXTENSIONS } from "../file-kinds.js";
 import { createGitRunner, GitError, hasCommits } from "./git.js";
 import { isVendored, listTree, readTrackedFile, type ReadSkip, type TreeEntry } from "./tree.js";
 import type { Evidence, Measurement } from "./types.js";
@@ -38,6 +39,16 @@ export interface TestsDocs {
   statedRules: StatedRule[];
   /** Rule documents that could not be read, with the reason. */
   unreadDocs: { path: string; reason: ReadSkip | "too-large" }[];
+  /** Type-checker configs, by the language they check; sorted by path, then checker. */
+  typeCheckers: TypeChecker[];
+}
+
+export type CheckedLanguage = "typescript" | "javascript" | "python" | "php" | "ruby";
+
+export interface TypeChecker {
+  path: string;
+  checker: string;
+  language: CheckedLanguage;
 }
 
 export interface TestsDocsOptions {
@@ -61,14 +72,10 @@ const TEST_CONVENTIONS: { convention: string; matches: (filePath: string, name: 
   {
     convention: "test directory",
     matches: (filePath, name) =>
-      filePath.split("/").slice(0, -1).some((segment) => TEST_DIRECTORIES.has(segment)) && SOURCE_EXTENSIONS.has(extension(name)),
+      filePath.split("/").slice(0, -1).some((segment) => TEST_DIRECTORIES.has(segment)) && SOURCE_EXTENSIONS.has(extensionOf(name)),
   },
 ];
 const TEST_DIRECTORIES = new Set(["test", "tests", "spec", "specs", "t"]);
-const SOURCE_EXTENSIONS = new Set([
-  "js", "jsx", "ts", "tsx", "mjs", "cjs", "py", "rb", "php", "java", "kt", "kts", "scala", "go", "rs", "c", "cc", "cpp", "cxx",
-  "h", "hpp", "cs", "fs", "vb", "swift", "m", "mm", "pl", "t", "lua", "sh", "bats", "ex", "exs", "erl", "clj", "groovy", "dart", "r", "jl",
-]);
 
 const RUNNER_BY_NAME: { pattern: RegExp; runner: string }[] = [
   // Named variants such as vitest.e2e.config.ts count too.
@@ -103,6 +110,43 @@ const DOC_EXTENSIONS = new Set(["md", "markdown", "rst", "txt", "adoc", "asciido
 const AGENT_CONTEXT_NAMES = new Set(["agents.md", "claude.md", "gemini.md", "codex.md", ".cursorrules", ".windsurfrules"]);
 const DECISION_DIRECTORIES = new Set(["adr", "adrs", "decisions", "decision-records"]);
 
+// Checkers found by file name alone.
+const CHECKER_BY_NAME: Record<string, { checker: string; language: CheckedLanguage }> = {
+  "mypy.ini": { checker: "mypy", language: "python" },
+  ".mypy.ini": { checker: "mypy", language: "python" },
+  "pyrightconfig.json": { checker: "Pyright", language: "python" },
+  "phpstan.neon": { checker: "PHPStan", language: "php" },
+  "phpstan.neon.dist": { checker: "PHPStan", language: "php" },
+  "phpstan.dist.neon": { checker: "PHPStan", language: "php" },
+  "psalm.xml": { checker: "Psalm", language: "php" },
+  "psalm.xml.dist": { checker: "Psalm", language: "php" },
+  Steepfile: { checker: "Steep", language: "ruby" },
+};
+
+// JSON with comments, as tsconfig allows; keeps "//" inside URLs.
+const stripJsonComments = (content: string) => content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"])\/\/.*$/gm, "$1");
+
+// Checkers declared inside a config file's content.
+function checkersInContent(name: string, content: string): { checker: string; language: CheckedLanguage }[] {
+  const found: { checker: string; language: CheckedLanguage }[] = [];
+  if (/^tsconfig(?:\.[\w-]+)*\.json$/.test(name) || name === "jsconfig.json") {
+    const json = stripJsonComments(content);
+    const checkJs = /"checkJs"\s*:\s*true/.test(json);
+    if (name === "jsconfig.json") {
+      if (checkJs) found.push({ checker: "checkJs", language: "javascript" });
+    } else {
+      found.push({ checker: /"strict"\s*:\s*true/.test(json) ? "TypeScript (strict)" : "TypeScript", language: "typescript" });
+      if (checkJs) found.push({ checker: "TypeScript checkJs", language: "javascript" });
+    }
+  }
+  if (name === "setup.cfg" && /^\[mypy[\]-]/m.test(content)) found.push({ checker: "mypy", language: "python" });
+  if (name === "pyproject.toml") {
+    if (/^\[tool\.mypy\b/m.test(content)) found.push({ checker: "mypy", language: "python" });
+    if (/^\[tool\.pyright\b/m.test(content)) found.push({ checker: "Pyright", language: "python" });
+  }
+  return found;
+}
+
 const RULE_KEYWORDS = /\b(?:must|never|always|do not|don't|should not|shouldn't|required|forbidden|prohibited)\b/i;
 const MAX_RULE_FILE_BYTES = 1024 * 1024;
 const MAX_RULES_PER_FILE = 200;
@@ -113,13 +157,9 @@ const NOTES = [
   "test files are matched by name and directory conventions; tests are never run",
   "CI files show that CI is configured, not that it passes",
   "agent context files are listed for presence only; presence alone scores nothing",
+  "type checkers are found by config file; inherited tsconfig settings (extends) are not followed",
   "stated rules are lines with must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside code blocks; whether a rule is non-standard needs judgment",
 ];
-
-function extension(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
-}
 
 const byPath = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -132,7 +172,7 @@ function classifyDocs(paths: readonly string[]): TestsDocs["docs"] {
     const segments = filePath.split("/");
     const name = segments[segments.length - 1] ?? "";
     const lower = name.toLowerCase();
-    const isDoc = DOC_EXTENSIONS.has(extension(name));
+    const isDoc = DOC_EXTENSIONS.has(extensionOf(name));
     const atRoot = segments.length === 1;
     const isAgentContext =
       AGENT_CONTEXT_NAMES.has(lower) || filePath === ".github/copilot-instructions.md" || filePath.startsWith(".cursor/rules/");
@@ -198,6 +238,7 @@ export function collectTestsDocs(repoPath: string, options: TestsDocsOptions = {
   const testFiles: TestsDocs["tests"]["files"] = [];
   const runnerConfigs: TestsDocs["tests"]["runnerConfigs"] = [];
   const ci: TestsDocs["ci"] = [];
+  const typeCheckers: TypeChecker[] = [];
   for (const entry of entries) {
     const name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
     const convention = TEST_CONVENTIONS.find((candidate) => candidate.matches(entry.path, name));
@@ -208,6 +249,15 @@ export function collectTestsDocs(repoPath: string, options: TestsDocsOptions = {
       const file = read(entry);
       const runner = "content" in file ? runnerFromManifest(name, file.content.toString("utf8")) : null;
       if (runner) runnerConfigs.push({ path: entry.path, runner });
+    }
+    const byCheckerName = CHECKER_BY_NAME[name];
+    if (byCheckerName) typeCheckers.push({ path: entry.path, ...byCheckerName });
+    else if (entry.path === "sorbet/config" || entry.path.endsWith("/sorbet/config")) typeCheckers.push({ path: entry.path, checker: "Sorbet", language: "ruby" });
+    else if (/^(?:tsconfig(?:\.[\w-]+)*\.json|jsconfig\.json|setup\.cfg|pyproject\.toml)$/.test(name)) {
+      const file = read(entry);
+      if ("content" in file) {
+        for (const found of checkersInContent(name, file.content.toString("utf8"))) typeCheckers.push({ path: entry.path, ...found });
+      }
     }
     const system = CI_SYSTEMS.find((candidate) => candidate.matches(entry.path));
     if (system) ci.push({ path: entry.path, system: system.system });
@@ -242,6 +292,7 @@ export function collectTestsDocs(repoPath: string, options: TestsDocsOptions = {
       docs,
       statedRules,
       unreadDocs,
+      typeCheckers: typeCheckers.sort((a, b) => byPath(a.path, b.path) || byPath(a.checker, b.checker)),
     },
     evidence,
   };
