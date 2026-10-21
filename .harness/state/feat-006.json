@@ -1,4 +1,4 @@
 {
-  "state": "active",
-  "evidence": ""
+  "state": "passing",
+  "evidence": "{\"summary\":\"All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation)\",\"timestamp\":\"2026-10-21T21:56:52.034Z\",\"commit\":\"0db1b9f\",\"dirty\":false,\"layers\":[{\"label\":\"Layer 1: Static checks\",\"cmd\":\"npm run lint\",\"result\":\"PASS\",\"skipReported\":false,\"durationMs\":9008,\"log\":\".harness/logs/feat-006/01-layer-1-static-checks.log\"},{\"label\":\"Layer 2: Runtime tests\",\"cmd\":\"npm run test\",\"result\":\"PASS\",\"skipReported\":false,\"durationMs\":37973,\"log\":\".harness/logs/feat-006/02-layer-2-runtime-tests.log\"},{\"label\":\"Layer 2b: Feature tests\",\"cmd\":\"npx vitest run src/scoring\",\"result\":\"PASS\",\"skipReported\":false,\"durationMs\":6910,\"log\":\".harness/logs/feat-006/03-layer-2b-feature-tests.log\"},{\"label\":\"Layer 3: System confirmation\",\"cmd\":\"npm run check\",\"result\":\"PASS\",\"skipReported\":true,\"durationMs\":57677,\"log\":\".harness/logs/feat-006/04-layer-3-system-confirmation.log\"}]}"
 }
