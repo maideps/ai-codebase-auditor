@@ -41,7 +41,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain(`Target: ${repo}`);
     expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+Test presence and feedback speed/);
-    expect(result.stdout).toContain("Not collected yet: dependencies.");
+    expect(result.stdout).toContain("Nothing is scored yet.");
   });
 
   it("reports git-based collectors as not measured when git cannot read the target", () => {
@@ -50,6 +50,28 @@ describe("runCli: audit", () => {
     expect(result.stdout).toMatch(/Git history: not measured \(git failed: .+\)/);
     expect(result.stdout).toMatch(/Code structure: not measured \(git failed: .+\)/);
     expect(result.stdout).toMatch(/Tests and docs: not measured \(git failed: .+\)/);
+    expect(result.stdout).toMatch(/Dependencies: not measured \(git failed: .+\)/);
+  });
+
+  it("summarizes dependencies and runtime end of life for a real repository", () => {
+    const real = createFixtureRepo([
+      {
+        author: "a@example.com",
+        date: "2026-01-01T00:00:00Z",
+        files: {
+          "package.json": JSON.stringify({ engines: { node: ">=14" }, dependencies: { express: "^4.18.0" }, devDependencies: { jest: "29" } }),
+          "requirements.txt": "Django==1.11.29\n",
+          "go.mod": "module x\n",
+        },
+      },
+    ]);
+    const result = runCli(["audit", real], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Dependencies (manifests read statically; nothing is installed):");
+    expect(result.stdout).toContain("  manifests: 2 (npm 1, pip 1), 3 dependencies declared");
+    expect(result.stdout).toContain("    node >=14 (package.json, engines.node): end-of-life since 2023-04-30");
+    expect(result.stdout).toContain("  not measured: 1 (go.mod: not a supported manifest)");
+    expect(result.stdout).toMatch(/ {2}end-of-life table: as of \d{4}-\d{2}-\d{2}/);
   });
 
   it("summarizes tests and docs of a real repository", () => {

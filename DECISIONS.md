@@ -137,3 +137,21 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: every detection names the path and the rule that matched; nothing in the target runs.
 - Negative: name conventions miss tests in unconventional places (for example inline Rust `#[cfg(test)]` modules) and can count fixtures under test directories; keyword rule extraction includes some descriptive "must" sentences and misses rules phrased without the keywords.
+
+### D-009: Dependencies are parsed statically; runtimes are checked against a dated, committed EOL table
+
+**Date:** 2026-10-21
+**Status:** accepted
+**Context:** feat-005 feeds the dependency-and-runtime-currency factor. Legacy repositories often run end-of-life runtimes (moin-1.9 on Python 2.7). Manifests such as `setup.py` and Gradle files are programs; running them, or resolving versions from registries, would execute or fetch untrusted input and make results depend on the network.
+**Decision:**
+- Eight manifest formats plus six runtime version files are parsed as text with small, format-specific parsers (a TOML subset for `pyproject.toml`, regular expressions for `setup.py`, Gemfile, POM and Gradle). What a parser sees but cannot read (a non-literal `install_requires`, a parent POM, a `gemspec` line, an unresolved `${property}`) is recorded as an issue on that manifest; other ecosystems' manifests and unparseable files are listed as not measured.
+- Each declared runtime is reduced to the lowest version its spec allows and to a cycle, then compared with `config/runtime-eol.json`: end-of-life on or after the cycle's date, supported before it, unknown with a reason otherwise. The audit date, not the table date, is the comparison point; the table's `asOf` is reported and a table older than a year is flagged.
+- The table is a committed snapshot of endoflife.date, fetched 2026-10-21. Java uses Eclipse Temurin dates, with Oracle JDK dates for cycles Temurin never shipped, recorded per cycle. The fetch caught one date a hand-written table would have got wrong: Python 3.10 reached end of life on 2026-10-01.
+- The CLI loads the table like the factor config (an invalid table is exit 2) and passes it to the collector.
+**Alternatives considered:**
+- Query endoflife.date or package registries during the audit — Rejected: the audit must be offline, deterministic and reproducible.
+- Assess the highest version a range allows — Rejected: a project that still declares support for an end-of-life runtime is the risk the factor measures.
+- One vendor's Java dates only — Rejected: Temurin never shipped Java 7 and earlier, which legacy repositories still declare.
+**Consequences:**
+- Positive: every runtime verdict cites the declaring file, the spec, the cycle and the dated source; nothing runs or fetches.
+- Negative: dependency versions are not checked for age or known vulnerabilities (that needs registry data); the table must be refreshed by hand; regular-expression parsers miss unusual Gemfile, Gradle and setup.py constructs.

@@ -2,7 +2,7 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `collectors/tests-docs.ts` exists today):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `collectors/dependencies/` exists today):
 
 ```
 src/
@@ -10,6 +10,7 @@ src/
   result.ts           Result<T>: a value, or every validation error found
   target.ts           resolves and checks the audited repository root (static)
   config/factors.ts   loads and validates config/factors.json
+  config/runtime-eol.ts loads and validates config/runtime-eol.json
   testing/            test-only helpers (git fixture repos); not built
   collectors/         read-only signal collection, one module per source
     types.ts            Measurement<T>: measured with evidence, or not measured with a reason
@@ -18,12 +19,14 @@ src/
     git-history.ts      churn, authors, file age
     code-structure.ts   file size, size distribution, top-level modules
     tests-docs.ts       test files and runners, CI files, docs, stated rules
-    dependencies.ts     manifest versions, end-of-life runtimes
+    dependencies.ts     manifests, declared runtimes, end-of-life assessment
+    dependencies/       parsers.ts (one static parser per manifest), versions.ts (spec → lowest version → cycle), toml.ts
   scoring/            signals → factor scores 1–5, each with evidence
   decision/           factor profile → adopt | adapt | prepare first
   report/             markdown.ts, json.ts
 config/
   factors.json        factor list, blocking vs. constraining, thresholds
+  runtime-eol.json    dated end-of-life table for Node.js, Python, PHP, Ruby, Java
 ```
 
 ```
@@ -41,7 +44,7 @@ repository (read-only)
 ## Dependency Rules
 
 - `cli` may depend on every other module. Nothing depends on `cli`.
-- `result` and `config` depend on nothing in `src/` but each other; any module may use them. `target` is used only by `cli`.
+- `result` and `config` depend on nothing in `src/` but each other; any module may use them (collectors use config types only, and receive loaded config such as the EOL table from `cli`). `target` is used only by `cli`.
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
 - `report` depends on the types of `decision` and `scoring` only; it formats, it never computes scores.
 - `decision` depends on `scoring` types and the harness requirements file; it never reads the repository.

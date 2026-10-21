@@ -5,7 +5,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 ## Current Objective
 
 - Goal: build the MVP audit pipeline one feature at a time (feat-001 to feat-008), then calibrate (feat-009).
-- Current status: feat-001 to feat-003 passing. feat-004 (tests and docs detector) implemented and run through the gate; see `.harness/state/feat-004.json`.
+- Current status: feat-001 to feat-004 passing. feat-005 (dependency collector) implemented and run through the gate; see `.harness/state/feat-005.json`. All four collectors are done; scoring is next.
 - Branch / commit: `main`; see `git log --oneline -5`.
 
 ## Completed This Session
@@ -17,18 +17,20 @@ Fill this at session end for large sessions; keep it current otherwise.
 - [x] feat-002: git-history collector, `Measurement<T>`, git fixture helper, D-006.
 - [x] feat-003 (2026-10-21): code-structure collector, shared `collectors/git.ts`, D-007.
 - [x] feat-004 (2026-10-21): tests-and-docs detector, shared `collectors/tree.ts`, D-008.
+- [x] feat-005 (2026-10-21): dependency collector, dated runtime EOL table from endoflife.date, D-009.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Unit tests | `npx vitest run` | PASS, 74 tests | config, target, cli, git-history, code-structure, tests-docs |
-| Smoke | `npm run e2e` | PASS, 6 tests | audits a fixture repo with history, a test file, a CI file, a vendored and a binary file, and checks it, .git included, is unchanged |
-| Feature gates | `npm run verify-feature -- <id>` | feat-001 to feat-003 PASS (clean tree), feat-004 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
+| Unit tests | `npx vitest run` | PASS, 160 tests | config, target, cli, all four collectors, versions, parsers, EOL table |
+| Smoke | `npm run e2e` | PASS, 6 tests | audits a fixture repo with history, a test file, a CI file, a declared Node.js runtime, a vendored and a binary file, and checks it, .git included, is unchanged |
+| Feature gates | `npm run verify-feature -- <id>` | feat-001 to feat-004 PASS (clean tree), feat-005 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
 | Architecture | `npm run check-arch` | PASS, 6/6 at bdabc39 | |
 
 ## Files Changed
 
+- feat-005: `src/collectors/dependencies.ts`, `src/collectors/dependencies/` (parsers, versions, toml) and tests, `src/config/runtime-eol.ts` and test, `config/runtime-eol.json`, `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`, `vitest.config.ts`, `vitest.e2e.config.ts`; docs, D-009, `docs/sprints/feat-005.md`, `progress/005-2026-10-21.md`
 - feat-004: `src/collectors/tests-docs.ts` and its tests, `src/collectors/tree.ts`, `src/collectors/code-structure.ts` (helpers moved out), `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`; docs, D-008, `docs/sprints/feat-004.md`, `progress/004-2026-10-21.md`
 - feat-003: `src/collectors/code-structure.ts` and its tests, `src/collectors/git.ts`, `src/collectors/git-history.ts` (runner moved out), `src/testing/git-fixture.ts` (binary content), `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`; docs, D-007, `docs/sprints/feat-003.md`, `progress/003-2026-10-21.md`
 - feat-002: `src/collectors/types.ts`, `src/collectors/git-history.ts` and its tests, `src/testing/git-fixture.ts`, `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`, `tsconfig.build.json`
@@ -36,7 +38,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Decisions Made
 
-- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening), D-007 (code-structure counting, exclusions, scc as enrichment), D-008 (path-based test and docs detection, stated rules).
+- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening), D-007 (code-structure counting, exclusions, scc as enrichment), D-008 (path-based test and docs detection, stated rules), D-009 (static dependency parsing, dated EOL table).
 
 ## Blockers / Risks
 
@@ -45,6 +47,8 @@ Fill this at session end for large sessions; keep it current otherwise.
 - Module dependency rules in `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`.
 - Git history holds the whole log in memory and code structure reads every included file; check both on the large calibration repositories (feat-009).
 - scc is not installed here, so the scc path is tested only against a stand-in; check it against a real scc before relying on language or complexity.
+- This project's own `package.json` declares `engines.node: ">=18"`, which the dependency collector reports as end-of-life since 2025-04-30 (see D-001); raising it is a separate decision.
+- `config/runtime-eol.json` is a snapshot as of 2026-10-21; refresh it at least yearly (docs/USAGE.md).
 
 ## Next Session Startup
 
@@ -55,4 +59,4 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Recommended Next Step
 
-- Start feat-005 (dependency collector), the last collector before scoring (feat-006).
+- Start feat-006 (scoring engine): thresholds join `config/factors.json`, and every score must cite collector evidence.

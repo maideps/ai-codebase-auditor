@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
-// command validates its target and factor config, then runs the collectors
-// built so far (git history, code structure, tests and docs); dependencies
-// arrive with feat-005.
+// command validates its target, factor config and runtime end-of-life table,
+// then runs the four collectors (git history, code structure, tests and docs,
+// dependencies). Scoring arrives with feat-006.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { collectCodeStructure, type CodeStructure } from "./collectors/code-structure.js";
+import { collectDependencies, type Dependencies, type RuntimeAssessment } from "./collectors/dependencies.js";
 import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
 import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
+import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "./config/runtime-eol.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
 
 export interface CliResult {
@@ -100,10 +102,37 @@ function formatTestsDocs(testsDocs: Measurement<TestsDocs>): string[] {
   ];
 }
 
+function formatRuntime(runtime: RuntimeAssessment): string {
+  const status =
+    runtime.status === "end-of-life" ? `end-of-life since ${runtime.eol ?? "?"}`
+    : runtime.status === "supported" ? `supported until ${runtime.eol ?? "?"}`
+    : `unknown (${runtime.reason ?? "no reason"})`;
+  // A runtime file such as .nvmrc is its own declaration; don't name it twice.
+  const where = runtime.source.endsWith(runtime.via) ? runtime.source : `${runtime.source}, ${runtime.via}`;
+  return `    ${runtime.runtime} ${runtime.spec} (${where}): ${status}`;
+}
+
+function formatDependencies(dependencies: Measurement<Dependencies>): string[] {
+  if (dependencies.status === "not-measured") return [`Dependencies: not measured (${dependencies.reason})`];
+  const { manifests, runtimes, notMeasured, table } = dependencies.value;
+  const declared = manifests.reduce((sum, manifest) => sum + manifest.dependencies.length, 0);
+  const ecosystems = countBy(manifests, (manifest) => manifest.ecosystem);
+  const shown = notMeasured.slice(0, 5).map((item) => `${item.path}: ${item.reason}`).join("; ");
+  const more = notMeasured.length > 5 ? `; and ${notMeasured.length - 5} more` : "";
+  return [
+    "Dependencies (manifests read statically; nothing is installed):",
+    `  manifests: ${manifests.length}${manifests.length > 0 ? ` (${ecosystems})` : ""}, ${declared} dependencies declared`,
+    ...(runtimes.length > 0 ? ["  runtimes:", ...runtimes.map(formatRuntime)] : ["  runtimes: none declared"]),
+    `  not measured: ${notMeasured.length > 0 ? `${notMeasured.length} (${shown}${more})` : "none"}`,
+    `  end-of-life table: as of ${table.asOf}${table.ageDays > 365 ? " (more than a year old)" : ""}`,
+  ];
+}
+
 interface Collected {
   history: Measurement<GitHistory>;
   structure: Measurement<CodeStructure>;
   testsDocs: Measurement<TestsDocs>;
+  dependencies: Measurement<Dependencies>;
 }
 
 function formatSummary(target: AuditTarget, configPath: string, config: FactorConfig, collected: Collected): string {
@@ -124,7 +153,9 @@ function formatSummary(target: AuditTarget, configPath: string, config: FactorCo
     "",
     ...formatTestsDocs(collected.testsDocs),
     "",
-    "Not collected yet: dependencies. Nothing is scored yet.",
+    ...formatDependencies(collected.dependencies),
+    "",
+    "Nothing is scored yet.",
     "",
   ].join("\n");
 }
@@ -154,13 +185,15 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   const configPath = parsed.values.config === undefined ? DEFAULT_CONFIG_PATH : path.resolve(cwd, parsed.values.config);
   const target = resolveTarget(repoPath, cwd);
   const config = loadFactorConfig(configPath);
-  if (!target.ok || !config.ok) {
-    return usageError([...(target.ok ? [] : target.errors), ...(config.ok ? [] : config.errors)]);
+  const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
+  if (!target.ok || !config.ok || !eolTable.ok) {
+    return usageError([...(target.ok ? [] : target.errors), ...(config.ok ? [] : config.errors), ...(eolTable.ok ? [] : eolTable.errors)]);
   }
   const collected: Collected = {
     history: collectGitHistory(target.value.path),
     structure: collectCodeStructure(target.value.path),
     testsDocs: collectTestsDocs(target.value.path),
+    dependencies: collectDependencies(target.value.path, { table: eolTable.value }),
   };
   return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected), stderr: "" };
 }

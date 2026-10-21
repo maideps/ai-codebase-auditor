@@ -11,7 +11,7 @@ node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js --help
 ```
 
-`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, the git-history totals, the code-structure summary and the tests-and-docs summary. Relative paths resolve against the current directory. The dependency collector, scores and reports arrive with feat-005 to feat-008.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the four collectors. Relative paths resolve against the current directory. Scores, the verdict and reports arrive with feat-006 to feat-008.
 
 ### Git history
 
@@ -48,7 +48,31 @@ The tests-and-docs detector works from the paths tracked at HEAD (vendored paths
 - **Docs**: root and module READMEs, CONTRIBUTING (root, `.github/`, `docs/`), architecture or design docs, decision records (`adr/`, `decisions/`), convention and style docs, files under `docs/` or `doc/`, and agent context files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `codex.md`, `.cursorrules`, `.cursor/rules/`, `.windsurfrules`, `.github/copilot-instructions.md`). Agent context files are listed for presence only: presence alone scores nothing.
 - **Stated rules**: lines containing must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside fenced code blocks, each with its file and line. This finds written rules; whether a rule is non-standard for its stack still needs judgment. Rule files that are symlinks, binary or over 1 MB are listed as unread.
 
-Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid config). Every input problem is printed, one `error:` line each, not just the first.
+### Dependencies
+
+The dependency collector reads manifests and runtime version files tracked at HEAD (vendored directories skipped) as text. It never runs `setup.py`, Gradle or Maven, never installs or resolves anything, and never goes to the network.
+
+| File | Dependencies | Runtime declarations |
+|---|---|---|
+| `package.json` | dependencies, devDependencies, optionalDependencies, peerDependencies | `engines.node` |
+| `requirements*.txt`, `requirements/*.txt` | one per line; editable and URL lines are listed as issues | — |
+| `setup.py` | a literal `install_requires` list; anything else is an issue | `python_requires`, "Programming Language :: Python :: X.Y" classifiers |
+| `pyproject.toml` | `[project]` dependencies and optional-dependencies, Poetry dependencies and groups | `requires-python`, Poetry `python` |
+| `composer.json` | require, require-dev (platform packages such as `ext-*` skipped) | `require.php`, `config.platform.php` |
+| `Gemfile` | gems with groups; a `gemspec` line is an issue | `ruby` directive |
+| `pom.xml` | dependencies with `${property}` versions resolved locally; a parent POM is an issue | `maven.compiler.release/source/target`, `java.version`, compiler plugin |
+| `build.gradle`, `build.gradle.kts` | string and map notation | toolchain `languageVersion`, `sourceCompatibility`, `targetCompatibility` |
+| `.nvmrc`, `.node-version`, `.python-version`, `.ruby-version`, `runtime.txt`, `.tool-versions` | — | the declared version |
+
+Manifests of other ecosystems (`go.mod`, `Cargo.toml`, `Pipfile`, `*.csproj`, `*.gemspec` and similar) and supported files that fail to parse are listed as **not measured** with the reason.
+
+Each declared runtime is assessed against `config/runtime-eol.json`: the lowest version its spec allows (`>=3.7,<4` → 3.7; `^7.4 || ^8.0` → 7.4) maps to a cycle (major for Node.js and Java, with Java `1.8` as 8; major.minor for Python, PHP and Ruby), and the cycle is **end-of-life** on or after its date in the table, **supported** before it, or **unknown** with a reason (no lower bound, too coarse, cycle not in the table).
+
+#### Refreshing the end-of-life table
+
+`config/runtime-eol.json` is a dated snapshot of [endoflife.date](https://endoflife.date) (Node.js, Python, PHP, Ruby; Java from Eclipse Temurin, with Oracle JDK dates for cycles Temurin never shipped). The audit warns when the table is more than a year old. To refresh it, fetch `https://endoflife.date/api/<product>.json` for `nodejs`, `python`, `php`, `ruby`, `eclipse-temurin` and `oracle-jdk`, keep each cycle's `cycle` and `eol` date, set `asOf` to the fetch date, and commit the table on its own so the change is reviewable.
+
+Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config or end-of-life table). Every input problem is printed, one `error:` line each, not just the first.
 
 ### Factor configuration
 
