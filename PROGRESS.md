@@ -10,11 +10,11 @@ After adding or updating a session note, regenerate this file with `node scripts
 - Project root: this repository
 - Primary startup command: `./init.sh`
 - Primary verification command: `make check` (make-free equivalent: `npm run check`)
-- Active feature: feat-009 — Calibration run on the five test repos
-- Passing features (8): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers
+- Active feature: none
+- Passing features (9): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos
 - Failing/blocked features: none
 - Planned features (1): feat-010 — Version 2: harness adaptation plan and modernization roadmap
-- Last evidence: feat-008 — Markdown and JSON report writers — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-22T14:20:48.153Z)
+- Last evidence: feat-009 — Calibration run on the five test repos — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-22T23:40:59.943Z)
 
 ## Session Index
 
