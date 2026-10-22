@@ -15,6 +15,8 @@ export interface FileHistory {
 }
 
 export interface GitHistory {
+  /** The commit measured: HEAD at the time of the audit. */
+  head: string;
   window: { since: string; until: string };
   totals: {
     commits: number;
@@ -95,16 +97,17 @@ export function collectGitHistory(repoPath: string, options: GitHistoryOptions =
     if (!hasCommits(git)) {
       return { status: "not-measured", reason: "repository has no commits", evidence };
     }
+    const head = git(["rev-parse", "HEAD"]).stdout.trim();
     const tracked = git(["ls-tree", "-r", "-z", "--name-only", "HEAD"]).stdout.split("\0").filter(Boolean);
     const commits = parseLog(git(LOG_ARGS).stdout);
-    return { status: "measured", value: summarize(tracked, commits, since.getTime(), until.getTime()), evidence };
+    return { status: "measured", value: { head, ...summarize(tracked, commits, since.getTime(), until.getTime()) }, evidence };
   } catch (error) {
     if (error instanceof GitError) return { status: "not-measured", reason: error.message, evidence };
     throw error;
   }
 }
 
-function summarize(tracked: string[], commits: Commit[], since: number, until: number): GitHistory {
+function summarize(tracked: string[], commits: Commit[], since: number, until: number): Omit<GitHistory, "head"> {
   const perFile = new Map<string, { times: number[]; authors: Set<string> }>(
     tracked.map((file) => [file, { times: [], authors: new Set() }]),
   );

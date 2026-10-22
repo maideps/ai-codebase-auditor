@@ -1,0 +1,362 @@
+{
+  "schema": "ai-codebase-auditor/report",
+  "schemaVersion": 1,
+  "tool": {
+    "name": "ai-codebase-auditor",
+    "version": "0.1.0"
+  },
+  "auditDate": "2026-10-22",
+  "target": {
+    "path": "/repos/sample",
+    "head": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "inputs": {
+    "factorConfig": "/tool/config/factors.json",
+    "decisionConfig": "/tool/config/decision.json",
+    "eolTable": {
+      "path": "/tool/config/runtime-eol.json",
+      "asOf": "2026-10-21",
+      "ageDays": 1
+    },
+    "deferrals": null
+  },
+  "verdict": {
+    "verdict": "adapt",
+    "rule": "3 weak factors (score ≤ 2): type-strictness 1, documented-intent 2, dependency-currency 1",
+    "triggeredBy": [
+      {
+        "factor": "type-strictness",
+        "score": 1
+      },
+      {
+        "factor": "documented-intent",
+        "score": 2
+      },
+      {
+        "factor": "dependency-currency",
+        "score": 1
+      }
+    ],
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "readiness": {
+    "level": 1,
+    "setBy": "type-strictness",
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "factors": [
+    {
+      "id": "test-feedback",
+      "name": "Test presence and feedback speed",
+      "class": "blocking",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "ratio 0.43 ≥ 0.3 with a runner config and CI",
+      "evidence": [
+        "3 test files for 7 source files: ratio 0.43",
+        "test runner configs: jest.config.js",
+        "CI: .github/workflows/ci.yml"
+      ],
+      "partial": "feedback speed is not measured: the audit never runs tests",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "type-strictness",
+      "name": "Type strictness",
+      "class": "blocking",
+      "status": "scored",
+      "score": 1,
+      "baseScore": 1,
+      "rule": "weighted typed share 0.00",
+      "evidence": [
+        "typed share 0.00 of 270 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 270)",
+        "type checkers: none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "direct-api-calls",
+      "name": "Direct API calls",
+      "class": "blocking",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs call-site analysis",
+      "deferral": null
+    },
+    {
+      "id": "file-size",
+      "name": "File size and context legibility",
+      "class": "constraining",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5)",
+      "evidence": [
+        "7 source files: p90 40 lines, 0 over 1000 lines (0.00%)",
+        "largest: src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines), src/f4.js (40 lines)"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "module-boundaries",
+      "name": "Module boundary clarity",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "deferral": null
+    },
+    {
+      "id": "documented-intent",
+      "name": "Documented intent",
+      "class": "constraining",
+      "status": "scored",
+      "score": 2,
+      "baseScore": 2,
+      "rule": "a README without written rules",
+      "evidence": [
+        "README: README.md; contributing: none; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 2 in 1 file",
+        "agent context files (presence alone scores nothing): AGENTS.md"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "deferral": null
+    },
+    {
+      "id": "dev-deploy-simplicity",
+      "name": "Dev and deploy simplicity",
+      "class": "constraining",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed",
+      "evidence": [
+        "CI: .github/workflows/ci.yml",
+        "test runner configs: jest.config.js",
+        "declared runtimes: node >=14 (package.json)",
+        "lock files: package-lock.json"
+      ],
+      "partial": "build scripts and containers are not detected yet",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "dependency-currency",
+      "name": "Dependency and runtime currency",
+      "class": "constraining",
+      "status": "scored",
+      "score": 1,
+      "baseScore": 1,
+      "rule": "worst runtime is end-of-life since 2023-04-30",
+      "evidence": [
+        "node >=14 (package.json, engines.node): cycle 14 end-of-life since 2023-04-30"
+      ],
+      "partial": "package versions are not checked for age or vulnerabilities",
+      "reason": null,
+      "deferral": null
+    }
+  ],
+  "zones": {
+    "modules": [
+      {
+        "module": "src/(files)",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines)",
+        "sourceFiles": 6,
+        "redFiles": 0
+      },
+      {
+        "module": "src/auth",
+        "zone": "red",
+        "reason": "every source file is on a red path: agents may only propose changes",
+        "sourceFiles": 1,
+        "redFiles": 1
+      }
+    ],
+    "redPaths": [
+      {
+        "path": "src/auth",
+        "kind": "directory",
+        "term": "auth"
+      }
+    ],
+    "unzoned": [
+      "test"
+    ],
+    "note": null
+  },
+  "notMeasured": [
+    {
+      "kind": "factor",
+      "id": "direct-api-calls",
+      "reason": "no collector signal yet: needs call-site analysis"
+    },
+    {
+      "kind": "factor",
+      "id": "module-boundaries",
+      "reason": "no collector signal yet: needs an import graph or co-change coupling"
+    },
+    {
+      "kind": "factor",
+      "id": "observability",
+      "reason": "no collector signal yet: needs a logging and metrics detector"
+    },
+    {
+      "kind": "manifest",
+      "id": "go.mod",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "tool",
+      "id": "scc",
+      "reason": "test"
+    }
+  ],
+  "signals": {
+    "gitHistory": {
+      "status": "measured",
+      "head": "0123456789abcdef0123456789abcdef01234567",
+      "window": {
+        "since": "2025-10-21T00:00:00.000Z",
+        "until": "2026-10-21T00:00:00.000Z"
+      },
+      "totals": {
+        "commits": 1,
+        "commitsLastYear": 1,
+        "authors": 1,
+        "firstCommit": null,
+        "lastCommit": null,
+        "trackedFiles": 0
+      },
+      "hotspots": []
+    },
+    "codeStructure": {
+      "status": "measured",
+      "distribution": {
+        "files": 10,
+        "totalLines": 0,
+        "totalBytes": 0,
+        "p50Lines": 0,
+        "p90Lines": 0,
+        "p99Lines": 0,
+        "maxLines": 0,
+        "buckets": [],
+        "largest": []
+      },
+      "modules": [],
+      "excludedByReason": {
+        "generated": 1
+      },
+      "scc": {
+        "status": "unavailable",
+        "reason": "test"
+      }
+    },
+    "testsDocs": {
+      "status": "measured",
+      "testFiles": 3,
+      "conventions": [
+        {
+          "convention": "*.test.* / *.spec.*",
+          "files": 3
+        }
+      ],
+      "runnerConfigs": [
+        {
+          "path": "jest.config.js",
+          "runner": "Jest"
+        }
+      ],
+      "ci": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "system": "GitHub Actions"
+        }
+      ],
+      "docs": {
+        "readme": [
+          "README.md"
+        ],
+        "moduleReadmes": [],
+        "contributing": [],
+        "architecture": [],
+        "decisionRecords": [],
+        "conventions": [],
+        "docsDirectory": [],
+        "agentContext": [
+          "AGENTS.md"
+        ]
+      },
+      "typeCheckers": [],
+      "statedRules": [
+        {
+          "path": "AGENTS.md",
+          "line": 1,
+          "text": "Never do thing 0."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 2,
+          "text": "Never do thing 1."
+        }
+      ]
+    },
+    "dependencies": {
+      "status": "measured",
+      "manifests": [],
+      "runtimes": [
+        {
+          "runtime": "node",
+          "spec": ">=14",
+          "source": "package.json",
+          "via": "engines.node",
+          "lowest": "14",
+          "cycle": "14",
+          "status": "end-of-life",
+          "eol": "2023-04-30",
+          "reason": null
+        }
+      ]
+    }
+  },
+  "method": {
+    "commands": [
+      "git ls-tree -r -z HEAD"
+    ],
+    "notes": []
+  }
+}

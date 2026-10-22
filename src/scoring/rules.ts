@@ -205,7 +205,7 @@ const documentedIntent: RuleSpec = {
       rule,
       evidence: [
         `README: ${list(docs.readme)}; contributing: ${list(docs.contributing)}; architecture: ${list(docs.architecture)}; decision records: ${docs.decisionRecords.length}; conventions: ${list(docs.conventions)}`,
-        `stated rules: ${rules} in ${ruleFiles} files`,
+        `stated rules: ${rules} in ${ruleFiles} file${ruleFiles === 1 ? "" : "s"}`,
         `agent context files (presence alone scores nothing): ${list(docs.agentContext)}`,
       ],
     };

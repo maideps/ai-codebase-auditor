@@ -9,6 +9,7 @@ npm run build
 node dist/cli.js audit <repo-path>                  # default factors from config/factors.json
 node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js audit <repo-path> --deferrals deferrals.json
+node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown and JSON report
 node dist/cli.js --help
 ```
 
@@ -73,7 +74,7 @@ Each declared runtime is assessed against `config/runtime-eol.json`: the lowest 
 
 `config/runtime-eol.json` is a dated snapshot of [endoflife.date](https://endoflife.date) (Node.js, Python, PHP, Ruby; Java from Eclipse Temurin, with Oracle JDK dates for cycles Temurin never shipped). The audit warns when the table is more than a year old. To refresh it, fetch `https://endoflife.date/api/<product>.json` for `nodejs`, `python`, `php`, `ruby`, `eclipse-temurin` and `oracle-jdk`, keep each cycle's `cycle` and `eol` date, set `asOf` to the fetch date, and commit the table on its own so the change is reviewable.
 
-Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config, thresholds, decision config, end-of-life table or deferrals file). Every input problem is printed, one `error:` line each, not just the first.
+Exit codes: `0` success; `2` usage or input error (unknown command or option, missing or extra path, a target that is not a repository root, an invalid factor config, thresholds, decision config, end-of-life table or deferrals file, an out directory inside the target); `1` when the report cannot be written. Every input problem is printed, one `error:` line each, not just the first.
 
 ### Factor configuration
 
@@ -119,6 +120,23 @@ Risk zones cover source files that are not tests:
 - **Red** (proposals only): a path with a sensitive term (`redTerms`: auth, login, password, permission, role, billing, payment, secret and similar) as a whole word of a directory or file name, split on separators and camelCase. A red directory is listed once. A module whose source files are all red is red.
 
 Zones use test-feedback's base score, because a deferral adds no tests. Directories without source files are listed as not zoned.
+
+### Report files
+
+`--out <dir>` writes `ai-readiness-report.md` and `ai-readiness-report.json` to `<dir>`, creating it if needed and overwriting earlier reports there. Without `--out`, nothing is written. An out directory inside the audited repository (directly or through a link) is an input error.
+
+Both files come from one report model, so they hold the same content:
+- the verdict with its rule and triggers;
+- the readiness level;
+- every factor with its rule, evidence, partial coverage and any deferral;
+- risk zones and red paths;
+- everything not measured, in one list;
+- signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes);
+- the method: inputs, every read-only command run, collector notes.
+
+Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 1`, documented in [sprints/feat-008.md](sprints/feat-008.md).
+
+Reports are deterministic. Every date-based rule (the 12-month window, end of life, deferral expiry) uses the audit date in UTC. Keys and lists are in a fixed order, and line endings are LF. Two runs on the same day, repository and configs give identical bytes. The report records the audited commit (`target.head`), so it traces to exact code.
 
 Audited repositories should be cloned outside this project, for example under `D:\7-Maide\Projects\audit-targets\`. Never clone them into this repository.
 

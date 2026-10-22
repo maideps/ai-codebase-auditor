@@ -71,6 +71,11 @@ describe("collectGitHistory on a known history", () => {
     expect(measured(repo).window).toEqual({ since: "2025-10-19T12:00:00.000Z", until: "2026-10-19T12:00:00.000Z" });
   });
 
+  it("records the HEAD commit it measured", () => {
+    expect(measured(repo).head).toBe(git(repo, ["rev-parse", "HEAD"]).trim());
+    expect(measured(repo).head).toMatch(/^[0-9a-f]{40}$/);
+  });
+
   it("cites the read-only git commands it ran", () => {
     const result = collectGitHistory(repo, { now });
     expect(result.evidence.commands.some((command) => command.startsWith("git log --no-merges"))).toBe(true);

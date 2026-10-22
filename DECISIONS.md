@@ -193,3 +193,22 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: every verdict and zone states its rule; red paths stay visible inside green modules.
 - Negative: path terms miss sensitive code in neutrally named files and can flag unrelated words; zones rely on a repository-level test signal; calibration (feat-009) may show Redmine at *adapt* rather than the expected *adopt*.
+
+### D-012: One report model, two renderers, the audit date as the unit of time
+
+**Date:** 2026-10-22
+**Status:** accepted (layout and schema reviewed before implementation; see docs/sprints/feat-008.md)
+**Context:** feat-008 writes the audit as Markdown and JSON with the same content, deterministically, never into the audited repository. Each collector used to read the clock on its own, and the git-history window carried the time to the millisecond. A determinism test caught two runs a few seconds apart producing different bytes.
+**Decision:**
+- `buildReport` assembles one `AuditReport` model in a fixed key order (`schemaVersion: 1`), and both renderers read only that model. The report holds summaries only, with hotspots and the largest files as the only per-file lists.
+- The CLI takes the audit date in UTC and passes the end of that day to every date-based step. Same repository, configs and date give the same bytes.
+- The git-history collector records the HEAD commit, so every report names the exact code it describes.
+- `--out <dir>` writes fixed file names; without it nothing is written. `checkOutDir` refuses any directory that resolves, through real paths, to the target or inside it.
+**Alternatives considered:**
+- Separate Markdown and JSON builders — Rejected: "same content" would depend on keeping two code paths in sync.
+- Per-file data in the JSON — Rejected in review: large on legacy repositories, and more than the Markdown shows.
+- Full timestamps in the report — Rejected: they break byte-for-byte determinism without adding meaning to a day-granular audit.
+- A default output folder — Rejected in review: run from inside the target, it would write into the audited repository.
+**Consequences:**
+- Positive: reports are reproducible and diffable, so a re-run after changes shows exactly what moved; snapshot tests pin the layout.
+- Negative: absolute paths make bytes machine-specific; a commit made later on the audit day can change a re-run's counts (the target changed, not the tool); JSON shape changes need a `schemaVersion` bump.

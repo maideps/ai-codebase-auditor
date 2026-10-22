@@ -2,7 +2,7 @@
 
 A command-line tool that audits a codebase, legacy systems first, and answers one question: is it safe and productive to let AI coding agents work in it, and if not, what has to change first? It collects measurable signals from the repository and its git history, scores each factor from 1 to 5 with cited evidence, and returns a verdict: **adopt**, **adapt** or **prepare first**. It never modifies or executes the audited repository.
 
-Status: `audit <repo-path>` validates its inputs (feat-001), runs four collectors (feat-002 to feat-005), scores every factor from 1 to 5 with its evidence (feat-006), and prints a verdict with green, yellow and red risk zones (feat-007). Markdown and JSON report files come next. The pipeline is built one feature at a time; see `feature_list.json` and [PROGRESS.md](PROGRESS.md).
+Status: `audit <repo-path>` validates its inputs (feat-001), runs four collectors (feat-002 to feat-005), scores every factor from 1 to 5 with its evidence (feat-006), prints a verdict with green, yellow and red risk zones (feat-007), and writes a deterministic Markdown and JSON report with `--out` (feat-008). Calibration on five public repositories comes next. The pipeline is built one feature at a time; see `feature_list.json` and [PROGRESS.md](PROGRESS.md).
 
 Concept, prior art and design: [docs/concept-and-architecture.md](docs/concept-and-architecture.md).
 
@@ -16,7 +16,7 @@ Concept, prior art and design: [docs/concept-and-architecture.md](docs/concept-a
 npm run check          # or: make check
 
 # 3. Run the CLI from a build
-npm run build && node dist/cli.js audit <path-to-a-git-repo>
+npm run build && node dist/cli.js audit <path-to-a-git-repo> --out <report-dir>
 ```
 
 ### Prerequisites

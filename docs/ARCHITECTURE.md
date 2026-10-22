@@ -2,7 +2,7 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Planned layout (everything down to `decision/` exists today; `report/` is next):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Layout (the MVP pipeline is complete; version 2 adds the harness adaptation plan):
 
 ```
 src/
@@ -26,7 +26,7 @@ src/
     dependencies/       parsers.ts (one static parser per manifest), versions.ts (spec → lowest version → cycle), toml.ts
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red paths), decide.ts
-  report/             markdown.ts, json.ts
+  report/             model.ts (one AuditReport model), json.ts, markdown.ts, write.ts (--out, target guard)
 config/
   factors.json        factor list, blocking vs. constraining, thresholds
   runtime-eol.json    dated end-of-life table for Node.js, Python, PHP, Ruby, Java
@@ -50,7 +50,8 @@ repository (read-only)
 - `cli` may depend on every other module. Nothing depends on `cli`.
 - `result` and `config` depend on nothing in `src/` but each other; any module may use them (collectors use config types only, and receive loaded config such as the EOL table from `cli`). `target` is used only by `cli`.
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
-- `report` depends on the types of `decision` and `scoring` only; it formats, it never computes scores.
+- `report` depends on collector, scoring and decision output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target.
+- The CLI takes one audit date (UTC) and passes the end of that day to every date-based step, so reports are byte-identical for the same repository, configs and date.
 - `decision` depends on `scoring` results, collector output types, `file-kinds` and loaded config (factors, decision); it is pure and never reads the repository. The harness requirements file joins it in version 2.
 - `scoring` depends on collector output types, `file-kinds` and loaded config (factors with thresholds, deferrals); it is pure and never reads the repository. Every threshold lives in `config/factors.json`; rules hold no default numbers, and `checkThresholds` rejects missing, unused or out-of-order thresholds at startup.
 - Collectors depend on nothing but Node built-ins, `collectors/types.ts`, the shared helpers `collectors/git.ts` and `collectors/tree.ts`, and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.

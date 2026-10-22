@@ -89,6 +89,7 @@ export function historyOf(): Measurement<GitHistory> {
     status: "measured",
     evidence,
     value: {
+      head: "0123456789abcdef0123456789abcdef01234567",
       window: { since: "2025-10-21T00:00:00.000Z", until: "2026-10-21T00:00:00.000Z" },
       totals: { commits: 1, commitsLastYear: 1, authors: 1, firstCommit: null, lastCommit: null, trackedFiles: 0 },
       files: [],

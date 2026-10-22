@@ -17,7 +17,7 @@ Full concept, prior art and research: [concept-and-architecture.md](concept-and-
 - Feed the JSON report to CI or to an agent, so later sessions start from measured facts instead of guesses.
 - Re-run after changes (new tests, smaller files, written conventions) to see which factor moved and whether the verdict changed.
 
-Today `audit` prints the collected signals, a score per factor, the readiness level, the verdict and the risk zones; the Markdown and JSON report files arrive with feat-008.
+Today `audit` prints the collected signals, a score per factor, the readiness level, the verdict and the risk zones, and with `--out` writes the Markdown and JSON report. The MVP is complete; calibration on five public repositories (feat-009) comes next.
 
 ## Scoring Rules
 

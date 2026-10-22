@@ -2,8 +2,8 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target, factor config, end-of-life table and optional
-// deferrals, runs the four collectors, scores every factor, and decides the
-// verdict and risk zones. Report files arrive with feat-008.
+// deferrals, runs the four collectors, scores every factor, decides the
+// verdict and risk zones, and with --out writes the Markdown and JSON report.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
@@ -19,6 +19,10 @@ import { checkDeferralFactors, loadDeferrals, type Deferral } from "./config/def
 import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "./config/runtime-eol.js";
 import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig } from "./config/decision.js";
 import { decide } from "./decision/decide.js";
+import { renderJson } from "./report/json.js";
+import { renderMarkdown } from "./report/markdown.js";
+import { buildReport } from "./report/model.js";
+import { checkOutDir, writeReports } from "./report/write.js";
 import type { Decision } from "./decision/types.js";
 import { checkThresholds, scoreFactors } from "./scoring/score.js";
 import type { CollectorResults, Scoring } from "./scoring/types.js";
@@ -32,9 +36,10 @@ export interface CliResult {
 }
 
 const EXIT_OK = 0;
+const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
-export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>]
+export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--out <dir>]
        ai-codebase-auditor --help | --version
 
 Audits a local git repository for AI-agent readiness. The repository is only
@@ -46,6 +51,7 @@ Commands:
 Options:
   -c, --config <file>    Factor configuration (default: config/factors.json)
   -d, --deferrals <file> Documented, dated deferrals that raise a gap's score by one level, up to 3
+  -o, --out <dir>        Write ai-readiness-report.md and .json there (never inside the target)
   -h, --help             Show this help
   -v, --version          Show the version
 `;
@@ -213,7 +219,7 @@ function formatSummary(
   ].join("\n");
 }
 
-function runAudit(args: readonly string[], cwd: string): CliResult {
+function runAudit(args: readonly string[], version: string, cwd: string): CliResult {
   let parsed;
   try {
     parsed = parseArgs({
@@ -221,6 +227,7 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
       options: {
         config: { type: "string", short: "c" },
         deferrals: { type: "string", short: "d" },
+        out: { type: "string", short: "o" },
         help: { type: "boolean", short: "h" },
       },
       allowPositionals: true,
@@ -243,23 +250,51 @@ function runAudit(args: readonly string[], cwd: string): CliResult {
   const decisionConfig = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
   const deferralsPath = parsed.values.deferrals === undefined ? null : path.resolve(cwd, parsed.values.deferrals);
   const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
+  const outDir = parsed.values.out === undefined ? null : path.resolve(cwd, parsed.values.out);
   const errors = [
     ...(target.ok ? [] : target.errors),
+    ...(target.ok && outDir ? checkOutDir(outDir, target.value.path) : []),
     ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
     ...(eolTable.ok ? [] : eolTable.errors),
     ...(decisionConfig.ok ? [] : decisionConfig.errors),
     ...(deferrals.ok ? (config.ok && deferralsPath ? checkDeferralFactors(deferrals.value, config.value, deferralsPath) : []) : deferrals.errors),
   ];
   if (!target.ok || !config.ok || !eolTable.ok || !decisionConfig.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
+  // The audit date (UTC) is the unit of time: every date-based rule uses the end
+  // of that day, so two runs on the same day give the same report bytes.
+  const auditDate = new Date().toISOString().slice(0, 10);
+  const now = new Date(`${auditDate}T23:59:59.999Z`);
   const collected: CollectorResults = {
-    history: collectGitHistory(target.value.path),
+    history: collectGitHistory(target.value.path, { now }),
     structure: collectCodeStructure(target.value.path),
     testsDocs: collectTestsDocs(target.value.path),
-    dependencies: collectDependencies(target.value.path, { table: eolTable.value }),
+    dependencies: collectDependencies(target.value.path, { table: eolTable.value, now }),
   };
-  const scoring = scoreFactors(collected, config.value, { deferrals: deferrals.value });
+  const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value });
   const decision = decide(scoring, collected, config.value, decisionConfig.value);
-  return { exitCode: EXIT_OK, stdout: formatSummary(target.value, configPath, config.value, collected, scoring, decision), stderr: "" };
+  const summary = formatSummary(target.value, configPath, config.value, collected, scoring, decision);
+  if (outDir === null) return { exitCode: EXIT_OK, stdout: summary, stderr: "" };
+
+  const report = buildReport({
+    tool: { name: "ai-codebase-auditor", version },
+    auditDate,
+    targetPath: target.value.path,
+    inputs: {
+      factorConfig: configPath,
+      decisionConfig: DEFAULT_DECISION_CONFIG_PATH,
+      eolTable: { path: DEFAULT_EOL_TABLE_PATH, asOf: eolTable.value.asOf },
+      deferrals: deferralsPath,
+    },
+    collected,
+    scoring,
+    decision,
+  });
+  try {
+    const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report) });
+    return { exitCode: EXIT_OK, stdout: `${summary}\nReport written:\n  ${written.markdown}\n  ${written.json}\n`, stderr: "" };
+  } catch (error) {
+    return { exitCode: EXIT_FAILURE, stdout: summary, stderr: `error: cannot write the report to ${outDir}: ${(error as Error).message}\n` };
+  }
 }
 
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
@@ -270,7 +305,7 @@ export function runCli(args: readonly string[], version: string, cwd: string = p
   if (command === "-v" || command === "--version") {
     return { exitCode: EXIT_OK, stdout: `${version}\n`, stderr: "" };
   }
-  if (command === "audit") return runAudit(rest, cwd);
+  if (command === "audit") return runAudit(rest, version, cwd);
   return usageError([command.startsWith("-") ? `unknown option ${command}` : `unknown command ${command}`]);
 }
 

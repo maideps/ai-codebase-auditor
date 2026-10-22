@@ -96,6 +96,29 @@ describe("audit", () => {
     expect(snapshot(repo)).toEqual(before);
   });
 
+  it("writes identical report files on two runs, outside the untouched target", () => {
+    const before = snapshot(repo);
+    const first = path.join(scratch, "report-1");
+    const second = path.join(scratch, "report-2");
+    expect(run("audit", repo, "--out", first).status).toBe(0);
+    expect(run("audit", repo, "--out", second).status).toBe(0);
+    for (const name of ["ai-readiness-report.md", "ai-readiness-report.json"]) {
+      const a = readFileSync(path.join(first, name));
+      expect(a.length).toBeGreaterThan(0);
+      expect(a.equals(readFileSync(path.join(second, name)))).toBe(true);
+    }
+    const report = JSON.parse(readFileSync(path.join(first, "ai-readiness-report.json"), "utf8")) as { schemaVersion: number; verdict: { verdict: string } };
+    expect(report.schemaVersion).toBe(1);
+    expect(["adopt", "adapt", "prepare-first"]).toContain(report.verdict.verdict);
+    expect(snapshot(repo)).toEqual(before);
+  });
+
+  it("refuses to write the report inside the target", () => {
+    const result = run("audit", repo, "--out", path.join(repo, "report"));
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("is inside the audited repository");
+  });
+
   it("exits 2 and names the problem for a broken config", () => {
     const broken = path.join(scratch, "broken.json");
     writeFileSync(broken, '{ "version": 1, "factors": [ { "id": "x" } ] }', "utf8");

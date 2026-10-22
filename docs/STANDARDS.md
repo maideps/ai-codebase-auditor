@@ -25,6 +25,7 @@ Single source of truth for this project's coding standards. Keep this file curre
 - New behavior starts with a failing test.
 - Collectors are tested against small fixture repositories created in a temp directory or kept under `fixtures/`, never against a live clone. Build git fixtures with `src/testing/git-fixture.ts`: it pins authors and dates and runs git with an empty global config, so the developer's hooks or signing settings never leak into a test.
 - Every collector test suite includes a check that the target, `.git` included, is unchanged after the run.
+- Report layout changes show up as diffs in `src/report/__snapshots__/`. Regenerate with `npx vitest run src/report -u`, review the diff like code, and bump `schemaVersion` when the JSON shape changes.
 - Scoring and decision logic get table-driven unit tests: one row per threshold edge, including the "documented deferral scores one level higher" rule.
 - The e2e layer runs the built CLI as a user would. Extend it whenever a command or output format changes.
 - A passing `npm run check` (lint, typecheck, test, build, e2e) is required before every commit.

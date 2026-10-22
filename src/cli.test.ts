@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -242,6 +242,39 @@ describe("runCli: scores", () => {
     const result = runCli(["audit", scored, "--config", config], "1.2.3");
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(`error: ${config}: test-feedback thresholds.minRatio4 is missing`);
+  });
+});
+
+describe("runCli: report files", () => {
+  const target = createFixtureRepo([
+    { author: "a@example.com", date: "2026-01-01T00:00:00Z", files: { "README.md": "# r\n", "src/a.js": "a\n", "src/a.test.js": "t\n" } },
+  ]);
+
+  it("writes the Markdown and JSON report to --out and says where", () => {
+    const out = path.join(root, "reports");
+    const result = runCli(["audit", target, "--out", out], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    const markdown = path.join(out, "ai-readiness-report.md");
+    const json = path.join(out, "ai-readiness-report.json");
+    expect(result.stdout).toContain(`Report written:\n  ${markdown}\n  ${json}\n`);
+    expect(readFileSync(markdown, "utf8")).toMatch(/^# AI-readiness audit: /);
+    const report = JSON.parse(readFileSync(json, "utf8")) as { tool: { version: string }; target: { path: string; head: string } };
+    expect(report.tool.version).toBe("1.2.3");
+    expect(report.target.path).toBe(target);
+    expect(report.target.head).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it("writes no files without --out", () => {
+    const result = runCli(["audit", target], "1.2.3", root);
+    expect(result.stdout).not.toContain("Report written");
+  });
+
+  it("refuses an out directory inside the audited repository", () => {
+    const inside = path.join(target, "reports");
+    const result = runCli(["audit", target, "-o", inside], "1.2.3");
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(`error: out directory ${inside} is inside the audited repository ${target}`);
+    expect(existsSync(inside)).toBe(false);
   });
 });
 
