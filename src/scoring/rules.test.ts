@@ -207,10 +207,26 @@ describe("dependency-currency", () => {
   });
 
   it("is not measured without a runtime of known status", () => {
-    expect(run("dependency-currency", runtimes())).toEqual({ status: "not-measured", reason: "no declared runtime with a known end-of-life status" });
+    expect(run("dependency-currency", runtimes())).toEqual({ status: "not-measured", reason: "no declared runtime with a known end-of-life status outside test fixtures" });
     expect(run("dependency-currency", runtimes({ status: "unknown", eol: null, reason: "no lower version bound" }))).toEqual({
       status: "not-measured",
-      reason: "no declared runtime with a known end-of-life status",
+      reason: "no declared runtime with a known end-of-life status outside test fixtures",
+    });
+  });
+
+  it("ignores runtimes declared in test fixtures, but cites them", () => {
+    const outcome = run("dependency-currency", runtimes(
+      { runtime: "php", spec: "^8.2", source: "phpBB/composer.json", via: "require.php", cycle: "8.2", status: "supported", eol: "2030-01-01" },
+      { runtime: "php", spec: ">=5.3", source: "tests/ext/composer.json", via: "require.php", cycle: "5.3", status: "end-of-life", eol: "2014-08-14", testFixture: true },
+    ));
+    expect(outcome).toMatchObject({ status: "scored", score: 5 });
+    expect(outcome.status === "scored" && outcome.evidence).toContain("ignored as test fixtures: php >=5.3 (tests/ext/composer.json)");
+  });
+
+  it("is not measured when only test fixtures declare a runtime", () => {
+    expect(run("dependency-currency", runtimes({ status: "end-of-life", eol: "2014-08-14", testFixture: true }))).toEqual({
+      status: "not-measured",
+      reason: "no declared runtime with a known end-of-life status outside test fixtures",
     });
   });
 

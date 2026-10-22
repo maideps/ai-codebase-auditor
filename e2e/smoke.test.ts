@@ -83,7 +83,7 @@ describe("audit", () => {
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(`Target: ${repo}`);
-    expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
+    expect(result.stdout).toContain("Factors: 9 (2 blocking, 7 constraining)");
     expect(result.stdout).toContain("  commits: 2 (");
     expect(result.stdout).toContain("  first commit: 2023-05-01, last commit: 2024-06-01");
     expect(result.stdout).toContain("  files: 5 measured, 2 excluded (binary 1, vendored 1)");
@@ -108,7 +108,7 @@ describe("audit", () => {
       expect(a.equals(readFileSync(path.join(second, name)))).toBe(true);
     }
     const report = JSON.parse(readFileSync(path.join(first, "ai-readiness-report.json"), "utf8")) as { schemaVersion: number; verdict: { verdict: string } };
-    expect(report.schemaVersion).toBe(1);
+    expect(report.schemaVersion).toBe(2);
     expect(["adopt", "adapt", "prepare-first"]).toContain(report.verdict.verdict);
     expect(snapshot(repo)).toEqual(before);
   });

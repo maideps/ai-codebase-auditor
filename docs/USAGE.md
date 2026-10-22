@@ -45,9 +45,9 @@ Line and byte counts always come from the built-in counter, so runs are comparab
 The tests-and-docs detector works from the paths tracked at HEAD (vendored paths ignored) plus a few small reads. It never runs the target's tests or tools.
 
 - **Test files**, by the first convention that matches: `__tests__/`, `*.test.*` / `*.spec.*` (JavaScript and TypeScript), `test_*.py` / `*_test.py`, `*_test.go`, `*_spec.rb`, `*_test.rb`, `*Test.php`, `*Test.java` / `*Tests.java` / `*IT.java`, `*Test.kt`, `*Test.cs`, and finally any source file under a `test`, `tests`, `spec`, `specs` or `t` directory.
-- **Test runner configs**: Jest, Vitest (named variants such as `vitest.e2e.config.ts` included), Karma, Mocha, Cypress, Playwright, pytest (`pytest.ini`, `conftest.py`, or a `[tool.pytest]` section in `pyproject.toml` / `[tool:pytest]` in `setup.cfg`), tox, PHPUnit, RSpec, and a `package.json` test script other than npm's placeholder.
+- **Test runner configs**: Jest, Vitest (named variants such as `vitest.e2e.config.ts` included), Karma, Mocha, Cypress, Playwright, pytest (`pytest.ini`, `conftest.py`, or a `[tool.pytest]` section in `pyproject.toml` / `[tool:pytest]` in `setup.cfg`), tox, PHPUnit, RSpec, and a `package.json` test script other than npm's placeholder. Build tools that run tests by convention count too, when tests sit beside the build file: Maven (Surefire or Failsafe in `pom.xml`, or `src/test/`), Gradle (`src/test/`), Rails minitest (`test/test_helper.rb`), RSpec (`spec/spec_helper.rb`), `go test` (`go.mod` with `*_test.go`) and `cargo test` (`Cargo.toml` with `tests/*.rs`).
 - **CI**: GitHub Actions, GitLab CI, Travis CI, CircleCI, Jenkins, Azure Pipelines, AppVeyor, Bitbucket Pipelines, Drone, Buildkite. A CI file shows CI is configured, not that it passes.
-- **Docs**: root and module READMEs, CONTRIBUTING (root, `.github/`, `docs/`), architecture or design docs, decision records (`adr/`, `decisions/`), convention and style docs, files under `docs/` or `doc/`, and agent context files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `codex.md`, `.cursorrules`, `.cursor/rules/`, `.windsurfrules`, `.github/copilot-instructions.md`). Agent context files are listed for presence only: presence alone scores nothing.
+- **Docs**: root and module READMEs, CONTRIBUTING (root, `.github/`, `docs/`), architecture or design docs, decision records (`adr/`, `decisions/`), convention and style docs, files under `docs/` or `doc/`, and agent context files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `codex.md`, `.cursorrules`, `.cursor/rules/`, `.windsurfrules`, `.github/copilot-instructions.md`). Agent context files are listed for presence only: presence alone scores nothing. Files under test and fixture directories (`test`, `tests`, `spec`, `specs`, `__tests__`, `fixtures`, `testdata`) and under `src/<set>/resources` are test inputs, not docs, and are skipped.
 - **Stated rules**: lines containing must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside fenced code blocks, each with its file and line. This finds written rules; whether a rule is non-standard for its stack still needs judgment. Rule files that are symlinks, binary or over 1 MB are listed as unread.
 
 ### Dependencies
@@ -68,7 +68,7 @@ The dependency collector reads manifests and runtime version files tracked at HE
 
 Manifests of other ecosystems (`go.mod`, `Cargo.toml`, `Pipfile`, `*.csproj`, `*.gemspec` and similar) and supported files that fail to parse are listed as **not measured** with the reason.
 
-Each declared runtime is assessed against `config/runtime-eol.json`: the lowest version its spec allows (`>=3.7,<4` → 3.7; `^7.4 || ^8.0` → 7.4) maps to a cycle (major for Node.js and Java, with Java `1.8` as 8; major.minor for Python, PHP and Ruby), and the cycle is **end-of-life** on or after its date in the table, **supported** before it, or **unknown** with a reason (no lower bound, too coarse, cycle not in the table).
+Runtimes declared under test or fixture directories are listed with `testFixture: true`, but do not count as the product's runtime for scoring. Each declared runtime is assessed against `config/runtime-eol.json`: the lowest version its spec allows (`>=3.7,<4` → 3.7; `^7.4 || ^8.0` → 7.4) maps to a cycle (major for Node.js and Java, with Java `1.8` as 8; major.minor for Python, PHP and Ruby), and the cycle is **end-of-life** on or after its date in the table, **supported** before it, or **unknown** with a reason (no lower bound, too coarse, cycle not in the table).
 
 #### Refreshing the end-of-life table
 
@@ -84,7 +84,7 @@ Exit codes: `0` success; `2` usage or input error (unknown command or option, mi
 
 After the collectors, `audit` prints one line per factor: its class, its score (or `-` when not measured, with the reason), and the rule that produced it, with `partial:` lines for what the score does not cover. Then the readiness level: the lowest score among scored blocking factors, never an average. While a blocking factor is not measured, the level is marked **provisional** and the factor is named. The rules and thresholds are in [docs/sprints/feat-006.md](sprints/feat-006.md) and `config/factors.json`.
 
-Not measured today, for lack of a collector signal: direct-api-calls (blocking), module-boundaries and observability. So every readiness level is provisional until a call-site collector exists.
+Not measured today, for lack of a collector signal: direct-api-calls (blocking), module-boundaries and observability. So every readiness level is provisional until a call-site collector exists. Today test-feedback is the only scored blocking factor, so it sets the readiness level; type-strictness and the other constraining factors decide between *adopt* and *adapt*.
 
 ### Deferrals
 
@@ -134,7 +134,7 @@ Both files come from one report model, so they hold the same content:
 - signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes);
 - the method: inputs, every read-only command run, collector notes.
 
-Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 1`, documented in [sprints/feat-008.md](sprints/feat-008.md).
+Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 2`, documented in [sprints/feat-008.md](sprints/feat-008.md); version 2 added `testFixture` to each runtime (D-013).
 
 Reports are deterministic. Every date-based rule (the 12-month window, end of life, deferral expiry) uses the audit date in UTC. Keys and lists are in a fixed order, and line endings are LF. Two runs on the same day, repository and configs give identical bytes. The report records the audited commit (`target.head`), so it traces to exact code.
 

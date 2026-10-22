@@ -5,7 +5,7 @@
 | Target | `/repos/sample` at commit `0123456789ab` |
 | Audit date | 2026-10-22 |
 | Verdict | **adapt** (provisional: direct-api-calls not measured) |
-| Readiness level | **1 of 5**, set by type-strictness (provisional) |
+| Readiness level | **5 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
@@ -21,7 +21,7 @@ Triggered by: type-strictness 1, documented-intent 2, dependency-currency 1.
 | Factor | Class | Score | Rule |
 |---|---|---|---|
 | test-feedback | blocking | 5 | ratio 0.43 ≥ 0.3 with a runner config and CI |
-| type-strictness | blocking | 1 | weighted typed share 0.00 |
+| type-strictness | constraining | 1 | weighted typed share 0.00 |
 | direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
 | file-size | constraining | 5 | lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
@@ -46,7 +46,7 @@ Partial: feedback speed is not measured: the audit never runs tests.
 
 ### type-strictness: Type strictness
 
-Score **1** (blocking). Rule: weighted typed share 0.00.
+Score **1** (constraining). Rule: weighted typed share 0.00.
 
 Evidence:
 

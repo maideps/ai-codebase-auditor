@@ -54,7 +54,7 @@ describe("report model", () => {
   it("carries the verdict, readiness, every factor and the not-measured items", () => {
     const report = buildReport(sampleInput());
     expect(report.schema).toBe("ai-codebase-auditor/report");
-    expect(report.schemaVersion).toBe(1);
+    expect(report.schemaVersion).toBe(2);
     expect(report.target).toEqual({ path: "/repos/sample", head: "0123456789abcdef0123456789abcdef01234567" });
     expect(report.inputs.eolTable).toEqual({ path: "/tool/config/runtime-eol.json", asOf: "2026-10-21", ageDays: 1 });
     expect(report.verdict.verdict).toBe("adapt");

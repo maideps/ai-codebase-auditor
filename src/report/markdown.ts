@@ -160,7 +160,7 @@ function signalsSection(report: AuditReport): string[] {
       "",
       ...table(
         ["Runtime", "Spec", "Declared in", "Cycle", "Status", "End of life"],
-        dependencies.runtimes.map((r) => [r.runtime, r.spec, `${code(r.source)} (${r.via})`, r.cycle ?? "–", r.status === "unknown" ? `unknown: ${r.reason ?? ""}` : r.status, r.eol ?? "–"]),
+        dependencies.runtimes.map((r) => [r.runtime, r.spec, `${code(r.source)} (${r.via})${r.testFixture ? ", test fixture: not counted" : ""}`, r.cycle ?? "–", r.status === "unknown" ? `unknown: ${r.reason ?? ""}` : r.status, r.eol ?? "–"]),
       ),
     );
   } else lines.push(`Not measured: ${dependencies.reason}.`);

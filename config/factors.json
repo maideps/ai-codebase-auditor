@@ -15,7 +15,7 @@
     {
       "id": "type-strictness",
       "name": "Type strictness",
-      "class": "blocking",
+      "class": "constraining",
       "description": "Static types or equivalent checks catch wrong changes before they run.",
       "thresholds": {
         "minShare2": 0.15,

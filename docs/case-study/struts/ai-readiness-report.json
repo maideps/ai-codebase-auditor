@@ -1,0 +1,1258 @@
+{
+  "schema": "ai-codebase-auditor/report",
+  "schemaVersion": 2,
+  "tool": {
+    "name": "ai-codebase-auditor",
+    "version": "0.1.0"
+  },
+  "auditDate": "2026-10-22",
+  "target": {
+    "path": "D:\\7-Maide\\Projects\\audit-targets\\struts",
+    "head": "f2ea51ac3e3c723d670e1734c413d5fe5c31104c"
+  },
+  "inputs": {
+    "factorConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\factors.json",
+    "decisionConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\decision.json",
+    "eolTable": {
+      "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
+      "asOf": "2026-10-21",
+      "ageDays": 1
+    },
+    "deferrals": null
+  },
+  "verdict": {
+    "verdict": "adopt",
+    "rule": "no scored factor is weak (all ≥ 3)",
+    "triggeredBy": [
+      {
+        "factor": "test-feedback",
+        "score": 5
+      }
+    ],
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "readiness": {
+    "level": 5,
+    "setBy": "test-feedback",
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "factors": [
+    {
+      "id": "test-feedback",
+      "name": "Test presence and feedback speed",
+      "class": "blocking",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "ratio 0.60 ≥ 0.3 with a runner config and CI",
+      "evidence": [
+        "911 test files for 1518 source files: ratio 0.60",
+        "test runner configs: apps/rest-showcase/pom.xml, apps/showcase/pom.xml, core/pom.xml, plugins/async/pom.xml, plugins/bean-validation/pom.xml, plugins/cdi/pom.xml, plugins/convention/pom.xml, plugins/jasperreports/pom.xml, plugins/jasperreports7/pom.xml, plugins/javatemplates/pom.xml, plugins/jfreechart/pom.xml, plugins/json/pom.xml, plugins/junit/pom.xml, plugins/rest/pom.xml, plugins/spring/pom.xml, plugins/testng/pom.xml, plugins/tiles/pom.xml, plugins/velocity/pom.xml, plugins/xslt/pom.xml, pom.xml",
+        "CI: .github/workflows/codeql.yml, .github/workflows/maven.yml, .github/workflows/owasp.yml, .github/workflows/scorecards-analysis.yaml, .github/workflows/sonar.yml, Jenkinsfile"
+      ],
+      "partial": "feedback speed is not measured: the audit never runs tests",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "type-strictness",
+      "name": "Type strictness",
+      "class": "constraining",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "weighted typed share 0.99",
+      "evidence": [
+        "typed share 0.99 of 181946 source lines (strong 180624, weak 0, checked dynamic 0, unchecked dynamic 1322)",
+        "type checkers: none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "direct-api-calls",
+      "name": "Direct API calls",
+      "class": "blocking",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs call-site analysis",
+      "deferral": null
+    },
+    {
+      "id": "file-size",
+      "name": "File size and context legibility",
+      "class": "constraining",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "lower of p90 246 lines (→ 4) and 0.40% of files over 1000 lines (→ 5)",
+      "evidence": [
+        "1518 source files: p90 246 lines, 6 over 1000 lines (0.40%)",
+        "largest: core/src/main/java/org/apache/struts2/components/UIBean.java (1552 lines), core/src/main/java/org/apache/struts2/config/entities/ConstantConfig.java (1445 lines), core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (1404 lines), core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java (1260 lines), plugins/convention/src/main/java/org/apache/struts2/convention/PackageBasedActionConfigBuilder.java (1255 lines)"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "module-boundaries",
+      "name": "Module boundary clarity",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "deferral": null
+    },
+    {
+      "id": "documented-intent",
+      "name": "Documented intent",
+      "class": "constraining",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "docs with 34 stated rules",
+      "evidence": [
+        "README: README.md; contributing: CONTRIBUTING.md; architecture: none; decision records: 0; conventions: docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md, docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md, thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md",
+        "stated rules: 34 in 6 files",
+        "agent context files (presence alone scores nothing): AGENTS.md, CLAUDE.md"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "deferral": null
+    },
+    {
+      "id": "dev-deploy-simplicity",
+      "name": "Dev and deploy simplicity",
+      "class": "constraining",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "3 of 4 signals: CI configured, test runner configured, runtime version declared",
+      "evidence": [
+        "CI: .github/workflows/codeql.yml, .github/workflows/maven.yml, .github/workflows/owasp.yml, .github/workflows/scorecards-analysis.yaml, .github/workflows/sonar.yml, Jenkinsfile",
+        "test runner configs: apps/rest-showcase/pom.xml, apps/showcase/pom.xml, core/pom.xml, plugins/async/pom.xml, plugins/bean-validation/pom.xml, plugins/cdi/pom.xml, plugins/convention/pom.xml, plugins/jasperreports/pom.xml, plugins/jasperreports7/pom.xml, plugins/javatemplates/pom.xml, plugins/jfreechart/pom.xml, plugins/json/pom.xml, plugins/junit/pom.xml, plugins/rest/pom.xml, plugins/spring/pom.xml, plugins/testng/pom.xml, plugins/tiles/pom.xml, plugins/velocity/pom.xml, plugins/xslt/pom.xml, pom.xml",
+        "declared runtimes: java 17 (pom.xml)",
+        "lock files: none"
+      ],
+      "partial": "build scripts and containers are not detected yet",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "dependency-currency",
+      "name": "Dependency and runtime currency",
+      "class": "constraining",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "every runtime is supported past 12 months",
+      "evidence": [
+        "java 17 (pom.xml, maven.compiler.release): cycle 17 supported until 2027-10-31"
+      ],
+      "partial": "package versions are not checked for age or vulnerabilities",
+      "reason": null,
+      "deferral": null
+    }
+  ],
+  "zones": {
+    "modules": [
+      {
+        "module": ".claude",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 103 lines, 0% over 1000 lines)",
+        "sourceFiles": 2,
+        "redFiles": 0
+      },
+      {
+        "module": "apps",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 117 lines, 0% over 1000 lines)",
+        "sourceFiles": 127,
+        "redFiles": 3
+      },
+      {
+        "module": "core/src/main",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 291 lines, 0.6% over 1000 lines)",
+        "sourceFiles": 797,
+        "redFiles": 5
+      },
+      {
+        "module": "plugins",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 211 lines, 0.2% over 1000 lines)",
+        "sourceFiles": 592,
+        "redFiles": 5
+      }
+    ],
+    "redPaths": [
+      {
+        "path": "apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java",
+        "kind": "file",
+        "term": "authentication"
+      },
+      {
+        "path": "apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java",
+        "kind": "file",
+        "term": "login"
+      },
+      {
+        "path": "apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java",
+        "kind": "file",
+        "term": "logout"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/components/Password.java",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java",
+        "kind": "file",
+        "term": "authorization"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java",
+        "kind": "file",
+        "term": "authorization"
+      },
+      {
+        "path": "plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java",
+        "kind": "file",
+        "term": "authorization"
+      },
+      {
+        "path": "plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java",
+        "kind": "file",
+        "term": "password"
+      }
+    ],
+    "unzoned": [
+      "(root)",
+      ".github",
+      ".mvn",
+      "assembly",
+      "bom",
+      "docs",
+      "jakarta",
+      "parent",
+      "src",
+      "thoughts"
+    ],
+    "note": null
+  },
+  "notMeasured": [
+    {
+      "kind": "factor",
+      "id": "direct-api-calls",
+      "reason": "no collector signal yet: needs call-site analysis"
+    },
+    {
+      "kind": "factor",
+      "id": "module-boundaries",
+      "reason": "no collector signal yet: needs an import graph or co-change coupling"
+    },
+    {
+      "kind": "factor",
+      "id": "observability",
+      "reason": "no collector signal yet: needs a logging and metrics detector"
+    },
+    {
+      "kind": "tool",
+      "id": "scc",
+      "reason": "scc is not installed or not on PATH"
+    }
+  ],
+  "signals": {
+    "gitHistory": {
+      "status": "measured",
+      "head": "f2ea51ac3e3c723d670e1734c413d5fe5c31104c",
+      "window": {
+        "since": "2025-10-22T23:59:59.999Z",
+        "until": "2026-10-22T23:59:59.999Z"
+      },
+      "totals": {
+        "commits": 7461,
+        "commitsLastYear": 428,
+        "authors": 149,
+        "firstCommit": "2006-02-22T05:16:10.000Z",
+        "lastCommit": "2026-10-22T10:07:38.000Z",
+        "trackedFiles": 3848
+      },
+      "hotspots": [
+        {
+          "path": "pom.xml",
+          "commits": 1060,
+          "commitsLastYear": 108,
+          "authors": 45,
+          "lastCommit": "2026-10-22T07:18:17.000Z"
+        },
+        {
+          "path": ".github/workflows/codeql.yml",
+          "commits": 85,
+          "commitsLastYear": 44,
+          "authors": 3,
+          "lastCommit": "2026-10-22T07:17:07.000Z"
+        },
+        {
+          "path": ".github/workflows/scorecards-analysis.yaml",
+          "commits": 106,
+          "commitsLastYear": 38,
+          "authors": 4,
+          "lastCommit": "2026-10-22T07:17:02.000Z"
+        },
+        {
+          "path": "parent/pom.xml",
+          "commits": 64,
+          "commitsLastYear": 36,
+          "authors": 3,
+          "lastCommit": "2026-10-22T07:17:37.000Z"
+        },
+        {
+          "path": "core/src/main/java/org/apache/struts2/StrutsConstants.java",
+          "commits": 176,
+          "commitsLastYear": 18,
+          "authors": 20,
+          "lastCommit": "2026-10-11T08:14:46.000Z"
+        },
+        {
+          "path": ".github/dependabot.yml",
+          "commits": 20,
+          "commitsLastYear": 17,
+          "authors": 1,
+          "lastCommit": "2026-10-16T05:01:00.000Z"
+        },
+        {
+          "path": "apps/showcase/pom.xml",
+          "commits": 414,
+          "commitsLastYear": 16,
+          "authors": 23,
+          "lastCommit": "2026-10-22T07:17:33.000Z"
+        },
+        {
+          "path": "core/src/main/resources/org/apache/struts2/default.properties",
+          "commits": 106,
+          "commitsLastYear": 15,
+          "authors": 16,
+          "lastCommit": "2026-10-11T08:14:46.000Z"
+        },
+        {
+          "path": ".github/workflows/maven.yml",
+          "commits": 35,
+          "commitsLastYear": 13,
+          "authors": 5,
+          "lastCommit": "2026-10-15T17:40:51.000Z"
+        },
+        {
+          "path": "core/src/main/resources/struts-beans.xml",
+          "commits": 35,
+          "commitsLastYear": 13,
+          "authors": 3,
+          "lastCommit": "2026-10-12T19:30:00.000Z"
+        }
+      ]
+    },
+    "codeStructure": {
+      "status": "measured",
+      "distribution": {
+        "files": 3777,
+        "totalLines": 453814,
+        "totalBytes": 18038848,
+        "p50Lines": 60,
+        "p90Lines": 282,
+        "p99Lines": 977,
+        "maxLines": 2226,
+        "buckets": [
+          {
+            "label": "0-200",
+            "files": 3218
+          },
+          {
+            "label": "201-500",
+            "files": 429
+          },
+          {
+            "label": "501-1000",
+            "files": 95
+          },
+          {
+            "label": "1001-2000",
+            "files": 33
+          },
+          {
+            "label": "2001+",
+            "files": 2
+          }
+        ],
+        "largest": [
+          {
+            "path": "core/src/test/java/org/apache/struts2/views/jsp/ui/FormTagTest.java",
+            "lines": 2226
+          },
+          {
+            "path": "core/src/test/java/org/apache/struts2/views/jsp/URLTagTest.java",
+            "lines": 2178
+          },
+          {
+            "path": "core/src/test/java/org/apache/struts2/ognl/OgnlUtilTest.java",
+            "lines": 1909
+          },
+          {
+            "path": "docs/superpowers/plans/2026-08-24-html5-constraint-validation.md",
+            "lines": 1828
+          },
+          {
+            "path": "plugins/rest/src/test/java/org/apache/struts2/rest/handler/jackson/ParameterAuthorizingModuleTest.java",
+            "lines": 1800
+          },
+          {
+            "path": "core/src/test/java/org/apache/struts2/views/jsp/AnchorTagTest.java",
+            "lines": 1699
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/components/UIBean.java",
+            "lines": 1552
+          },
+          {
+            "path": "core/src/test/java/org/apache/struts2/views/jsp/ui/SelectTest.java",
+            "lines": 1471
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/config/entities/ConstantConfig.java",
+            "lines": 1445
+          },
+          {
+            "path": "core/src/test/java/org/apache/struts2/interceptor/parameter/ParametersInterceptorTest.java",
+            "lines": 1440
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "(root)",
+          "files": 15,
+          "lines": 2835,
+          "bytes": 145374
+        },
+        {
+          "name": ".claude",
+          "files": 13,
+          "lines": 2170,
+          "bytes": 128631
+        },
+        {
+          "name": ".github",
+          "files": 8,
+          "lines": 704,
+          "bytes": 28701
+        },
+        {
+          "name": ".mvn",
+          "files": 1,
+          "lines": 4,
+          "bytes": 255
+        },
+        {
+          "name": "apps",
+          "files": 372,
+          "lines": 25967,
+          "bytes": 1078431
+        },
+        {
+          "name": "assembly",
+          "files": 14,
+          "lines": 1283,
+          "bytes": 54103
+        },
+        {
+          "name": "bom",
+          "files": 2,
+          "lines": 169,
+          "bytes": 7061
+        },
+        {
+          "name": "core",
+          "files": 2088,
+          "lines": 270656,
+          "bytes": 10659104
+        },
+        {
+          "name": "docs",
+          "files": 48,
+          "lines": 22523,
+          "bytes": 1055958
+        },
+        {
+          "name": "jakarta",
+          "files": 5,
+          "lines": 195,
+          "bytes": 7927
+        },
+        {
+          "name": "parent",
+          "files": 1,
+          "lines": 318,
+          "bytes": 12293
+        },
+        {
+          "name": "plugins",
+          "files": 1166,
+          "lines": 117178,
+          "bytes": 4446467
+        },
+        {
+          "name": "src",
+          "files": 5,
+          "lines": 364,
+          "bytes": 37043
+        },
+        {
+          "name": "thoughts",
+          "files": 39,
+          "lines": 9448,
+          "bytes": 377500
+        }
+      ],
+      "excludedByReason": {
+        "binary": 71
+      },
+      "scc": {
+        "status": "unavailable",
+        "reason": "scc is not installed or not on PATH"
+      }
+    },
+    "testsDocs": {
+      "status": "measured",
+      "testFiles": 911,
+      "conventions": [
+        {
+          "convention": "*Test.java / *Tests.java / *IT.java",
+          "files": 609
+        },
+        {
+          "convention": "test directory",
+          "files": 302
+        }
+      ],
+      "runnerConfigs": [
+        {
+          "path": "apps/rest-showcase/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "apps/showcase/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "core/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/async/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/bean-validation/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/cdi/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/convention/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/jasperreports/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/jasperreports7/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/javatemplates/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/jfreechart/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/json/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/junit/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/rest/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/spring/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/testng/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/tiles/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/velocity/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "plugins/xslt/pom.xml",
+          "runner": "Maven"
+        },
+        {
+          "path": "pom.xml",
+          "runner": "Maven"
+        }
+      ],
+      "ci": [
+        {
+          "path": ".github/workflows/codeql.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/maven.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/owasp.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/scorecards-analysis.yaml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/sonar.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": "Jenkinsfile",
+          "system": "Jenkins"
+        }
+      ],
+      "docs": {
+        "readme": [
+          "README.md"
+        ],
+        "moduleReadmes": [
+          "apps/README.md",
+          "apps/rest-showcase/README.md",
+          "apps/showcase/README.md",
+          "assembly/README.md",
+          "bom/README.md",
+          "core/README.md",
+          "jakarta/velocity-tools-jsp-jakarta/README.md",
+          "jakarta/velocity-tools-view-jakarta/README.md",
+          "plugins/README.md",
+          "plugins/async/README.md",
+          "plugins/bean-validation/README.md",
+          "plugins/cdi/README.md",
+          "plugins/config-browser/README.md",
+          "plugins/convention/README.md",
+          "plugins/jasperreports/README.md",
+          "plugins/jasperreports7/README.md",
+          "plugins/javatemplates/README.md",
+          "plugins/jfreechart/README.md",
+          "plugins/json/README.md",
+          "plugins/junit/README.md",
+          "plugins/rest/README.md",
+          "plugins/spring/README.md",
+          "plugins/testng/README.md",
+          "plugins/tiles/README.md",
+          "plugins/velocity/README.md",
+          "plugins/xslt/README.md",
+          "thoughts/README.md"
+        ],
+        "contributing": [
+          "CONTRIBUTING.md"
+        ],
+        "architecture": [],
+        "decisionRecords": [],
+        "conventions": [
+          "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md"
+        ],
+        "docsDirectory": [
+          "docs/superpowers/plans/2026-06-10-WW-5632-fileupload2-milestone-hardening.md",
+          "docs/superpowers/plans/2026-06-15-WW-5256-freemarker-whitespace-devmode-decoupling.md",
+          "docs/superpowers/plans/2026-07-01-WW-5640-webjars-support.md",
+          "docs/superpowers/plans/2026-07-06-WW-5641-json-writer-reader-override.md",
+          "docs/superpowers/plans/2026-07-08-WW-4858-json-parameter-filtering.md",
+          "docs/superpowers/plans/2026-07-17-WW-5653-bootstrap5-migration.md",
+          "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "docs/superpowers/plans/2026-07-21-WW-5539-concurrency-performance.md",
+          "docs/superpowers/plans/2026-07-22-WW-5413-inmemory-upload-optimization.md",
+          "docs/superpowers/plans/2026-07-22-WW-5474-multipart-maxfiles-semantics.md",
+          "docs/superpowers/plans/2026-07-23-WW-2934-skip-validators-on-conversion-error.md",
+          "docs/superpowers/plans/2026-07-23-WW-5540-localized-text-provider-caching.md",
+          "docs/superpowers/plans/2026-07-25-WW-3530-visitor-validator-cache-key.md",
+          "docs/superpowers/plans/2026-07-25-WW-3871-typeconversion-key-derivation.md",
+          "docs/superpowers/plans/2026-07-26-WW-3784-annotated-wildcard-specificity-ordering.md",
+          "docs/superpowers/plans/2026-07-27-WW-5659-lazy-params-request-scoping.md",
+          "docs/superpowers/plans/2026-07-30-WW-5668-i18n-cache-bounds-locale-resolution.md",
+          "docs/superpowers/plans/2026-08-03-WW-5674-isclassbelongstopackages-allocation.md",
+          "docs/superpowers/plans/2026-08-08-creating-release-vote-mail-skill.md",
+          "docs/superpowers/plans/2026-08-14-WW-5675-share-parsed-ognl-security-config.md",
+          "docs/superpowers/plans/2026-08-24-html5-constraint-validation.md",
+          "docs/superpowers/plans/2026-10-10-WW-3476-scoped-constants.md",
+          "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "docs/superpowers/plans/2026-10-18-WW-3576-session-map-staleness.md"
+        ],
+        "agentContext": [
+          "AGENTS.md",
+          "CLAUDE.md"
+        ]
+      },
+      "typeCheckers": [],
+      "statedRules": [
+        {
+          "path": "AGENTS.md",
+          "line": 17,
+          "text": "[`THREAT_MODEL.md`](THREAT_MODEL.md) (scope, trust boundaries, in-model security properties, and the known-non-findings list). If the answers do not still"
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 18,
+          "text": "point to a likely new framework vulnerability, stop and explain — do not draft a new report."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 22,
+          "text": "Do not open a public GitHub issue, Jira issue, pull request, mailing list thread, or discussion for a suspected vulnerability before private triage."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 26,
+          "text": "**Never submit a pull request that fixes a suspected vulnerability.** Before opening any PR, verify the change is not a security patch — OGNL injection,"
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 30,
+          "text": "Do not speculate beyond what can be demonstrated. If severity is uncertain, say so explicitly."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 31,
+          "text": "If the issue turns out to be application misconfiguration, an already-disclosed CVE, or a non-Struts problem, stop and explain — do not draft a new report."
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 47,
+          "text": "Read it first and follow its pre-reporting checks, assessment checklist, and reporting requirements. Reports must be sent privately to"
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 48,
+          "text": "`security@struts.apache.org`; do not open a public GitHub issue, Jira issue, pull request, or mailing list thread for a suspected vulnerability before private"
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 60,
+          "text": "Methods must be named `testXxx()`. A Jupiter `@Test` annotation added to one of these **silently"
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 61,
+          "text": "never runs** — it does not fail, it is simply not collected."
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 69,
+          "text": "that needs its own `WW-` ticket, never a side effect of a feature."
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 73,
+          "text": "**Title format**: `WW-XXXX Description` — a Jira ticket ID is required for any code change."
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 79,
+          "text": "**Never submit a PR that fixes a suspected vulnerability.** Before opening a PR, verify the change is not a security patch (OGNL injection, parameter"
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 11,
+          "text": "Unless required by applicable law or agreed to in writing, software"
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 22,
+          "text": "request. You do not need to be a committer to contribute — anyone can open a PR."
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 82,
+          "text": "request must reference a `WW-XXXX` ticket ID."
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 94,
+          "text": "**Title format:** `WW-XXXX Description` (the JIRA ticket ID is required)."
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 97,
+          "text": "Continuous integration must pass, and reviewers expect code changes to come"
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 102,
+          "text": "**Do not** open a public GitHub issue, JIRA issue, pull request, or"
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "line": 112,
+          "text": "Every new source file must include the standard ASF license header (see any"
+        },
+        {
+          "path": "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "line": 3,
+          "text": "**For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`)…"
+        },
+        {
+          "path": "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "line": 13,
+          "text": "Fix version: 7.3.0. Target ticket: WW-5620. Every commit message MUST be prefixed `WW-5620`."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "line": 16,
+          "text": "Do NOT touch the runtime bridges `log4j-jcl`, `log4j-slf4j-impl`, or `commons-logging` — they route third-party logging and are out of scope."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "line": 256,
+          "text": "Consumes: Tasks 1–3 must be done first (no first-party source uses SLF4J anymore)."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md",
+          "line": 320,
+          "text": "If any test fails because it silently relied on `slf4j-simple` as a test logging backend, STOP and report — do not add unrelated logging config to force a pass."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 3,
+          "text": "**For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`)…"
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 21,
+          "text": "Tests are JUnit 3 or 4 — never Jupiter. Match the target file's style; an `@Test` in a `TestCase` subclass never runs."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 22,
+          "text": "`ScopedConstantProvider` must stay a functional interface (23 test sites stub it as `name -> ...`)."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 28,
+          "text": "Stage explicit paths only — never `git add -A`, never `git stash`."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 33,
+          "text": "**Override without a trailing slash** (`/WEB-INF/admin`) — must behave like the global constant does: a slash is"
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 35,
+          "text": "**Empty override** (`value=\"\"`) — must be used as-is, not fall back to the global path. Pinned in Task 2."
+        },
+        {
+          "path": "docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md",
+          "line": 36,
+          "text": "**Package-level `@ResultPath` (`package-info.java`)** — must beat the scoped value just as the class-level one"
+        },
+        {
+          "path": "thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md",
+          "line": 283,
+          "text": "❌ Users must add workarounds to proceed"
+        },
+        {
+          "path": "thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md",
+          "line": 364,
+          "text": "**Option 3**: Don't use `struts.convention.action.includeJars` if not needed"
+        }
+      ]
+    },
+    "dependencies": {
+      "status": "measured",
+      "manifests": [
+        {
+          "path": "apps/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 2,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-parent); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "apps/rest-showcase/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 15,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-apps); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "apps/showcase/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 26,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-apps); inherited dependencies and properties are not resolved",
+            "unresolved property ${hibernate-validator.version}",
+            "unresolved property ${webjars-jquery-showcase.version}"
+          ]
+        },
+        {
+          "path": "assembly/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 15,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-parent); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "bom/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 22,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-project); inherited dependencies and properties are not resolved",
+            "unresolved property ${project.version}"
+          ]
+        },
+        {
+          "path": "core/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 31,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-parent); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "jakarta/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 0,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-parent); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "jakarta/velocity-tools-jsp-jakarta/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 1,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-jakarta); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "jakarta/velocity-tools-view-jakarta/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 0,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-jakarta); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "parent/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 44,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-bom); inherited dependencies and properties are not resolved",
+            "unresolved property ${struts-annotations.version}",
+            "unresolved property ${freemarker.version}",
+            "unresolved property ${webjars-locator-lite.version}",
+            "unresolved property ${webjars-jquery.version}",
+            "unresolved property ${webjars-bootstrap.version}",
+            "unresolved property ${webjars-bootstrap-icons.version}",
+            "unresolved property ${velocity-tools.version}",
+            "unresolved property ${project.version}",
+            "unresolved property ${ognl.version}",
+            "unresolved property ${asm.version}",
+            "unresolved property ${jakarta-ee.version}",
+            "unresolved property ${jaxb-impl.version}",
+            "unresolved property ${commons-fileupload2.version}",
+            "unresolved property ${spring.version}",
+            "unresolved property ${mockito.version}",
+            "unresolved property ${byte-buddy.version}",
+            "unresolved property ${log4j2.version}",
+            "unresolved property ${jackson.version}"
+          ]
+        },
+        {
+          "path": "plugins/async/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 2,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/bean-validation/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 7,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved",
+            "unresolved property ${hibernate-validator.version}"
+          ]
+        },
+        {
+          "path": "plugins/cdi/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 7,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved",
+            "unresolved property ${weld.version}"
+          ]
+        },
+        {
+          "path": "plugins/config-browser/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 1,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/convention/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 6,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/jasperreports/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 4,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/jasperreports7/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 7,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/javatemplates/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 1,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/jfreechart/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 4,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/json/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 4,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/junit/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 6,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 7,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-parent); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/rest/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 10,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/spring/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 10,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/testng/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 3,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/tiles/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 10,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/velocity/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 5,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "plugins/xslt/pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 3,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts2-plugins); inherited dependencies and properties are not resolved"
+          ]
+        },
+        {
+          "path": "pom.xml",
+          "ecosystem": "maven",
+          "dependencies": 2,
+          "issues": [
+            "inherits from a parent POM (org.apache.struts:struts-master); inherited dependencies and properties are not resolved"
+          ]
+        }
+      ],
+      "runtimes": [
+        {
+          "runtime": "java",
+          "spec": "17",
+          "source": "pom.xml",
+          "via": "maven.compiler.release",
+          "lowest": "17",
+          "cycle": "17",
+          "status": "supported",
+          "eol": "2027-10-31",
+          "reason": null,
+          "testFixture": false
+        }
+      ]
+    }
+  },
+  "method": {
+    "commands": [
+      "git rev-parse --is-shallow-repository",
+      "git rev-parse --verify -q HEAD",
+      "git rev-parse HEAD",
+      "git ls-tree -r -z --name-only HEAD",
+      "git log --no-merges --no-renames --name-only -z HEAD",
+      "git ls-tree -r -z HEAD",
+      "scc --by-file --format json ."
+    ],
+    "notes": [
+      "merge commits are excluded",
+      "renames are not followed, so a renamed file's history starts at the rename",
+      "authors are counted by email after .mailmap, case-insensitively",
+      "dates are author dates",
+      "files are those tracked at HEAD; content is read from the working tree",
+      "line and byte counts come from the built-in counter",
+      "a file is binary when its first 8000 bytes contain a NUL byte, as git decides",
+      "vendored: any path segment in node_modules, bower_components, vendor, vendors, third_party, third-party, thirdparty, Pods",
+      "generated: lock files, *.min.js, *.min.css and *.map",
+      "symlinks and submodules are never followed",
+      "paths are those tracked at HEAD; vendored paths are ignored",
+      "test files are matched by name and directory conventions; tests are never run",
+      "build-tool test runners (Maven, Gradle, Rails minitest, RSpec, go test, cargo test) count when tests sit beside the build file",
+      "files under test and fixture directories, and src/<set>/resources, are not classified as documentation",
+      "CI files show that CI is configured, not that it passes",
+      "agent context files are listed for presence only; presence alone scores nothing",
+      "type checkers are found by config file; inherited tsconfig settings (extends) are not followed",
+      "stated rules are lines with must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside code blocks; whether a rule is non-standard needs judgment",
+      "manifests are files tracked at HEAD outside vendored directories, read as text; setup.py and build files are never executed",
+      "nothing is installed or resolved; versions are as declared",
+      "for a version range, the lowest declared version is assessed",
+      "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
+      "end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date",
+      "Maven dependencies include those declared in dependencyManagement and plugin blocks"
+    ]
+  }
+}

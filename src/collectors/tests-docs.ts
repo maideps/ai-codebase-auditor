@@ -4,7 +4,7 @@
 // never runs the target's tests or tools.
 
 import { realpathSync } from "node:fs";
-import { extensionOf, SOURCE_EXTENSIONS } from "../file-kinds.js";
+import { extensionOf, isUnderTestPath, SOURCE_EXTENSIONS } from "../file-kinds.js";
 import { createGitRunner, GitError, hasCommits } from "./git.js";
 import { isVendored, listTree, readTrackedFile, type ReadSkip, type TreeEntry } from "./tree.js";
 import type { Evidence, Measurement } from "./types.js";
@@ -155,6 +155,8 @@ const MAX_RULE_LENGTH = 200;
 const NOTES = [
   "paths are those tracked at HEAD; vendored paths are ignored",
   "test files are matched by name and directory conventions; tests are never run",
+  "build-tool test runners (Maven, Gradle, Rails minitest, RSpec, go test, cargo test) count when tests sit beside the build file",
+  "files under test and fixture directories, and src/<set>/resources, are not classified as documentation",
   "CI files show that CI is configured, not that it passes",
   "agent context files are listed for presence only; presence alone scores nothing",
   "type checkers are found by config file; inherited tsconfig settings (extends) are not followed",
@@ -163,12 +165,48 @@ const NOTES = [
 
 const byPath = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+// Test runners that build tools provide by convention, with no runner config
+// file of their own: Maven, Gradle, Rails, RSpec, Go and Cargo. Each needs the
+// build file and evidence of tests beside it.
+function buildToolRunners(
+  entries: readonly TreeEntry[],
+  read: (entry: TreeEntry) => { content: Buffer } | { skipped: string },
+): TestsDocs["tests"]["runnerConfigs"] {
+  const paths = entries.map((entry) => entry.path);
+  const dirOf = (filePath: string) => filePath.slice(0, filePath.lastIndexOf("/") + 1);
+  const anyUnder = (prefix: string, test: (rest: string) => boolean) =>
+    paths.some((filePath) => filePath.startsWith(prefix) && test(filePath.slice(prefix.length)));
+  const found: TestsDocs["tests"]["runnerConfigs"] = [];
+  for (const entry of entries) {
+    const name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
+    const dir = dirOf(entry.path);
+    if (name === "pom.xml") {
+      const file = read(entry);
+      const plugin = "content" in file && /maven-(?:surefire|failsafe)-plugin/.test(file.content.toString("utf8"));
+      if (plugin || anyUnder(`${dir}src/test/`, () => true)) found.push({ path: entry.path, runner: "Maven" });
+    } else if ((name === "build.gradle" || name === "build.gradle.kts") && anyUnder(`${dir}src/test/`, () => true)) {
+      found.push({ path: entry.path, runner: "Gradle" });
+    } else if (entry.path === "test/test_helper.rb" || entry.path.endsWith("/test/test_helper.rb")) {
+      found.push({ path: entry.path, runner: "minitest (Rails)" });
+    } else if (entry.path === "spec/spec_helper.rb" || entry.path.endsWith("/spec/spec_helper.rb")) {
+      found.push({ path: entry.path, runner: "RSpec" });
+    } else if (name === "go.mod" && anyUnder(dir, (rest) => rest.endsWith("_test.go"))) {
+      found.push({ path: entry.path, runner: "go test" });
+    } else if (name === "Cargo.toml" && anyUnder(`${dir}tests/`, (rest) => rest.endsWith(".rs"))) {
+      found.push({ path: entry.path, runner: "cargo test" });
+    }
+  }
+  return found;
+}
+
 function classifyDocs(paths: readonly string[]): TestsDocs["docs"] {
   const docs: TestsDocs["docs"] = {
     readme: [], moduleReadmes: [], contributing: [], architecture: [],
     decisionRecords: [], conventions: [], docsDirectory: [], agentContext: [],
   };
   for (const filePath of paths) {
+    // Test data and source-set resources describe test inputs, not the project.
+    if (isUnderTestPath(filePath)) continue;
     const segments = filePath.split("/");
     const name = segments[segments.length - 1] ?? "";
     const lower = name.toLowerCase();
@@ -262,6 +300,9 @@ export function collectTestsDocs(repoPath: string, options: TestsDocsOptions = {
     const system = CI_SYSTEMS.find((candidate) => candidate.matches(entry.path));
     if (system) ci.push({ path: entry.path, system: system.system });
   }
+
+  runnerConfigs.push(...buildToolRunners(entries, read));
+  runnerConfigs.sort((a, b) => byPath(a.path, b.path) || byPath(a.runner, b.runner));
 
   const counts = new Map<string, number>();
   for (const file of testFiles) counts.set(file.convention, (counts.get(file.convention) ?? 0) + 1);

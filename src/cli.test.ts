@@ -39,7 +39,7 @@ describe("runCli: audit", () => {
     expect(result.stderr).toBe("");
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(`Target: ${repo}`);
-    expect(result.stdout).toContain("Factors: 9 (3 blocking, 6 constraining)");
+    expect(result.stdout).toContain("Factors: 9 (2 blocking, 7 constraining)");
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+-\s+not measured: code structure not measured \(git failed: .+\)/);
     expect(result.stdout).toContain("Readiness level: not determined (no blocking factor could be scored)");
     expect(result.stdout).toMatch(/Verdict: none\n {2}rule: no verdict: test-feedback is not measured \(code structure not measured \(git failed: .+\)\)/);
@@ -201,9 +201,9 @@ describe("runCli: scores", () => {
     expect(result.stdout).toContain("Scores (1-5; the lowest blocking factor sets the readiness level, never an average):");
     // a.js, b.js and jest.config.js are source files: 1 test file for 3.
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+5\s+ratio 0\.33/);
-    expect(result.stdout).toMatch(/blocking\s+type-strictness\s+1\s+weighted typed share 0\.00/);
+    expect(result.stdout).toMatch(/constraining\s+type-strictness\s+1\s+weighted typed share 0\.00/);
     expect(result.stdout).toMatch(/blocking\s+direct-api-calls\s+-\s+not measured: no collector signal yet/);
-    expect(result.stdout).toContain("Readiness level: 1 of 5, set by type-strictness (provisional: direct-api-calls not measured)");
+    expect(result.stdout).toContain("Readiness level: 5 of 5, set by test-feedback (provisional: direct-api-calls not measured)");
     // Tests score 5, but nothing is typed and the only doc is a README: adapt, with modules green.
     expect(result.stdout).toContain("Verdict: adapt (provisional: direct-api-calls not measured)");
     expect(result.stdout).toContain("  rule: 2 weak factors (score ≤ 2): type-strictness 1, documented-intent 2");
@@ -216,9 +216,10 @@ describe("runCli: scores", () => {
     writeFileSync(deferrals, JSON.stringify({ version: 1, deferrals: [{ factor: "type-strictness", recorded: "2026-09-01", reason: "adding JSDoc types" }] }), "utf8");
     const result = runCli(["audit", scored, "--deferrals", deferrals], "1.2.3");
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/blocking\s+type-strictness\s+2\s/);
+    expect(result.stdout).toMatch(/constraining\s+type-strictness\s+2\s/);
     expect(result.stdout).toContain("deferral recorded 2026-09-01 (adding JSDoc types): raised from 1 to 2");
-    expect(result.stdout).toContain("Readiness level: 2 of 5, set by type-strictness");
+    // type-strictness is constraining, so the deferral moves its score but not the readiness level.
+    expect(result.stdout).toContain("Readiness level: 5 of 5, set by test-feedback");
   });
 
   it("rejects deferrals for unknown factors and invalid deferral files", () => {

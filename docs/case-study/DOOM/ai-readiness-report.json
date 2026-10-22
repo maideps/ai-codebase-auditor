@@ -1,0 +1,526 @@
+{
+  "schema": "ai-codebase-auditor/report",
+  "schemaVersion": 2,
+  "tool": {
+    "name": "ai-codebase-auditor",
+    "version": "0.1.0"
+  },
+  "auditDate": "2026-10-22",
+  "target": {
+    "path": "D:\\7-Maide\\Projects\\audit-targets\\DOOM",
+    "head": "a77dfb96cb91780ca334d0d4cfd86957558007e0"
+  },
+  "inputs": {
+    "factorConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\factors.json",
+    "decisionConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\decision.json",
+    "eolTable": {
+      "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
+      "asOf": "2026-10-21",
+      "ageDays": 1
+    },
+    "deferrals": null
+  },
+  "verdict": {
+    "verdict": "prepare-first",
+    "rule": "test-feedback 1 ≤ 2 and module boundaries not measured",
+    "triggeredBy": [
+      {
+        "factor": "test-feedback",
+        "score": 1
+      },
+      {
+        "factor": "module-boundaries",
+        "score": null
+      }
+    ],
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "readiness": {
+    "level": 1,
+    "setBy": "test-feedback",
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "factors": [
+    {
+      "id": "test-feedback",
+      "name": "Test presence and feedback speed",
+      "class": "blocking",
+      "status": "scored",
+      "score": 1,
+      "baseScore": 1,
+      "rule": "no test files",
+      "evidence": [
+        "0 test files for 146 source files: ratio 0.00",
+        "test runner configs: none",
+        "CI: none"
+      ],
+      "partial": "feedback speed is not measured: the audit never runs tests",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "type-strictness",
+      "name": "Type strictness",
+      "class": "constraining",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "weighted typed share 0.75",
+      "evidence": [
+        "typed share 0.75 of 59110 source lines (strong 0, weak 59110, checked dynamic 0, unchecked dynamic 0)",
+        "type checkers: none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "direct-api-calls",
+      "name": "Direct API calls",
+      "class": "blocking",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs call-site analysis",
+      "deferral": null
+    },
+    {
+      "id": "file-size",
+      "name": "File size and context legibility",
+      "class": "constraining",
+      "status": "scored",
+      "score": 2,
+      "baseScore": 2,
+      "rule": "lower of p90 988 lines (→ 2) and 8.90% of files over 1000 lines (→ 2)",
+      "evidence": [
+        "146 source files: p90 988 lines, 13 over 1000 lines (8.90%)",
+        "largest: linuxdoom-1.10/info.c (4670 lines), linuxdoom-1.10/tables.c (2130 lines), linuxdoom-1.10/p_enemy.c (2008 lines), linuxdoom-1.10/m_menu.c (1893 lines), linuxdoom-1.10/wi_stuff.c (1850 lines)"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "module-boundaries",
+      "name": "Module boundary clarity",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "deferral": null
+    },
+    {
+      "id": "documented-intent",
+      "name": "Documented intent",
+      "class": "constraining",
+      "status": "scored",
+      "score": 2,
+      "baseScore": 2,
+      "rule": "a README without written rules",
+      "evidence": [
+        "README: README.TXT; contributing: none; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 0 in 0 files",
+        "agent context files (presence alone scores nothing): none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "deferral": null
+    },
+    {
+      "id": "dev-deploy-simplicity",
+      "name": "Dev and deploy simplicity",
+      "class": "constraining",
+      "status": "scored",
+      "score": 1,
+      "baseScore": 1,
+      "rule": "0 of 4 signals: none",
+      "evidence": [
+        "CI: none",
+        "test runner configs: none",
+        "declared runtimes: none",
+        "lock files: none"
+      ],
+      "partial": "build scripts and containers are not detected yet",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "dependency-currency",
+      "name": "Dependency and runtime currency",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no declared runtime with a known end-of-life status outside test fixtures",
+      "deferral": null
+    }
+  ],
+  "zones": {
+    "modules": [
+      {
+        "module": "ipx",
+        "zone": "yellow",
+        "reason": "test-feedback 1 < 3: add characterization tests before agents edit",
+        "sourceFiles": 7,
+        "redFiles": 0
+      },
+      {
+        "module": "linuxdoom-1.10",
+        "zone": "yellow",
+        "reason": "test-feedback 1 < 3: add characterization tests before agents edit",
+        "sourceFiles": 124,
+        "redFiles": 0
+      },
+      {
+        "module": "sersrc",
+        "zone": "yellow",
+        "reason": "test-feedback 1 < 3: add characterization tests before agents edit",
+        "sourceFiles": 7,
+        "redFiles": 0
+      },
+      {
+        "module": "sndserv",
+        "zone": "yellow",
+        "reason": "test-feedback 1 < 3: add characterization tests before agents edit",
+        "sourceFiles": 8,
+        "redFiles": 0
+      }
+    ],
+    "redPaths": [],
+    "unzoned": [
+      "(root)"
+    ],
+    "note": null
+  },
+  "notMeasured": [
+    {
+      "kind": "factor",
+      "id": "direct-api-calls",
+      "reason": "no collector signal yet: needs call-site analysis"
+    },
+    {
+      "kind": "factor",
+      "id": "module-boundaries",
+      "reason": "no collector signal yet: needs an import graph or co-change coupling"
+    },
+    {
+      "kind": "factor",
+      "id": "observability",
+      "reason": "no collector signal yet: needs a logging and metrics detector"
+    },
+    {
+      "kind": "factor",
+      "id": "dependency-currency",
+      "reason": "no declared runtime with a known end-of-life status outside test fixtures"
+    },
+    {
+      "kind": "tool",
+      "id": "scc",
+      "reason": "scc is not installed or not on PATH"
+    }
+  ],
+  "signals": {
+    "gitHistory": {
+      "status": "measured",
+      "head": "a77dfb96cb91780ca334d0d4cfd86957558007e0",
+      "window": {
+        "since": "2025-10-22T23:59:59.999Z",
+        "until": "2026-10-22T23:59:59.999Z"
+      },
+      "totals": {
+        "commits": 4,
+        "commitsLastYear": 0,
+        "authors": 2,
+        "firstCommit": "2012-01-31T21:27:37.000Z",
+        "lastCommit": "2024-01-16T16:13:31.000Z",
+        "trackedFiles": 165
+      },
+      "hotspots": [
+        {
+          "path": "README.TXT",
+          "commits": 2,
+          "commitsLastYear": 0,
+          "authors": 2,
+          "lastCommit": "2024-01-16T16:13:31.000Z"
+        },
+        {
+          "path": "LICENSE.TXT",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2024-01-16T16:13:31.000Z"
+        },
+        {
+          "path": "ipx/DOOMNET.C",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/DOOMNET.H",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/IPXNET.C",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/IPXNET.H",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/IPXSETUP.C",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/IPXSTR.H",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/IPX_FRCH.H",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        },
+        {
+          "path": "ipx/README",
+          "commits": 1,
+          "commitsLastYear": 0,
+          "authors": 1,
+          "lastCommit": "2012-01-31T21:32:25.000Z"
+        }
+      ]
+    },
+    "codeStructure": {
+      "status": "measured",
+      "distribution": {
+        "files": 165,
+        "totalLines": 61896,
+        "totalBytes": 1438883,
+        "p50Lines": 132,
+        "p90Lines": 922,
+        "p99Lines": 2130,
+        "maxLines": 4670,
+        "buckets": [
+          {
+            "label": "0-200",
+            "files": 92
+          },
+          {
+            "label": "201-500",
+            "files": 33
+          },
+          {
+            "label": "501-1000",
+            "files": 27
+          },
+          {
+            "label": "1001-2000",
+            "files": 10
+          },
+          {
+            "label": "2001+",
+            "files": 3
+          }
+        ],
+        "largest": [
+          {
+            "path": "linuxdoom-1.10/info.c",
+            "lines": 4670
+          },
+          {
+            "path": "linuxdoom-1.10/tables.c",
+            "lines": 2130
+          },
+          {
+            "path": "linuxdoom-1.10/p_enemy.c",
+            "lines": 2008
+          },
+          {
+            "path": "linuxdoom-1.10/m_menu.c",
+            "lines": 1893
+          },
+          {
+            "path": "linuxdoom-1.10/wi_stuff.c",
+            "lines": 1850
+          },
+          {
+            "path": "linuxdoom-1.10/g_game.c",
+            "lines": 1690
+          },
+          {
+            "path": "linuxdoom-1.10/st_stuff.c",
+            "lines": 1471
+          },
+          {
+            "path": "linuxdoom-1.10/p_spec.c",
+            "lines": 1362
+          },
+          {
+            "path": "linuxdoom-1.10/am_map.c",
+            "lines": 1349
+          },
+          {
+            "path": "linuxdoom-1.10/info.h",
+            "lines": 1340
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "(root)",
+          "files": 2,
+          "lines": 421,
+          "bytes": 21611
+        },
+        {
+          "name": "ipx",
+          "files": 8,
+          "lines": 1003,
+          "bytes": 22644
+        },
+        {
+          "name": "linuxdoom-1.10",
+          "files": 137,
+          "lines": 56949,
+          "bytes": 1322492
+        },
+        {
+          "name": "sersrc",
+          "files": 8,
+          "lines": 1443,
+          "bytes": 27696
+        },
+        {
+          "name": "sndserv",
+          "files": 10,
+          "lines": 2080,
+          "bytes": 44440
+        }
+      ],
+      "excludedByReason": {},
+      "scc": {
+        "status": "unavailable",
+        "reason": "scc is not installed or not on PATH"
+      }
+    },
+    "testsDocs": {
+      "status": "measured",
+      "testFiles": 0,
+      "conventions": [],
+      "runnerConfigs": [],
+      "ci": [],
+      "docs": {
+        "readme": [
+          "README.TXT"
+        ],
+        "moduleReadmes": [
+          "ipx/README",
+          "linuxdoom-1.10/README.asm",
+          "linuxdoom-1.10/README.b",
+          "linuxdoom-1.10/README.book",
+          "linuxdoom-1.10/README.gl",
+          "linuxdoom-1.10/README.sound",
+          "sersrc/README.TXT",
+          "sndserv/README.sndserv"
+        ],
+        "contributing": [],
+        "architecture": [],
+        "decisionRecords": [],
+        "conventions": [],
+        "docsDirectory": [],
+        "agentContext": []
+      },
+      "typeCheckers": [],
+      "statedRules": []
+    },
+    "dependencies": {
+      "status": "measured",
+      "manifests": [],
+      "runtimes": []
+    }
+  },
+  "method": {
+    "commands": [
+      "git rev-parse --is-shallow-repository",
+      "git rev-parse --verify -q HEAD",
+      "git rev-parse HEAD",
+      "git ls-tree -r -z --name-only HEAD",
+      "git log --no-merges --no-renames --name-only -z HEAD",
+      "git ls-tree -r -z HEAD",
+      "scc --by-file --format json ."
+    ],
+    "notes": [
+      "merge commits are excluded",
+      "renames are not followed, so a renamed file's history starts at the rename",
+      "authors are counted by email after .mailmap, case-insensitively",
+      "dates are author dates",
+      "files are those tracked at HEAD; content is read from the working tree",
+      "line and byte counts come from the built-in counter",
+      "a file is binary when its first 8000 bytes contain a NUL byte, as git decides",
+      "vendored: any path segment in node_modules, bower_components, vendor, vendors, third_party, third-party, thirdparty, Pods",
+      "generated: lock files, *.min.js, *.min.css and *.map",
+      "symlinks and submodules are never followed",
+      "paths are those tracked at HEAD; vendored paths are ignored",
+      "test files are matched by name and directory conventions; tests are never run",
+      "build-tool test runners (Maven, Gradle, Rails minitest, RSpec, go test, cargo test) count when tests sit beside the build file",
+      "files under test and fixture directories, and src/<set>/resources, are not classified as documentation",
+      "CI files show that CI is configured, not that it passes",
+      "agent context files are listed for presence only; presence alone scores nothing",
+      "type checkers are found by config file; inherited tsconfig settings (extends) are not followed",
+      "stated rules are lines with must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside code blocks; whether a rule is non-standard needs judgment",
+      "manifests are files tracked at HEAD outside vendored directories, read as text; setup.py and build files are never executed",
+      "nothing is installed or resolved; versions are as declared",
+      "for a version range, the lowest declared version is assessed",
+      "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
+      "end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date",
+      "Maven dependencies include those declared in dependencyManagement and plugin blocks"
+    ]
+  }
+}

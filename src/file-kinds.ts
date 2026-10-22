@@ -45,6 +45,22 @@ export function languageOf(filePath: string): Language | null {
   return LANGUAGE_BY_EXTENSION[extensionOf(filePath)] ?? null;
 }
 
+const TEST_PATH_SEGMENTS: ReadonlySet<string> = new Set([
+  "test", "tests", "spec", "specs", "__tests__", "fixtures", "__fixtures__", "testdata", "test-fixtures",
+]);
+
+/**
+ * True when a directory on the path holds tests or test data, or is a
+ * source-set resources folder (src/<set>/resources). Files there describe
+ * test inputs, not the product.
+ */
+export function isUnderTestPath(filePath: string): boolean {
+  const directories = filePath.split("/").slice(0, -1);
+  return directories.some(
+    (segment, index) => TEST_PATH_SEGMENTS.has(segment) || (segment === "resources" && directories[index - 2] === "src"),
+  );
+}
+
 export function isLockFile(filePath: string): boolean {
   return LOCK_FILE_NAMES.has(filePath.slice(filePath.lastIndexOf("/") + 1));
 }

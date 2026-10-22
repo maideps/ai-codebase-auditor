@@ -7,6 +7,7 @@ import { realpathSync } from "node:fs";
 import type { Runtime, RuntimeEolTable } from "../config/runtime-eol.js";
 import { isSupportedManifest, isUnsupportedManifest, parseManifest, type ParsedManifest, type RuntimeDeclaration } from "./dependencies/parsers.js";
 import { cycleFor, lowestVersion } from "./dependencies/versions.js";
+import { isUnderTestPath } from "../file-kinds.js";
 import { createGitRunner, GitError, hasCommits } from "./git.js";
 import { isVendored, listTree, readTrackedFile, type TreeEntry } from "./tree.js";
 import type { Evidence, Measurement } from "./types.js";
@@ -25,6 +26,8 @@ export interface RuntimeAssessment {
   eol: string | null;
   /** Why the status is unknown; null otherwise. */
   reason: string | null;
+  /** Declared under a test or fixture directory: listed, but not the product's runtime. */
+  testFixture: boolean;
 }
 
 export interface Dependencies {
@@ -50,8 +53,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function assess(declaration: RuntimeDeclaration, source: string, table: RuntimeEolTable, today: string): RuntimeAssessment {
   const base = { runtime: declaration.runtime, spec: declaration.spec, source, via: declaration.via };
+  const testFixture = isUnderTestPath(source);
   const unknown = (lowest: string | null, cycle: string | null, reason: string): RuntimeAssessment => ({
-    ...base, lowest, cycle, status: "unknown", eol: null, reason,
+    ...base, lowest, cycle, status: "unknown", eol: null, reason, testFixture,
   });
   const lowest = lowestVersion(declaration.spec);
   if (lowest === null) return unknown(null, null, "no lower version bound");
@@ -60,7 +64,7 @@ function assess(declaration: RuntimeDeclaration, source: string, table: RuntimeE
   const row = table.runtimes[declaration.runtime]?.cycles.find((candidate) => candidate.cycle === cycle);
   if (!row) return unknown(lowest, cycle, `cycle ${cycle} is not in the end-of-life table`);
   // Support ends on the EOL date, so that day already counts as end of life.
-  return { ...base, lowest, cycle, status: today >= row.eol ? "end-of-life" : "supported", eol: row.eol, reason: null };
+  return { ...base, lowest, cycle, status: today >= row.eol ? "end-of-life" : "supported", eol: row.eol, reason: null, testFixture };
 }
 
 export function collectDependencies(repoPath: string, options: DependenciesOptions): Measurement<Dependencies> {
@@ -72,6 +76,7 @@ export function collectDependencies(repoPath: string, options: DependenciesOptio
       "manifests are files tracked at HEAD outside vendored directories, read as text; setup.py and build files are never executed",
       "nothing is installed or resolved; versions are as declared",
       "for a version range, the lowest declared version is assessed",
+      "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
       `end-of-life dates come from the table as of ${options.table.asOf}; a runtime is end-of-life on or after its cycle's date`,
       "Maven dependencies include those declared in dependencyManagement and plugin blocks",
       ...(ageDays > 365 ? ["the end-of-life table is more than a year old; refresh it"] : []),

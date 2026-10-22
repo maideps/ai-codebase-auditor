@@ -40,12 +40,18 @@ describe("scoreFactors", () => {
   });
 
   it("sets readiness from the lowest scored blocking factor, never an average", () => {
+    // type-strictness 1 is constraining, so the blocking test-feedback 5 sets the level.
     expect(scoreFactors(results, config, { now }).readiness).toEqual({
-      level: 1,
-      setBy: "type-strictness",
+      level: 5,
+      setBy: "test-feedback",
       provisional: true,
       unmeasuredBlocking: ["direct-api-calls"],
     });
+  });
+
+  it("lets a weak blocking factor set the level", () => {
+    const weakTests = collected({ ...results, testsDocs: testsDocsOf({ testFiles: ["test/f0.js"], docs: { readme: ["README.md"] } }) });
+    expect(scoreFactors(weakTests, config, { now }).readiness).toMatchObject({ level: 2, setBy: "test-feedback" });
   });
 
   it("ignores low constraining factors when setting readiness", () => {
@@ -122,8 +128,9 @@ describe("deferrals", () => {
     });
   });
 
-  it("can raise the readiness level", () => {
-    expect(scoreFactors(results, config, { now, deferrals: [deferral("type-strictness")] }).readiness).toMatchObject({ level: 2, setBy: "type-strictness" });
+  it("can raise the readiness level through a blocking factor", () => {
+    const weakTests = collected({ ...results, testsDocs: testsDocsOf({ testFiles: ["test/f0.js"], docs: { readme: ["README.md"] } }) });
+    expect(scoreFactors(weakTests, config, { now, deferrals: [deferral("test-feedback")] }).readiness).toMatchObject({ level: 3, setBy: "test-feedback" });
   });
 });
 

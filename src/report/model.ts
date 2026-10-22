@@ -11,7 +11,7 @@ import type { Decision, Verdict, Zones } from "../decision/types.js";
 import type { CollectorResults, FactorScore, Readiness, Scoring } from "../scoring/types.js";
 
 export const REPORT_SCHEMA = "ai-codebase-auditor/report";
-export const REPORT_SCHEMA_VERSION = 1;
+export const REPORT_SCHEMA_VERSION = 2;
 
 export interface ReportInput {
   tool: { name: string; version: string };

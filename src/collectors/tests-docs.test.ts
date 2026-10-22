@@ -148,6 +148,40 @@ describe("collectTestsDocs on a polyglot repository", () => {
   });
 });
 
+describe("collectTestsDocs build-tool test runners", () => {
+  it.each([
+    ["Maven with Surefire", { "pom.xml": "<project><build><plugins><plugin><artifactId>maven-surefire-plugin</artifactId></plugin></plugins></build></project>", "src/main/java/A.java": "x\n" }, [{ path: "pom.xml", runner: "Maven" }]],
+    ["Maven by src/test convention", { "core/pom.xml": "<project/>", "core/src/test/java/ATest.java": "t\n" }, [{ path: "core/pom.xml", runner: "Maven" }]],
+    ["Gradle by src/test convention", { "build.gradle.kts": "plugins { java }\n", "src/test/kotlin/ATest.kt": "t\n" }, [{ path: "build.gradle.kts", runner: "Gradle" }]],
+    ["Rails minitest", { "Rakefile": "x\n", "test/test_helper.rb": "require 'minitest'\n" }, [{ path: "test/test_helper.rb", runner: "minitest (Rails)" }]],
+    ["RSpec helper", { "spec/spec_helper.rb": "x\n" }, [{ path: "spec/spec_helper.rb", runner: "RSpec" }]],
+    ["go test", { "go.mod": "module x\n", "pkg/a_test.go": "t\n" }, [{ path: "go.mod", runner: "go test" }]],
+    ["cargo test", { "Cargo.toml": "[package]\n", "tests/it.rs": "t\n" }, [{ path: "Cargo.toml", runner: "cargo test" }]],
+  ])("recognizes %s", (_label, files, expected) => {
+    expect(measured(repoWith(files)).tests.runnerConfigs).toEqual(expected);
+  });
+
+  it("does not credit a build file without tests", () => {
+    expect(measured(repoWith({ "pom.xml": "<project/>", "src/main/java/A.java": "x\n", "go.mod": "module x\n", "main.go": "x\n" })).tests.runnerConfigs).toEqual([]);
+  });
+});
+
+describe("collectTestsDocs docs under test paths", () => {
+  it("does not classify test data as documentation", () => {
+    const value = measured(repoWith({
+      "README.md": "# r\n",
+      "docs/STYLE.md": "Never use tabs.\n",
+      "core/src/test/resources/validationstyles-1.txt": "data\n",
+      "tests/fixtures/README.md": "fixture\n",
+      "spec/fixtures/ARCHITECTURE.md": "fixture\n",
+    }));
+    expect(value.docs.conventions).toEqual(["docs/STYLE.md"]);
+    expect(value.docs.moduleReadmes).toEqual([]);
+    expect(value.docs.architecture).toEqual([]);
+    expect(value.statedRules).toEqual([{ path: "docs/STYLE.md", line: 1, text: "Never use tabs." }]);
+  });
+});
+
 describe("collectTestsDocs type checkers", () => {
   it("detects type-checker configs per language, reading tsconfig through comments", () => {
     const value = measured(repoWith({

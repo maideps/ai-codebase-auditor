@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "auditDate": "2026-10-22",
+  "reviewed": "2026-10-22",
+  "labelKinds": {
+    "TP": "true positive: the score or finding matches the repository, checked against the clone",
+    "FP": "false positive: the score or finding is wrong, checked against the clone",
+    "NO": "not observable: the property cannot be seen from repository contents"
+  },
+  "repositories": [
+    {
+      "id": "DOOM",
+      "repository": "id-Software/DOOM",
+      "commit": "a77dfb96cb91",
+      "expected": "prepare-first",
+      "actual": "prepare-first",
+      "readiness": 1,
+      "match": true,
+      "labels": [
+        { "finding": "test-feedback", "score": 1, "label": "TP" },
+        { "finding": "type-strictness", "score": 4, "label": "TP" },
+        { "finding": "file-size", "score": 2, "label": "TP" },
+        { "finding": "documented-intent", "score": 2, "label": "TP" },
+        { "finding": "dev-deploy-simplicity", "score": 1, "label": "TP", "note": "partial: two Makefiles are not detected as build scripts" },
+        { "finding": "dependency-currency", "score": null, "label": "NO", "note": "C with no manifests or declared runtime" },
+        { "finding": "git-history", "score": null, "label": "NO", "note": "4 commits from a source drop" },
+        { "finding": "zones", "score": null, "label": "TP", "note": "4 yellow modules" }
+      ]
+    },
+    {
+      "id": "moin-1.9",
+      "repository": "moinwiki/moin-1.9",
+      "commit": "8c6341e92bce",
+      "expected": "adapt or prepare-first",
+      "actual": "adapt",
+      "readiness": 3,
+      "match": true,
+      "labels": [
+        { "finding": "test-feedback", "score": 3, "label": "TP" },
+        { "finding": "ci-passing", "score": null, "label": "NO", "note": ".travis.yml exists; its run state cannot be seen" },
+        { "finding": "type-strictness", "score": 1, "label": "TP" },
+        { "finding": "file-size", "score": 3, "label": "TP" },
+        { "finding": "documented-intent", "score": 2, "label": "TP" },
+        { "finding": "dependency-currency", "score": 1, "label": "TP", "note": "Python 2.7 classifiers" },
+        { "finding": "source-file-population", "score": null, "label": "FP", "note": "known limit: bundled libraries under MoinMoin/support/ count as product source; no score change" },
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "7 paths" }
+      ]
+    },
+    {
+      "id": "phpbb",
+      "repository": "phpbb/phpbb",
+      "commit": "27fb7748768e",
+      "expected": "adopt (provisional), revised from adapt",
+      "actual": "adopt",
+      "readiness": 5,
+      "match": true,
+      "labels": [
+        { "finding": "test-feedback", "score": 5, "label": "TP" },
+        { "finding": "type-strictness", "score": 3, "label": "TP", "note": "Psalm configured" },
+        { "finding": "file-size", "score": 3, "label": "TP" },
+        { "finding": "documented-intent", "score": 3, "label": "TP" },
+        { "finding": "dev-deploy-simplicity", "score": 5, "label": "TP" },
+        { "finding": "dependency-currency", "score": 4, "label": "TP", "note": "first run scored 1 from test-fixture manifests (FP), fixed in D-013" },
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "40 paths; 1 FP known limit: build/doctum-checkout.conf.php" }
+      ]
+    },
+    {
+      "id": "struts",
+      "repository": "apache/struts",
+      "commit": "f2ea51ac3e3c",
+      "expected": "adopt (provisional), revised from adapt",
+      "actual": "adopt",
+      "readiness": 5,
+      "match": true,
+      "labels": [
+        { "finding": "test-feedback", "score": 5, "label": "TP", "note": "first run scored 3 without the Maven runner (FP), fixed in D-013" },
+        { "finding": "type-strictness", "score": 5, "label": "TP" },
+        { "finding": "file-size", "score": 4, "label": "TP" },
+        { "finding": "documented-intent", "score": 3, "label": "TP" },
+        { "finding": "conventions-docs", "score": null, "label": "FP", "note": "known limit: convention-plugin design notes match by name; specs/ design docs skipped as test paths; no score change" },
+        { "finding": "dev-deploy-simplicity", "score": 4, "label": "TP", "note": "partial: no lock file is normal for Maven" },
+        { "finding": "dependency-currency", "score": 5, "label": "TP" },
+        { "finding": "module-boundaries", "score": null, "label": "NO", "note": "multi-module layout not measured" },
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "13 paths; 5 FP known limit: Password* form-field classes" }
+      ]
+    },
+    {
+      "id": "redmine",
+      "repository": "redmine/redmine",
+      "commit": "77cad6adb89c",
+      "expected": "adapt, revised from adopt",
+      "actual": "adapt",
+      "readiness": 5,
+      "match": true,
+      "labels": [
+        { "finding": "test-feedback", "score": 5, "label": "TP", "note": "first run scored 3 without the Rails runner (FP), fixed in D-013" },
+        { "finding": "type-strictness", "score": 1, "label": "TP", "note": "constraining since D-013" },
+        { "finding": "file-size", "score": 4, "label": "TP" },
+        { "finding": "documented-intent", "score": 3, "label": "TP" },
+        { "finding": "dev-deploy-simplicity", "score": 5, "label": "TP" },
+        { "finding": "dependency-currency", "score": 4, "label": "TP" },
+        { "finding": "git-authors", "score": null, "label": "NO", "note": "Subversion mirror: 12 committers" },
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "78 paths" }
+      ]
+    }
+  ]
+}

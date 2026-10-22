@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -43,8 +43,8 @@
     ]
   },
   "readiness": {
-    "level": 1,
-    "setBy": "type-strictness",
+    "level": 5,
+    "setBy": "test-feedback",
     "provisional": true,
     "unmeasuredBlocking": [
       "direct-api-calls"
@@ -71,7 +71,7 @@
     {
       "id": "type-strictness",
       "name": "Type strictness",
-      "class": "blocking",
+      "class": "constraining",
       "status": "scored",
       "score": 1,
       "baseScore": 1,
@@ -348,7 +348,8 @@
           "cycle": "14",
           "status": "end-of-life",
           "eol": "2023-04-30",
-          "reason": null
+          "reason": null,
+          "testFixture": false
         }
       ]
     }

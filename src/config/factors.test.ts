@@ -19,13 +19,12 @@ function errorsOf(raw: unknown): string[] {
 }
 
 describe("default config", () => {
-  it("loads nine factors, three of them blocking", () => {
+  it("loads nine factors, two of them blocking (type-strictness is constraining since calibration)", () => {
     const result = loadFactorConfig(DEFAULT_CONFIG_PATH);
     if (!result.ok) throw new Error(result.errors.join("\n"));
     expect(result.value.factors).toHaveLength(9);
     expect(result.value.factors.filter((f) => f.class === "blocking").map((f) => f.id)).toEqual([
       "test-feedback",
-      "type-strictness",
       "direct-api-calls",
     ]);
   });

@@ -67,19 +67,19 @@ describe("collectDependencies on a mixed repository", () => {
     expect(measured(repo).runtimes).toEqual([
       {
         runtime: "python", spec: "3.12.1", source: ".python-version", via: ".python-version",
-        lowest: "3.12.1", cycle: "3.12", status: "supported", eol: "2028-10-31", reason: null,
+        lowest: "3.12.1", cycle: "3.12", status: "supported", eol: "2028-10-31", reason: null, testFixture: false,
       },
       {
         runtime: "ruby", spec: "latest", source: ".ruby-version", via: ".ruby-version",
-        lowest: null, cycle: null, status: "unknown", eol: null, reason: "no lower version bound",
+        lowest: null, cycle: null, status: "unknown", eol: null, reason: "no lower version bound", testFixture: false,
       },
       {
         runtime: "node", spec: ">=14", source: "package.json", via: "engines.node",
-        lowest: "14", cycle: "14", status: "end-of-life", eol: "2023-04-30", reason: null,
+        lowest: "14", cycle: "14", status: "end-of-life", eol: "2023-04-30", reason: null, testFixture: false,
       },
       {
         runtime: "php", spec: "^8.1", source: "web/composer.json", via: "require.php",
-        lowest: "8.1", cycle: "8.1", status: "end-of-life", eol: "2025-12-31", reason: null,
+        lowest: "8.1", cycle: "8.1", status: "end-of-life", eol: "2025-12-31", reason: null, testFixture: false,
       },
     ]);
   });
@@ -106,6 +106,21 @@ describe("collectDependencies edge cases", () => {
   it("marks a too-coarse version as unknown", () => {
     const value = measured(repoWith({ "pyproject.toml": '[project]\nrequires-python = ">=3"\n' }));
     expect(value.runtimes[0]).toMatchObject({ lowest: "3", cycle: null, status: "unknown", reason: "version 3 is too coarse to match a cycle" });
+  });
+
+  it("marks runtimes declared under test or fixture directories", () => {
+    const value = measured(repoWith({
+      "app/composer.json": JSON.stringify({ require: { php: "^8.2" } }),
+      "tests/extension/ext/foo/composer.json": JSON.stringify({ require: { php: ">=5.3" } }),
+      "spec/fixtures/package.json": JSON.stringify({ engines: { node: ">=0.10" } }),
+      "testdata/.nvmrc": "8\n",
+    }));
+    expect(value.runtimes.map((r) => [r.source, r.testFixture])).toEqual([
+      ["app/composer.json", false],
+      ["spec/fixtures/package.json", true],
+      ["testdata/.nvmrc", true],
+      ["tests/extension/ext/foo/composer.json", true],
+    ]);
   });
 
   it("treats the end-of-life date itself as end of life", () => {

@@ -75,7 +75,7 @@ export function dependenciesOf(runtimes: Partial<RuntimeAssessment>[]): Measurem
       manifests: [],
       runtimes: runtimes.map((runtime) => ({
         runtime: "node", spec: "18", source: "package.json", via: "engines.node",
-        lowest: "18", cycle: "18", status: "supported", eol: "2030-01-01", reason: null,
+        lowest: "18", cycle: "18", status: "supported", eol: "2030-01-01", reason: null, testFixture: false,
         ...runtime,
       })),
       notMeasured: [],

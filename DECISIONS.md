@@ -212,3 +212,28 @@ This file records significant architectural decisions, their context, alternativ
 **Consequences:**
 - Positive: reports are reproducible and diffable, so a re-run after changes shows exactly what moved; snapshot tests pin the layout.
 - Negative: absolute paths make bytes machine-specific; a commit made later on the audit day can change a re-run's counts (the target changed, not the tool); JSON shape changes need a `schemaVersion` bump.
+
+### D-013: Calibration changes: build-tool runners, fixture runtimes, test-path docs, constraining type strictness
+
+**Date:** 2026-10-22
+**Status:** accepted (proposed from the first calibration run and approved in review; see docs/case-study/README.md)
+**Context:** The first audit of DOOM, moin-1.9, phpBB, Struts and Redmine had two problems. First, three detector errors, each checked against the clones:
+- Maven and Rails test runners were not seen.
+- phpBB's test-fixture manifests set its runtime.
+- Struts test data counted as convention docs.
+
+Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1, DOOM for missing tests and Redmine for unchecked Ruby.
+**Decision:**
+- Test runners provided by build tools by convention count, when tests sit beside the build file: Maven, Gradle, Rails minitest, RSpec, `go test`, `cargo test`.
+- Runtimes declared under test or fixture directories are listed with `testFixture: true`, but count neither for dependency-currency nor as a declared runtime.
+- Files under test or fixture directories, and `src/<set>/resources`, are not classified as docs.
+- type-strictness becomes a constraining factor (`config/factors.json`). Readiness is set by test-feedback (and direct-api-calls once measured); a weak type score still gives *adapt*, naming the adaptation.
+- Report `schemaVersion` 2, for the new `testFixture` field.
+- The expected verdicts are revised: Struts and phpBB to *adopt (provisional)*, since the *adapt* guess rested on unmeasured module boundaries; Redmine to *adapt*, since *adopt* is unreachable with a weak factor under D-011.
+**Alternatives considered:**
+- Keep type-strictness blocking — Rejected in review: it made Redmine, tested at a 0.50 ratio, as unready as DOOM, which has no tests.
+- Lower the type-strictness thresholds for dynamic languages — Rejected: it would hide the gap instead of naming it as an adaptation.
+- Fix bundled-library detection, red-term false positives and name-based doc matching now — Deferred as known limits: they change no verdict in the calibration set.
+**Consequences:**
+- Positive: DOOM (readiness 1, *prepare first*) and Redmine (readiness 5, *adapt*) land at opposite ends; all five verdicts match their reviewed expectations; every first-run false positive that changed a score is fixed.
+- Negative: readiness now rests on one measured blocking factor until direct-api-calls has a collector; `specs/` directories holding design specs are skipped as test paths; the calibration set is five repositories, so thresholds remain hypotheses for other stacks.

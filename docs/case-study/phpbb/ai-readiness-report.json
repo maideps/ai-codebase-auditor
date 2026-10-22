@@ -1,0 +1,1549 @@
+{
+  "schema": "ai-codebase-auditor/report",
+  "schemaVersion": 2,
+  "tool": {
+    "name": "ai-codebase-auditor",
+    "version": "0.1.0"
+  },
+  "auditDate": "2026-10-22",
+  "target": {
+    "path": "D:\\7-Maide\\Projects\\audit-targets\\phpbb",
+    "head": "27fb7748768ec3c1426f86a82ab553f85b04b71b"
+  },
+  "inputs": {
+    "factorConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\factors.json",
+    "decisionConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\decision.json",
+    "eolTable": {
+      "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
+      "asOf": "2026-10-21",
+      "ageDays": 1
+    },
+    "deferrals": null
+  },
+  "verdict": {
+    "verdict": "adopt",
+    "rule": "no scored factor is weak (all ≥ 3)",
+    "triggeredBy": [
+      {
+        "factor": "test-feedback",
+        "score": 5
+      }
+    ],
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "readiness": {
+    "level": 5,
+    "setBy": "test-feedback",
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "factors": [
+    {
+      "id": "test-feedback",
+      "name": "Test presence and feedback speed",
+      "class": "blocking",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "ratio 0.42 ≥ 0.3 with a runner config and CI",
+      "evidence": [
+        "573 test files for 1370 source files: ratio 0.42",
+        "test runner configs: phpunit.xml.dist",
+        "CI: .github/workflows/check_merge_to_master.yml, .github/workflows/merge_3.3.x_to_master.yml, .github/workflows/tests.yml"
+      ],
+      "partial": "feedback speed is not measured: the audit never runs tests",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "type-strictness",
+      "name": "Type strictness",
+      "class": "constraining",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "weighted typed share 0.58",
+      "evidence": [
+        "typed share 0.58 of 317925 source lines (strong 0, weak 0, checked dynamic 305116, unchecked dynamic 12809)",
+        "type checkers: Psalm (psalm.xml)"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "direct-api-calls",
+      "name": "Direct API calls",
+      "class": "blocking",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs call-site analysis",
+      "deferral": null
+    },
+    {
+      "id": "file-size",
+      "name": "File size and context legibility",
+      "class": "constraining",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "lower of p90 473 lines (→ 3) and 3.87% of files over 1000 lines (→ 3)",
+      "evidence": [
+        "1370 source files: p90 473 lines, 53 over 1000 lines (3.87%)",
+        "largest: phpBB/includes/utf/data/recode_cjk.php (45177 lines), phpBB/includes/functions.php (4270 lines), phpBB/assets/javascript/cropper.js (3625 lines), phpBB/includes/functions_admin.php (3236 lines), phpBB/includes/functions_user.php (3150 lines)"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "module-boundaries",
+      "name": "Module boundary clarity",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "deferral": null
+    },
+    {
+      "id": "documented-intent",
+      "name": "Documented intent",
+      "class": "constraining",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "docs with contributing, architecture, convention or decision docs",
+      "evidence": [
+        "README: README.md; contributing: .github/CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 0 in 0 files",
+        "agent context files (presence alone scores nothing): none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "deferral": null
+    },
+    {
+      "id": "dev-deploy-simplicity",
+      "name": "Dev and deploy simplicity",
+      "class": "constraining",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed",
+      "evidence": [
+        "CI: .github/workflows/check_merge_to_master.yml, .github/workflows/merge_3.3.x_to_master.yml, .github/workflows/tests.yml",
+        "test runner configs: phpunit.xml.dist",
+        "declared runtimes: php ^8.2 (phpBB/composer.json), php 8.2.27 (phpBB/composer.json), php ^8.2 (phpBB/phpbb/composer.json), php >=5.4.7 (tests/dbal/ext/foo/bar/composer.json), php >=5.3 (tests/extension/ext/barfoo/composer.json), php >=5.3 (tests/extension/ext/vendor2/bar/composer.json), php >=5.3 (tests/extension/ext/vendor2/foo/composer.json), php >=5.3 (tests/extension/ext/vendor3/foo/composer.json), php >=5.3 (tests/extension/ext/vendor4/bar/composer.json), php >=5.3 (tests/extension/ext/vendor5/foo/composer.json), php >=5.3 (tests/functional/fixtures/ext/foo/bar/composer.json), php >=5.3 (tests/functional/fixtures/ext/foo/foo/composer.json)",
+        "lock files: package-lock.json, phpBB/composer.lock"
+      ],
+      "partial": "build scripts and containers are not detected yet",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "dependency-currency",
+      "name": "Dependency and runtime currency",
+      "class": "constraining",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "a runtime reaches end of life on 2026-12-31, within 12 months",
+      "evidence": [
+        "php ^8.2 (phpBB/composer.json, require.php): cycle 8.2 supported until 2026-12-31",
+        "php 8.2.27 (phpBB/composer.json, config.platform.php): cycle 8.2 supported until 2026-12-31",
+        "php ^8.2 (phpBB/phpbb/composer.json, require.php): cycle 8.2 supported until 2026-12-31",
+        "ignored as test fixtures: php >=5.4.7 (tests/dbal/ext/foo/bar/composer.json), php >=5.3 (tests/extension/ext/barfoo/composer.json), php >=5.3 (tests/extension/ext/vendor2/bar/composer.json), php >=5.3 (tests/extension/ext/vendor2/foo/composer.json), php >=5.3 (tests/extension/ext/vendor3/foo/composer.json), php >=5.3 (tests/extension/ext/vendor4/bar/composer.json), php >=5.3 (tests/extension/ext/vendor5/foo/composer.json), php >=5.3 (tests/functional/fixtures/ext/foo/bar/composer.json), php >=5.3 (tests/functional/fixtures/ext/foo/foo/composer.json)"
+      ],
+      "partial": "package versions are not checked for age or vulnerabilities",
+      "reason": null,
+      "deferral": null
+    }
+  ],
+  "zones": {
+    "modules": [
+      {
+        "module": "(root)",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 67 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": ".devcontainer",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 81 lines, 0% over 1000 lines)",
+        "sourceFiles": 2,
+        "redFiles": 0
+      },
+      {
+        "module": ".github",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 81 lines, 0% over 1000 lines)",
+        "sourceFiles": 16,
+        "redFiles": 0
+      },
+      {
+        "module": "build",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 380 lines, 0% over 1000 lines)",
+        "sourceFiles": 27,
+        "redFiles": 1
+      },
+      {
+        "module": "git-tools",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 194 lines, 0% over 1000 lines)",
+        "sourceFiles": 2,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/(files)",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 2124 lines > 800; 33.3% of files over 1000 lines > 7%",
+        "sourceFiles": 15,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/adm",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 425 lines, 0% over 1000 lines)",
+        "sourceFiles": 6,
+        "redFiles": 1
+      },
+      {
+        "module": "phpBB/assets",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 1914 lines > 800; 30% of files over 1000 lines > 7%",
+        "sourceFiles": 10,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/bin",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 95 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/develop",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 307 lines, 0% over 1000 lines)",
+        "sourceFiles": 36,
+        "redFiles": 2
+      },
+      {
+        "module": "phpBB/download",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 55 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/includes",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 1545 lines > 800; 18.7% of files over 1000 lines > 7%",
+        "sourceFiles": 166,
+        "redFiles": 7
+      },
+      {
+        "module": "phpBB/install",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 1605 lines > 800; 12.5% of files over 1000 lines > 7%",
+        "sourceFiles": 8,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/language",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 594 lines, 2.5% over 1000 lines)",
+        "sourceFiles": 40,
+        "redFiles": 2
+      },
+      {
+        "module": "phpBB/phpbb/(files)",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 930 lines > 800",
+        "sourceFiles": 16,
+        "redFiles": 1
+      },
+      {
+        "module": "phpBB/phpbb/attachment",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 474 lines, 0% over 1000 lines)",
+        "sourceFiles": 5,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/auth",
+        "zone": "red",
+        "reason": "every source file is on a red path: agents may only propose changes",
+        "sourceFiles": 16,
+        "redFiles": 16
+      },
+      {
+        "module": "phpBB/phpbb/avatar",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 379 lines, 0% over 1000 lines)",
+        "sourceFiles": 7,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/ban",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 240 lines, 0% over 1000 lines)",
+        "sourceFiles": 11,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/cache",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 425 lines, 0% over 1000 lines)",
+        "sourceFiles": 10,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/captcha",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 391 lines, 0% over 1000 lines)",
+        "sourceFiles": 11,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/composer",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 335 lines, 0% over 1000 lines)",
+        "sourceFiles": 14,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/config",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 219 lines, 0% over 1000 lines)",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/console",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 223 lines, 0% over 1000 lines)",
+        "sourceFiles": 44,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/controller",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 375 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/cron",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 162 lines, 0% over 1000 lines)",
+        "sourceFiles": 23,
+        "redFiles": 1
+      },
+      {
+        "module": "phpBB/phpbb/db",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 151 lines, 0.9% over 1000 lines)",
+        "sourceFiles": 440,
+        "redFiles": 19
+      },
+      {
+        "module": "phpBB/phpbb/debug",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 71 lines, 0% over 1000 lines)",
+        "sourceFiles": 2,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/di",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 167 lines, 0% over 1000 lines)",
+        "sourceFiles": 14,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/event",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 808 lines > 800",
+        "sourceFiles": 9,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/exception",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 70 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/extension",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 585 lines, 0% over 1000 lines)",
+        "sourceFiles": 7,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/feed",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 211 lines, 0% over 1000 lines)",
+        "sourceFiles": 24,
+        "redFiles": 1
+      },
+      {
+        "module": "phpBB/phpbb/files",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 510 lines, 0% over 1000 lines)",
+        "sourceFiles": 10,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/filesystem",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 744 lines, 0% over 1000 lines)",
+        "sourceFiles": 5,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/finder",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 545 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/form",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 104 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/forum",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 156 lines, 0% over 1000 lines)",
+        "sourceFiles": 2,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/group",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 359 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/groupposition",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 597 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/help",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 181 lines, 0% over 1000 lines)",
+        "sourceFiles": 5,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/install",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 288 lines, 0% over 1000 lines)",
+        "sourceFiles": 98,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/json",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 59 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/language",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 685 lines, 0% over 1000 lines)",
+        "sourceFiles": 6,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/lock",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 153 lines, 0% over 1000 lines)",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/log",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 1008 lines > 800; 33.3% of files over 1000 lines > 7%",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/members",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 469 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/mention",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 194 lines, 0% over 1000 lines)",
+        "sourceFiles": 10,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/message",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 274 lines, 0% over 1000 lines)",
+        "sourceFiles": 5,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/messenger",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 588 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/mimetype",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 509 lines, 0% over 1000 lines)",
+        "sourceFiles": 5,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/module",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 564 lines, 0% over 1000 lines)",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/notification",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 462 lines, 3% over 1000 lines)",
+        "sourceFiles": 33,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/passwords",
+        "zone": "red",
+        "reason": "every source file is on a red path: agents may only propose changes",
+        "sourceFiles": 22,
+        "redFiles": 22
+      },
+      {
+        "module": "phpBB/phpbb/plupload",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 427 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/posting",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 43 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/profilefields",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 418 lines, 0% over 1000 lines)",
+        "sourceFiles": 12,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/report",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 175 lines, 0% over 1000 lines)",
+        "sourceFiles": 14,
+        "redFiles": 1
+      },
+      {
+        "module": "phpBB/phpbb/request",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 454 lines, 0% over 1000 lines)",
+        "sourceFiles": 5,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/routing",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 408 lines, 0% over 1000 lines)",
+        "sourceFiles": 8,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/search",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 1170 lines > 800; 25% of files over 1000 lines > 7%",
+        "sourceFiles": 16,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/storage",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 278 lines, 0% over 1000 lines)",
+        "sourceFiles": 16,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/template",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 347 lines, 0% over 1000 lines)",
+        "sourceFiles": 31,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/textformatter",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 371 lines, 0% over 1000 lines)",
+        "sourceFiles": 15,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/textreparser",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 148 lines, 0% over 1000 lines)",
+        "sourceFiles": 13,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/tree",
+        "zone": "yellow",
+        "reason": "files too large for unsupervised edits: p90 875 lines > 800",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/phpbb/ucp",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 496 lines, 0% over 1000 lines)",
+        "sourceFiles": 4,
+        "redFiles": 2
+      },
+      {
+        "module": "phpBB/phpbb/update",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 175 lines, 0% over 1000 lines)",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "phpBB/styles",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 757 lines, 0% over 1000 lines)",
+        "sourceFiles": 3,
+        "redFiles": 0
+      },
+      {
+        "module": "vagrant",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 37 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      }
+    ],
+    "redPaths": [
+      {
+        "path": "build/doctum-checkout.conf.php",
+        "kind": "file",
+        "term": "checkout"
+      },
+      {
+        "path": "phpBB/adm/style/permissions.js",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/develop/add_permissions.php",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/develop/set_permissions.sh",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/includes/acp/acp_permission_roles.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/includes/acp/acp_permissions.php",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/includes/acp/auth.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/includes/acp/info/acp_permission_roles.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/includes/acp/info/acp_permissions.php",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/includes/ucp/info/ucp_auth_link.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/includes/ucp/ucp_auth_link.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/language/en/acp/permissions.php",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/language/en/acp/permissions_phpbb.php",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/phpbb/auth",
+        "kind": "directory",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/cron/task/core/purge_oauth_states.php",
+        "kind": "file",
+        "term": "oauth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/forgot_password.php",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/passwords.php",
+        "kind": "file",
+        "term": "passwords"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php",
+        "kind": "file",
+        "term": "passwords"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php",
+        "kind": "file",
+        "term": "passwords"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/passwords_p2.php",
+        "kind": "file",
+        "term": "passwords"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v310/signature_module_auth.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v320/announce_global_permission.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v320/oauth_states.php",
+        "kind": "file",
+        "term": "oauth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v330/reset_password.php",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php",
+        "kind": "file",
+        "term": "oauth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v400/add_storage_permission.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/db/migration/tool/permission.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/phpbb/feed/event/http_auth_subscriber.php",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "phpBB/phpbb/passwords",
+        "kind": "directory",
+        "term": "passwords"
+      },
+      {
+        "path": "phpBB/phpbb/permissions.php",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "phpBB/phpbb/report/exception/report_permission_denied_exception.php",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "phpBB/phpbb/ucp/controller/oauth.php",
+        "kind": "file",
+        "term": "oauth"
+      },
+      {
+        "path": "phpBB/phpbb/ucp/controller/reset_password.php",
+        "kind": "file",
+        "term": "password"
+      }
+    ],
+    "unzoned": [
+      ".vscode",
+      "tests"
+    ],
+    "note": null
+  },
+  "notMeasured": [
+    {
+      "kind": "factor",
+      "id": "direct-api-calls",
+      "reason": "no collector signal yet: needs call-site analysis"
+    },
+    {
+      "kind": "factor",
+      "id": "module-boundaries",
+      "reason": "no collector signal yet: needs an import graph or co-change coupling"
+    },
+    {
+      "kind": "factor",
+      "id": "observability",
+      "reason": "no collector signal yet: needs a logging and metrics detector"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/development/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/development/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/installer/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/installer/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/production/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/production/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/test/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "phpBB/config/test/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/controller/config/test/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/controller/ext/vendor2/bar/config/test/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/di/fixtures/config/production/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/di/fixtures/config/test/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/di/fixtures/other_config/production/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/di/fixtures/other_config/test/container/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "manifest",
+      "id": "tests/pagination/config/test/routing/environment.yml",
+      "reason": "not a supported manifest"
+    },
+    {
+      "kind": "tool",
+      "id": "scc",
+      "reason": "scc is not installed or not on PATH"
+    }
+  ],
+  "signals": {
+    "gitHistory": {
+      "status": "measured",
+      "head": "27fb7748768ec3c1426f86a82ab553f85b04b71b",
+      "window": {
+        "since": "2025-10-22T23:59:59.999Z",
+        "until": "2026-10-22T23:59:59.999Z"
+      },
+      "totals": {
+        "commits": 28503,
+        "commitsLastYear": 483,
+        "authors": 358,
+        "firstCommit": "2001-02-17T08:37:32.000Z",
+        "lastCommit": "2026-10-22T17:45:20.000Z",
+        "trackedFiles": 3006
+      },
+      "hotspots": [
+        {
+          "path": "phpBB/viewtopic.php",
+          "commits": 905,
+          "commitsLastYear": 22,
+          "authors": 74,
+          "lastCommit": "2026-10-18T23:17:43.000Z"
+        },
+        {
+          "path": "phpBB/install/schemas/schema_data.sql",
+          "commits": 766,
+          "commitsLastYear": 18,
+          "authors": 58,
+          "lastCommit": "2026-09-24T15:13:44.000Z"
+        },
+        {
+          "path": "phpBB/composer.lock",
+          "commits": 304,
+          "commitsLastYear": 17,
+          "authors": 28,
+          "lastCommit": "2026-10-17T09:55:25.000Z"
+        },
+        {
+          "path": "phpBB/language/en/common.php",
+          "commits": 517,
+          "commitsLastYear": 15,
+          "authors": 67,
+          "lastCommit": "2026-10-18T15:01:36.000Z"
+        },
+        {
+          "path": "phpBB/docs/events.md",
+          "commits": 324,
+          "commitsLastYear": 15,
+          "authors": 47,
+          "lastCommit": "2026-10-08T16:54:13.000Z"
+        },
+        {
+          "path": ".github/workflows/tests.yml",
+          "commits": 138,
+          "commitsLastYear": 15,
+          "authors": 7,
+          "lastCommit": "2026-09-28T14:20:20.000Z"
+        },
+        {
+          "path": "phpBB/includes/startup.php",
+          "commits": 47,
+          "commitsLastYear": 13,
+          "authors": 17,
+          "lastCommit": "2026-10-17T17:40:40.000Z"
+        },
+        {
+          "path": "build/build.xml",
+          "commits": 310,
+          "commitsLastYear": 12,
+          "authors": 14,
+          "lastCommit": "2026-09-24T15:13:44.000Z"
+        },
+        {
+          "path": "phpBB/phpbb/ucp/controller/webpush.php",
+          "commits": 31,
+          "commitsLastYear": 12,
+          "authors": 4,
+          "lastCommit": "2026-09-29T16:31:51.000Z"
+        },
+        {
+          "path": "tests/ucp/controller_webpush_test.php",
+          "commits": 19,
+          "commitsLastYear": 12,
+          "authors": 5,
+          "lastCommit": "2026-09-29T16:31:51.000Z"
+        }
+      ]
+    },
+    "codeStructure": {
+      "status": "measured",
+      "distribution": {
+        "files": 2887,
+        "totalLines": 469711,
+        "totalBytes": 15172556,
+        "p50Lines": 55,
+        "p90Lines": 332,
+        "p99Lines": 1605,
+        "maxLines": 45177,
+        "buckets": [
+          {
+            "label": "0-200",
+            "files": 2403
+          },
+          {
+            "label": "201-500",
+            "files": 314
+          },
+          {
+            "label": "501-1000",
+            "files": 104
+          },
+          {
+            "label": "1001-2000",
+            "files": 49
+          },
+          {
+            "label": "2001+",
+            "files": 17
+          }
+        ],
+        "largest": [
+          {
+            "path": "phpBB/includes/utf/data/recode_cjk.php",
+            "lines": 45177
+          },
+          {
+            "path": "phpBB/docs/CHANGELOG.html",
+            "lines": 8741
+          },
+          {
+            "path": "phpBB/includes/functions.php",
+            "lines": 4270
+          },
+          {
+            "path": "phpBB/docs/events.md",
+            "lines": 3731
+          },
+          {
+            "path": "phpBB/assets/javascript/cropper.js",
+            "lines": 3625
+          },
+          {
+            "path": "phpBB/includes/functions_admin.php",
+            "lines": 3236
+          },
+          {
+            "path": "phpBB/adm/style/admin.css",
+            "lines": 3190
+          },
+          {
+            "path": "phpBB/includes/functions_user.php",
+            "lines": 3150
+          },
+          {
+            "path": "phpBB/includes/functions_posting.php",
+            "lines": 2944
+          },
+          {
+            "path": "phpBB/includes/acp/acp_users.php",
+            "lines": 2714
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "(root)",
+          "files": 10,
+          "lines": 1022,
+          "bytes": 36021
+        },
+        {
+          "name": ".devcontainer",
+          "files": 8,
+          "lines": 311,
+          "bytes": 9782
+        },
+        {
+          "name": ".github",
+          "files": 29,
+          "lines": 1669,
+          "bytes": 55847
+        },
+        {
+          "name": ".vscode",
+          "files": 2,
+          "lines": 21,
+          "bytes": 565
+        },
+        {
+          "name": "build",
+          "files": 34,
+          "lines": 3610,
+          "bytes": 114316
+        },
+        {
+          "name": "git-tools",
+          "files": 7,
+          "lines": 804,
+          "bytes": 18288
+        },
+        {
+          "name": "phpBB",
+          "files": 1840,
+          "lines": 369252,
+          "bytes": 12141648
+        },
+        {
+          "name": "tests",
+          "files": 952,
+          "lines": 92871,
+          "bytes": 2792482
+        },
+        {
+          "name": "vagrant",
+          "files": 5,
+          "lines": 151,
+          "bytes": 3607
+        }
+      ],
+      "excludedByReason": {
+        "binary": 98,
+        "generated": 11,
+        "vendored": 10
+      },
+      "scc": {
+        "status": "unavailable",
+        "reason": "scc is not installed or not on PATH"
+      }
+    },
+    "testsDocs": {
+      "status": "measured",
+      "testFiles": 573,
+      "conventions": [
+        {
+          "convention": "test directory",
+          "files": 573
+        }
+      ],
+      "runnerConfigs": [
+        {
+          "path": "phpunit.xml.dist",
+          "runner": "PHPUnit"
+        }
+      ],
+      "ci": [
+        {
+          "path": ".github/workflows/check_merge_to_master.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/merge_3.3.x_to_master.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/tests.yml",
+          "system": "GitHub Actions"
+        }
+      ],
+      "docs": {
+        "readme": [
+          "README.md"
+        ],
+        "moduleReadmes": [
+          "phpBB/docs/README.html"
+        ],
+        "contributing": [
+          ".github/CONTRIBUTING.md"
+        ],
+        "architecture": [],
+        "decisionRecords": [],
+        "conventions": [],
+        "docsDirectory": [],
+        "agentContext": []
+      },
+      "typeCheckers": [
+        {
+          "path": "psalm.xml",
+          "checker": "Psalm",
+          "language": "php"
+        }
+      ],
+      "statedRules": []
+    },
+    "dependencies": {
+      "status": "measured",
+      "manifests": [
+        {
+          "path": "package.json",
+          "ecosystem": "npm",
+          "dependencies": 6,
+          "issues": []
+        },
+        {
+          "path": "phpBB/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 38,
+          "issues": []
+        },
+        {
+          "path": "phpBB/language/en/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "phpBB/phpbb/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "phpBB/styles/prosilver/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/dbal/ext/foo/bar/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/extension/ext/barfoo/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/extension/ext/vendor2/bar/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/extension/ext/vendor2/foo/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/extension/ext/vendor3/foo/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/extension/ext/vendor4/bar/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/extension/ext/vendor5/foo/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/functional/fixtures/ext/foo/bar/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "tests/functional/fixtures/ext/foo/foo/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 0,
+          "issues": []
+        },
+        {
+          "path": "vagrant/composer.json",
+          "ecosystem": "composer",
+          "dependencies": 1,
+          "issues": []
+        }
+      ],
+      "runtimes": [
+        {
+          "runtime": "php",
+          "spec": "^8.2",
+          "source": "phpBB/composer.json",
+          "via": "require.php",
+          "lowest": "8.2",
+          "cycle": "8.2",
+          "status": "supported",
+          "eol": "2026-12-31",
+          "reason": null,
+          "testFixture": false
+        },
+        {
+          "runtime": "php",
+          "spec": "8.2.27",
+          "source": "phpBB/composer.json",
+          "via": "config.platform.php",
+          "lowest": "8.2.27",
+          "cycle": "8.2",
+          "status": "supported",
+          "eol": "2026-12-31",
+          "reason": null,
+          "testFixture": false
+        },
+        {
+          "runtime": "php",
+          "spec": "^8.2",
+          "source": "phpBB/phpbb/composer.json",
+          "via": "require.php",
+          "lowest": "8.2",
+          "cycle": "8.2",
+          "status": "supported",
+          "eol": "2026-12-31",
+          "reason": null,
+          "testFixture": false
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.4.7",
+          "source": "tests/dbal/ext/foo/bar/composer.json",
+          "via": "require.php",
+          "lowest": "5.4.7",
+          "cycle": "5.4",
+          "status": "end-of-life",
+          "eol": "2015-09-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/extension/ext/barfoo/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/extension/ext/vendor2/bar/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/extension/ext/vendor2/foo/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/extension/ext/vendor3/foo/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/extension/ext/vendor4/bar/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/extension/ext/vendor5/foo/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/functional/fixtures/ext/foo/bar/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        },
+        {
+          "runtime": "php",
+          "spec": ">=5.3",
+          "source": "tests/functional/fixtures/ext/foo/foo/composer.json",
+          "via": "require.php",
+          "lowest": "5.3",
+          "cycle": "5.3",
+          "status": "end-of-life",
+          "eol": "2014-08-14",
+          "reason": null,
+          "testFixture": true
+        }
+      ]
+    }
+  },
+  "method": {
+    "commands": [
+      "git rev-parse --is-shallow-repository",
+      "git rev-parse --verify -q HEAD",
+      "git rev-parse HEAD",
+      "git ls-tree -r -z --name-only HEAD",
+      "git log --no-merges --no-renames --name-only -z HEAD",
+      "git ls-tree -r -z HEAD",
+      "scc --by-file --format json ."
+    ],
+    "notes": [
+      "merge commits are excluded",
+      "renames are not followed, so a renamed file's history starts at the rename",
+      "authors are counted by email after .mailmap, case-insensitively",
+      "dates are author dates",
+      "files are those tracked at HEAD; content is read from the working tree",
+      "line and byte counts come from the built-in counter",
+      "a file is binary when its first 8000 bytes contain a NUL byte, as git decides",
+      "vendored: any path segment in node_modules, bower_components, vendor, vendors, third_party, third-party, thirdparty, Pods",
+      "generated: lock files, *.min.js, *.min.css and *.map",
+      "symlinks and submodules are never followed",
+      "paths are those tracked at HEAD; vendored paths are ignored",
+      "test files are matched by name and directory conventions; tests are never run",
+      "build-tool test runners (Maven, Gradle, Rails minitest, RSpec, go test, cargo test) count when tests sit beside the build file",
+      "files under test and fixture directories, and src/<set>/resources, are not classified as documentation",
+      "CI files show that CI is configured, not that it passes",
+      "agent context files are listed for presence only; presence alone scores nothing",
+      "type checkers are found by config file; inherited tsconfig settings (extends) are not followed",
+      "stated rules are lines with must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside code blocks; whether a rule is non-standard needs judgment",
+      "manifests are files tracked at HEAD outside vendored directories, read as text; setup.py and build files are never executed",
+      "nothing is installed or resolved; versions are as declared",
+      "for a version range, the lowest declared version is assessed",
+      "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
+      "end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date",
+      "Maven dependencies include those declared in dependencyManagement and plugin blocks"
+    ]
+  }
+}

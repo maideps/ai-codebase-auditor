@@ -225,7 +225,7 @@ const devDeploySimplicity: RuleSpec = {
     const signals: [string, boolean][] = [
       ["CI configured", testsDocs.value.ci.length > 0],
       ["test runner configured", testsDocs.value.tests.runnerConfigs.length > 0],
-      ["runtime version declared", dependencies.value.runtimes.length > 0],
+      ["runtime version declared", dependencies.value.runtimes.some((runtime) => !runtime.testFixture)],
       ["lock file committed", lockFiles.length > 0],
     ];
     const present = signals.filter(([, found]) => found).map(([name]) => name);
@@ -251,8 +251,10 @@ const dependencyCurrency: RuleSpec = {
   score(results, thresholds, today) {
     const dependencies = need(results.dependencies, "dependencies");
     if ("missing" in dependencies) return dependencies.missing;
-    const known = dependencies.value.runtimes.filter((runtime) => runtime.status !== "unknown" && runtime.eol !== null);
-    if (known.length === 0) return { status: "not-measured", reason: "no declared runtime with a known end-of-life status" };
+    // Test fixtures declare runtimes for their test inputs, not for the product.
+    const fixtures = dependencies.value.runtimes.filter((runtime) => runtime.testFixture);
+    const known = dependencies.value.runtimes.filter((runtime) => !runtime.testFixture && runtime.status !== "unknown" && runtime.eol !== null);
+    if (known.length === 0) return { status: "not-measured", reason: "no declared runtime with a known end-of-life status outside test fixtures" };
     const scoreOf = (eol: string): number => {
       if (today >= eol) {
         if (today > shift(eol, t(thresholds, "eolYears1"), 0)) return 1;
@@ -264,7 +266,7 @@ const dependencyCurrency: RuleSpec = {
     // The worst runtime decides; ties go to the first declared.
     let worst = known[0];
     for (const runtime of known) if (runtime.eol && worst?.eol && scoreOf(runtime.eol) < scoreOf(worst.eol)) worst = runtime;
-    if (!worst?.eol) return { status: "not-measured", reason: "no declared runtime with a known end-of-life status" };
+    if (!worst?.eol) return { status: "not-measured", reason: "no declared runtime with a known end-of-life status outside test fixtures" };
     const score = scoreOf(worst.eol);
     const describe = (runtime: (typeof known)[number]) =>
       `${runtime.runtime} ${runtime.spec} (${runtime.source}, ${runtime.via}): cycle ${runtime.cycle ?? "?"} ${runtime.status === "end-of-life" ? "end-of-life since" : "supported until"} ${runtime.eol ?? "?"}`;
@@ -272,7 +274,11 @@ const dependencyCurrency: RuleSpec = {
       status: "scored",
       score,
       rule: score <= 3 ? `worst runtime is end-of-life since ${worst.eol}` : score === 4 ? `a runtime reaches end of life on ${worst.eol}, within ${t(thresholds, "warnMonths")} months` : `every runtime is supported past ${t(thresholds, "warnMonths")} months`,
-      evidence: [describe(worst), ...known.filter((runtime) => runtime !== worst).map(describe)],
+      evidence: [
+        describe(worst),
+        ...known.filter((runtime) => runtime !== worst).map(describe),
+        ...(fixtures.length > 0 ? [`ignored as test fixtures: ${fixtures.map((runtime) => `${runtime.runtime} ${runtime.spec} (${runtime.source})`).join(", ")}`] : []),
+      ],
       partial: "package versions are not checked for age or vulnerabilities",
     };
   },

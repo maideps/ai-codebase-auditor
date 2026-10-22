@@ -147,7 +147,7 @@ Each audit produces four artifacts, generated as Markdown and JSON so they can b
 
 Each factor is scored 1 to 5 with cited evidence, and scores are never averaged. The lowest blocking factor sets the readiness level:
 
-- **Blocking factors:** test presence and feedback speed, type strictness, direct API calls. A weak score here cannot be offset elsewhere.
+- **Blocking factors:** test presence and feedback speed, type strictness, direct API calls. A weak score here cannot be offset elsewhere. *(Calibration on 2026-10-22 moved type strictness to constraining; see D-013 and docs/case-study/.)*
 - **Constraining factors:** file size, module boundaries, documented intent, observability, dev and deploy simplicity, dependency currency.
 
 Which factors are blocking lives in a config file, so a team can tune it. A documented, dated deferral scores one level higher than an undocumented gap.

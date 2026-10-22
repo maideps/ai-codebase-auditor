@@ -1,0 +1,1068 @@
+{
+  "schema": "ai-codebase-auditor/report",
+  "schemaVersion": 2,
+  "tool": {
+    "name": "ai-codebase-auditor",
+    "version": "0.1.0"
+  },
+  "auditDate": "2026-10-22",
+  "target": {
+    "path": "D:\\7-Maide\\Projects\\audit-targets\\redmine",
+    "head": "77cad6adb89c2662a3776d26a6fce29a3b2cac1b"
+  },
+  "inputs": {
+    "factorConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\factors.json",
+    "decisionConfig": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\decision.json",
+    "eolTable": {
+      "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
+      "asOf": "2026-10-21",
+      "ageDays": 1
+    },
+    "deferrals": null
+  },
+  "verdict": {
+    "verdict": "adapt",
+    "rule": "1 weak factor (score ≤ 2): type-strictness 1",
+    "triggeredBy": [
+      {
+        "factor": "type-strictness",
+        "score": 1
+      }
+    ],
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "readiness": {
+    "level": 5,
+    "setBy": "test-feedback",
+    "provisional": true,
+    "unmeasuredBlocking": [
+      "direct-api-calls"
+    ]
+  },
+  "factors": [
+    {
+      "id": "test-feedback",
+      "name": "Test presence and feedback speed",
+      "class": "blocking",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "ratio 0.50 ≥ 0.3 with a runner config and CI",
+      "evidence": [
+        "419 test files for 839 source files: ratio 0.50",
+        "test runner configs: test/test_helper.rb",
+        "CI: .github/workflows/linters.yml, .github/workflows/tests.yml"
+      ],
+      "partial": "feedback speed is not measured: the audit never runs tests",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "type-strictness",
+      "name": "Type strictness",
+      "class": "constraining",
+      "status": "scored",
+      "score": 1,
+      "baseScore": 1,
+      "rule": "weighted typed share 0.00",
+      "evidence": [
+        "typed share 0.00 of 74486 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 74486)",
+        "type checkers: none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "direct-api-calls",
+      "name": "Direct API calls",
+      "class": "blocking",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs call-site analysis",
+      "deferral": null
+    },
+    {
+      "id": "file-size",
+      "name": "File size and context legibility",
+      "class": "constraining",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "lower of p90 214 lines (→ 4) and 1.07% of files over 1000 lines (→ 4)",
+      "evidence": [
+        "839 source files: p90 214 lines, 9 over 1000 lines (1.07%)",
+        "largest: app/models/issue.rb (2173 lines), app/helpers/application_helper.rb (1994 lines), app/models/query.rb (1708 lines), app/assets/javascripts/application-legacy.js (1570 lines), app/models/project.rb (1370 lines)"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "module-boundaries",
+      "name": "Module boundary clarity",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "deferral": null
+    },
+    {
+      "id": "documented-intent",
+      "name": "Documented intent",
+      "class": "constraining",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "docs with contributing, architecture, convention or decision docs",
+      "evidence": [
+        "README: README.rdoc; contributing: CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 0 in 0 files",
+        "agent context files (presence alone scores nothing): none"
+      ],
+      "partial": null,
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "observability",
+      "name": "Observability",
+      "class": "constraining",
+      "status": "not-measured",
+      "score": null,
+      "baseScore": null,
+      "rule": null,
+      "evidence": [],
+      "partial": null,
+      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "deferral": null
+    },
+    {
+      "id": "dev-deploy-simplicity",
+      "name": "Dev and deploy simplicity",
+      "class": "constraining",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed",
+      "evidence": [
+        "CI: .github/workflows/linters.yml, .github/workflows/tests.yml",
+        "test runner configs: test/test_helper.rb",
+        "declared runtimes: ruby >= 3.3.0 (Gemfile)",
+        "lock files: yarn.lock"
+      ],
+      "partial": "build scripts and containers are not detected yet",
+      "reason": null,
+      "deferral": null
+    },
+    {
+      "id": "dependency-currency",
+      "name": "Dependency and runtime currency",
+      "class": "constraining",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "a runtime reaches end of life on 2027-03-31, within 12 months",
+      "evidence": [
+        "ruby >= 3.3.0 (Gemfile, ruby directive): cycle 3.3 supported until 2027-03-31"
+      ],
+      "partial": "package versions are not checked for age or vulnerabilities",
+      "reason": null,
+      "deferral": null
+    }
+  ],
+  "zones": {
+    "modules": [
+      {
+        "module": "app",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 298 lines, 1.8% over 1000 lines)",
+        "sourceFiles": 340,
+        "redFiles": 10
+      },
+      {
+        "module": "bin",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 282 lines, 0% over 1000 lines)",
+        "sourceFiles": 1,
+        "redFiles": 0
+      },
+      {
+        "module": "config",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 169 lines, 0% over 1000 lines)",
+        "sourceFiles": 18,
+        "redFiles": 0
+      },
+      {
+        "module": "db",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 18 lines, 0% over 1000 lines)",
+        "sourceFiles": 331,
+        "redFiles": 68
+      },
+      {
+        "module": "extra",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 289 lines, 0% over 1000 lines)",
+        "sourceFiles": 7,
+        "redFiles": 0
+      },
+      {
+        "module": "lib",
+        "zone": "green",
+        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 310 lines, 2.1% over 1000 lines)",
+        "sourceFiles": 142,
+        "redFiles": 0
+      }
+    ],
+    "redPaths": [
+      {
+        "path": "app/controllers/auth_sources_controller.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "app/controllers/oauth2_applications_controller.rb",
+        "kind": "file",
+        "term": "oauth"
+      },
+      {
+        "path": "app/controllers/roles_controller.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "app/helpers/auth_sources_helper.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "app/helpers/roles_helper.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "app/models/auth_source.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "app/models/auth_source_ldap.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "app/models/member_role.rb",
+        "kind": "file",
+        "term": "role"
+      },
+      {
+        "path": "app/models/role.rb",
+        "kind": "file",
+        "term": "role"
+      },
+      {
+        "path": "app/models/workflow_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/012_add_comments_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/014_add_queries_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/016_add_repositories_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/020_add_role_position.rb",
+        "kind": "file",
+        "term": "role"
+      },
+      {
+        "path": "db/migrate/024_add_roadmap_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/025_add_search_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/026_add_repository_login_and_password.rb",
+        "kind": "file",
+        "term": "login"
+      },
+      {
+        "path": "db/migrate/030_add_projects_feeds_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/033_add_timelog_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/043_add_relations_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/047_add_boards_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/049_add_wiki_destroy_page_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/050_add_wiki_attachments_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/056_add_repositories_changes_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/059_add_roles_assignable.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/061_add_roles_builtin.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/062_insert_builtin_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/063_add_roles_permissions.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/064_drop_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/074_add_auth_sources_tls.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/084_change_auth_sources_account_limit.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/085_add_role_tracker_old_status_index_to_workflows.rb",
+        "kind": "file",
+        "term": "role"
+      },
+      {
+        "path": "db/migrate/096_add_commit_access_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/097_add_view_wiki_edits_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/099_add_delete_wiki_pages_attachments_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/107_add_open_id_authentication_tables.rb",
+        "kind": "file",
+        "term": "authentication"
+      },
+      {
+        "path": "db/migrate/20090503121501_create_member_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20090503121505_populate_member_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20090503121510_drop_members_role_id.rb",
+        "kind": "file",
+        "term": "role"
+      },
+      {
+        "path": "db/migrate/20090704172358_add_member_roles_inherited_from.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20091017213257_add_missing_indexes_to_auth_sources.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/20091017213716_add_missing_indexes_to_member_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20091114105931_add_view_issues_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/20110223180953_salt_user_passwords.rb",
+        "kind": "file",
+        "term": "passwords"
+      },
+      {
+        "path": "db/migrate/20110226120112_change_repositories_password_limit.rb",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "db/migrate/20110226120132_change_auth_sources_account_password_limit.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/20110408103312_add_roles_issues_visibility.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20120205111326_change_users_login_limit.rb",
+        "kind": "file",
+        "term": "login"
+      },
+      {
+        "path": "db/migrate/20120301153455_add_auth_sources_filter.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/20120707064544_add_auth_sources_timeout.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/20130110122628_split_documents_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      },
+      {
+        "path": "db/migrate/20130602092539_create_queries_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20130713104233_create_custom_fields_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20130729070143_add_users_must_change_passwd.rb",
+        "kind": "file",
+        "term": "passwd"
+      },
+      {
+        "path": "db/migrate/20140903143914_add_password_changed_at_to_user.rb",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "db/migrate/20141109112308_add_roles_users_visibility.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20150208105930_replace_move_issues_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/20150526183158_add_roles_time_entries_visibility.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20150528084820_add_roles_all_roles_managed.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20150528092912_create_roles_managed_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20150528093249_add_unique_index_on_roles_managed_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20151021185456_change_auth_sources_filter_to_text.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/20160404080304_force_password_reset_during_setup.rb",
+        "kind": "file",
+        "term": "password"
+      },
+      {
+        "path": "db/migrate/20160529063352_add_roles_settings.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20161002133421_add_index_on_member_roles_inherited_from.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20170418090031_add_view_news_to_all_existing_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20170419144536_add_view_messages_to_all_existing_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20180913072918_add_verify_peer_to_auth_sources.rb",
+        "kind": "file",
+        "term": "auth"
+      },
+      {
+        "path": "db/migrate/20190620135549_change_roles_name_limit.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20211213122101_drop_open_id_authentication_tables.rb",
+        "kind": "file",
+        "term": "authentication"
+      },
+      {
+        "path": "db/migrate/20220806215628_add_default_time_entry_activity_to_roles.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20221002193055_delete_orphaned_query_and_role_from_queries_roles.rb",
+        "kind": "file",
+        "term": "role"
+      },
+      {
+        "path": "db/migrate/20221214173537_add_select_project_publicity_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/20231012112407_remove_mention_users_permission.rb",
+        "kind": "file",
+        "term": "permission"
+      },
+      {
+        "path": "db/migrate/20241103184550_change_builtin_roles_user_visibility.rb",
+        "kind": "file",
+        "term": "roles"
+      },
+      {
+        "path": "db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb",
+        "kind": "file",
+        "term": "login"
+      },
+      {
+        "path": "db/migrate/20260319170822_add_index_to_users_login.rb",
+        "kind": "file",
+        "term": "login"
+      },
+      {
+        "path": "db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb",
+        "kind": "file",
+        "term": "permissions"
+      }
+    ],
+    "unzoned": [
+      "(root)",
+      ".github",
+      "doc",
+      "files",
+      "log",
+      "plugins",
+      "public",
+      "test",
+      "themes",
+      "tmp"
+    ],
+    "note": null
+  },
+  "notMeasured": [
+    {
+      "kind": "factor",
+      "id": "direct-api-calls",
+      "reason": "no collector signal yet: needs call-site analysis"
+    },
+    {
+      "kind": "factor",
+      "id": "module-boundaries",
+      "reason": "no collector signal yet: needs an import graph or co-change coupling"
+    },
+    {
+      "kind": "factor",
+      "id": "observability",
+      "reason": "no collector signal yet: needs a logging and metrics detector"
+    },
+    {
+      "kind": "tool",
+      "id": "scc",
+      "reason": "scc is not installed or not on PATH"
+    }
+  ],
+  "signals": {
+    "gitHistory": {
+      "status": "measured",
+      "head": "77cad6adb89c2662a3776d26a6fce29a3b2cac1b",
+      "window": {
+        "since": "2025-10-22T23:59:59.999Z",
+        "until": "2026-10-22T23:59:59.999Z"
+      },
+      "totals": {
+        "commits": 19890,
+        "commitsLastYear": 837,
+        "authors": 12,
+        "firstCommit": "2006-06-28T17:26:26.000Z",
+        "lastCommit": "2026-10-22T21:51:47.000Z",
+        "trackedFiles": 2341
+      },
+      "hotspots": [
+        {
+          "path": "app/assets/stylesheets/application.css",
+          "commits": 285,
+          "commitsLastYear": 119,
+          "authors": 2,
+          "lastCommit": "2026-10-21T20:28:37.000Z"
+        },
+        {
+          "path": "config/locales/ja.yml",
+          "commits": 731,
+          "commitsLastYear": 66,
+          "authors": 8,
+          "lastCommit": "2026-10-22T21:51:47.000Z"
+        },
+        {
+          "path": "Gemfile",
+          "commits": 661,
+          "commitsLastYear": 64,
+          "authors": 6,
+          "lastCommit": "2026-10-22T08:43:05.000Z"
+        },
+        {
+          "path": "config/locales/bg.yml",
+          "commits": 662,
+          "commitsLastYear": 57,
+          "authors": 8,
+          "lastCommit": "2026-10-20T00:54:42.000Z"
+        },
+        {
+          "path": "config/locales/en.yml",
+          "commits": 564,
+          "commitsLastYear": 55,
+          "authors": 8,
+          "lastCommit": "2026-10-21T20:28:37.000Z"
+        },
+        {
+          "path": "config/locales/zh-TW.yml",
+          "commits": 711,
+          "commitsLastYear": 53,
+          "authors": 8,
+          "lastCommit": "2026-10-20T00:54:42.000Z"
+        },
+        {
+          "path": "config/locales/sv.yml",
+          "commits": 535,
+          "commitsLastYear": 51,
+          "authors": 8,
+          "lastCommit": "2026-10-22T21:44:31.000Z"
+        },
+        {
+          "path": "config/locales/cs.yml",
+          "commits": 541,
+          "commitsLastYear": 50,
+          "authors": 8,
+          "lastCommit": "2026-10-20T00:54:42.000Z"
+        },
+        {
+          "path": "config/locales/fr.yml",
+          "commits": 549,
+          "commitsLastYear": 49,
+          "authors": 8,
+          "lastCommit": "2026-10-20T00:54:42.000Z"
+        },
+        {
+          "path": "config/locales/fa.yml",
+          "commits": 419,
+          "commitsLastYear": 49,
+          "authors": 5,
+          "lastCommit": "2026-10-20T00:54:42.000Z"
+        }
+      ]
+    },
+    "codeStructure": {
+      "status": "measured",
+      "distribution": {
+        "files": 2170,
+        "totalLines": 314201,
+        "totalBytes": 13067430,
+        "p50Lines": 34,
+        "p90Lines": 322,
+        "p99Lines": 1608,
+        "maxLines": 9399,
+        "buckets": [
+          {
+            "label": "0-200",
+            "files": 1850
+          },
+          {
+            "label": "201-500",
+            "files": 198
+          },
+          {
+            "label": "501-1000",
+            "files": 44
+          },
+          {
+            "label": "1001-2000",
+            "files": 71
+          },
+          {
+            "label": "2001+",
+            "files": 7
+          }
+        ],
+        "largest": [
+          {
+            "path": "test/functional/issues_controller_test.rb",
+            "lines": 9399
+          },
+          {
+            "path": "doc/CHANGELOG",
+            "lines": 8442
+          },
+          {
+            "path": "test/unit/issue_test.rb",
+            "lines": 3753
+          },
+          {
+            "path": "test/unit/query_test.rb",
+            "lines": 3490
+          },
+          {
+            "path": "app/assets/stylesheets/application.css",
+            "lines": 2792
+          },
+          {
+            "path": "test/helpers/application_helper_test.rb",
+            "lines": 2459
+          },
+          {
+            "path": "app/models/issue.rb",
+            "lines": 2173
+          },
+          {
+            "path": "app/helpers/application_helper.rb",
+            "lines": 1994
+          },
+          {
+            "path": "test/fixtures/workflows.yml",
+            "lines": 1933
+          },
+          {
+            "path": "test/functional/timelog_controller_test.rb",
+            "lines": 1900
+          }
+        ]
+      },
+      "modules": [
+        {
+          "name": "(root)",
+          "files": 12,
+          "lines": 1803,
+          "bytes": 56506
+        },
+        {
+          "name": ".github",
+          "files": 3,
+          "lines": 226,
+          "bytes": 5823
+        },
+        {
+          "name": "app",
+          "files": 939,
+          "lines": 78053,
+          "bytes": 3309132
+        },
+        {
+          "name": "bin",
+          "files": 6,
+          "lines": 304,
+          "bytes": 8818
+        },
+        {
+          "name": "config",
+          "files": 73,
+          "lines": 81746,
+          "bytes": 4343863
+        },
+        {
+          "name": "db",
+          "files": 331,
+          "lines": 4301,
+          "bytes": 141229
+        },
+        {
+          "name": "doc",
+          "files": 17,
+          "lines": 9943,
+          "bytes": 498161
+        },
+        {
+          "name": "extra",
+          "files": 17,
+          "lines": 1213,
+          "bytes": 43176
+        },
+        {
+          "name": "files",
+          "files": 1,
+          "lines": 10,
+          "bytes": 387
+        },
+        {
+          "name": "lib",
+          "files": 190,
+          "lines": 23532,
+          "bytes": 832459
+        },
+        {
+          "name": "log",
+          "files": 1,
+          "lines": 1,
+          "bytes": 32
+        },
+        {
+          "name": "plugins",
+          "files": 1,
+          "lines": 1,
+          "bytes": 31
+        },
+        {
+          "name": "public",
+          "files": 3,
+          "lines": 36,
+          "bytes": 1077
+        },
+        {
+          "name": "test",
+          "files": 573,
+          "lines": 113031,
+          "bytes": 3826706
+        },
+        {
+          "name": "themes",
+          "files": 1,
+          "lines": 1,
+          "bytes": 30
+        },
+        {
+          "name": "tmp",
+          "files": 2,
+          "lines": 0,
+          "bytes": 0
+        }
+      ],
+      "excludedByReason": {
+        "binary": 162,
+        "generated": 5,
+        "vendored": 4
+      },
+      "scc": {
+        "status": "unavailable",
+        "reason": "scc is not installed or not on PATH"
+      }
+    },
+    "testsDocs": {
+      "status": "measured",
+      "testFiles": 419,
+      "conventions": [
+        {
+          "convention": "*_spec.rb",
+          "files": 1
+        },
+        {
+          "convention": "*_test.rb",
+          "files": 400
+        },
+        {
+          "convention": "test directory",
+          "files": 18
+        }
+      ],
+      "runnerConfigs": [
+        {
+          "path": "test/test_helper.rb",
+          "runner": "minitest (Rails)"
+        }
+      ],
+      "ci": [
+        {
+          "path": ".github/workflows/linters.yml",
+          "system": "GitHub Actions"
+        },
+        {
+          "path": ".github/workflows/tests.yml",
+          "system": "GitHub Actions"
+        }
+      ],
+      "docs": {
+        "readme": [
+          "README.rdoc"
+        ],
+        "moduleReadmes": [
+          "extra/sample_plugin/README",
+          "lib/generators/redmine_plugin/templates/README.rdoc",
+          "lib/plugins/acts_as_tree/README",
+          "lib/plugins/gravatar/README.rdoc",
+          "plugins/README",
+          "themes/README"
+        ],
+        "contributing": [
+          "CONTRIBUTING.md"
+        ],
+        "architecture": [],
+        "decisionRecords": [],
+        "conventions": [],
+        "docsDirectory": [
+          "doc/licenses/chartjs.txt",
+          "doc/licenses/fugue-icons.txt",
+          "doc/licenses/jquery-ui.txt",
+          "doc/licenses/jquery.txt",
+          "doc/licenses/notosans.txt",
+          "doc/licenses/open-color.txt",
+          "doc/licenses/silk-icons.txt",
+          "doc/licenses/tabler-icons.txt",
+          "doc/licenses/tablesort.txt",
+          "doc/licenses/tribute.txt",
+          "doc/licenses/turndown.txt"
+        ],
+        "agentContext": []
+      },
+      "typeCheckers": [],
+      "statedRules": []
+    },
+    "dependencies": {
+      "status": "measured",
+      "manifests": [
+        {
+          "path": "Gemfile",
+          "ecosystem": "bundler",
+          "dependencies": 58,
+          "issues": []
+        },
+        {
+          "path": "package.json",
+          "ecosystem": "npm",
+          "dependencies": 1,
+          "issues": []
+        }
+      ],
+      "runtimes": [
+        {
+          "runtime": "ruby",
+          "spec": ">= 3.3.0",
+          "source": "Gemfile",
+          "via": "ruby directive",
+          "lowest": "3.3.0",
+          "cycle": "3.3",
+          "status": "supported",
+          "eol": "2027-03-31",
+          "reason": null,
+          "testFixture": false
+        }
+      ]
+    }
+  },
+  "method": {
+    "commands": [
+      "git rev-parse --is-shallow-repository",
+      "git rev-parse --verify -q HEAD",
+      "git rev-parse HEAD",
+      "git ls-tree -r -z --name-only HEAD",
+      "git log --no-merges --no-renames --name-only -z HEAD",
+      "git ls-tree -r -z HEAD",
+      "scc --by-file --format json ."
+    ],
+    "notes": [
+      "merge commits are excluded",
+      "renames are not followed, so a renamed file's history starts at the rename",
+      "authors are counted by email after .mailmap, case-insensitively",
+      "dates are author dates",
+      "files are those tracked at HEAD; content is read from the working tree",
+      "line and byte counts come from the built-in counter",
+      "a file is binary when its first 8000 bytes contain a NUL byte, as git decides",
+      "vendored: any path segment in node_modules, bower_components, vendor, vendors, third_party, third-party, thirdparty, Pods",
+      "generated: lock files, *.min.js, *.min.css and *.map",
+      "symlinks and submodules are never followed",
+      "paths are those tracked at HEAD; vendored paths are ignored",
+      "test files are matched by name and directory conventions; tests are never run",
+      "build-tool test runners (Maven, Gradle, Rails minitest, RSpec, go test, cargo test) count when tests sit beside the build file",
+      "files under test and fixture directories, and src/<set>/resources, are not classified as documentation",
+      "CI files show that CI is configured, not that it passes",
+      "agent context files are listed for presence only; presence alone scores nothing",
+      "type checkers are found by config file; inherited tsconfig settings (extends) are not followed",
+      "stated rules are lines with must, never, always, do not, should not, required, forbidden or prohibited in agent context, contributing, architecture and convention docs, outside code blocks; whether a rule is non-standard needs judgment",
+      "manifests are files tracked at HEAD outside vendored directories, read as text; setup.py and build files are never executed",
+      "nothing is installed or resolved; versions are as declared",
+      "for a version range, the lowest declared version is assessed",
+      "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
+      "end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date",
+      "Maven dependencies include those declared in dependencyManagement and plugin blocks"
+    ]
+  }
+}
