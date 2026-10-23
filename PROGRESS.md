@@ -14,7 +14,7 @@ After adding or updating a session note, regenerate this file with `node scripts
 - Passing features (10): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap
 - Failing/blocked features: none
 - Planned features (0): none
-- Last evidence: feat-010 — Version 2: harness adaptation plan and modernization roadmap — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-23T00:31:11.320Z)
+- Last evidence: feat-010 — Version 2: harness adaptation plan and modernization roadmap — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-23T00:34:22.197Z)
 
 ## Session Index
 
