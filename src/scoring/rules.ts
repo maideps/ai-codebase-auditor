@@ -3,6 +3,7 @@
 // config/factors.json; this file holds no default numbers.
 
 import type { CodeStructure } from "../collectors/code-structure.js";
+import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
 import { isLockFile, languageOf, SOURCE_EXTENSIONS, extensionOf } from "../file-kinds.js";
 import type { CollectorResults } from "./types.js";
@@ -42,18 +43,18 @@ function need<T>(measurement: Measurement<T>, label: string): { value: T } | { m
 }
 
 // Code files that are not tests: the population size and typing rules apply to.
-function sourceFiles(structure: CodeStructure, testPaths: ReadonlySet<string>) {
+export function sourceFiles(structure: CodeStructure, testPaths: ReadonlySet<string>) {
   return structure.files.filter((file) => SOURCE_EXTENSIONS.has(extensionOf(file.path)) && !testPaths.has(file.path));
 }
 
 // The first band whose limit the value meets; bands are [score, limit] from best to worst.
-function band(value: number, bands: readonly (readonly [number, number])[], better: "higher" | "lower"): number {
+export function band(value: number, bands: readonly (readonly [number, number])[], better: "higher" | "lower"): number {
   for (const [score, limit] of bands) if (better === "higher" ? value >= limit : value <= limit) return score;
   return 1;
 }
 
 // Calendar arithmetic on YYYY-MM-DD dates, in UTC.
-function shift(date: string, years: number, months: number): string {
+export function shift(date: string, years: number, months: number): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Date(Date.UTC((y ?? 0) + years, (m ?? 1) - 1 + months, d ?? 1)).toISOString().slice(0, 10);
 }
@@ -97,6 +98,61 @@ const testFeedback: RuleSpec = {
   },
 };
 
+export interface TypedShare {
+  share: number;
+  total: number;
+  lines: { strong: number; weak: number; checked: number; unchecked: number };
+  /** Unchecked dynamic source lines per language family. */
+  uncheckedByFamily: Map<string, number>;
+  typeScriptLines: number;
+  strictTypeScript: boolean;
+}
+
+/**
+ * The weighted typed share of the source lines. The overrides answer "what
+ * if": treat more language families as checked, or TypeScript as strict.
+ */
+export function typedShare(
+  structure: CodeStructure,
+  testsDocs: TestsDocs,
+  thresholds: Thresholds,
+  overrides: { checkedFamilies?: readonly string[]; strictTypeScript?: boolean } = {},
+): TypedShare {
+  const testPaths = new Set(testsDocs.tests.files.map((file) => file.path));
+  const checked = new Set<string>([...testsDocs.typeCheckers.map((checker) => checker.language), ...(overrides.checkedFamilies ?? [])]);
+  const strictTypeScript = overrides.strictTypeScript ?? testsDocs.typeCheckers.some((checker) => checker.checker === "TypeScript (strict)");
+  const lines = { strong: 0, weak: 0, checked: 0, unchecked: 0 };
+  const uncheckedByFamily = new Map<string, number>();
+  let typeScriptLines = 0;
+  let weighted = 0;
+  for (const file of sourceFiles(structure, testPaths)) {
+    const language = languageOf(file.path);
+    if (!language) continue;
+    if (language.typing === "strong") {
+      lines.strong += file.lines;
+      if (language.family === "typescript") typeScriptLines += file.lines;
+      const typeScriptLoose = language.family === "typescript" && !strictTypeScript;
+      weighted += file.lines * t(thresholds, typeScriptLoose ? "weightTypeScriptNonStrict" : "weightStrong");
+    } else if (language.typing === "weak") {
+      lines.weak += file.lines;
+      weighted += file.lines * t(thresholds, "weightWeak");
+    } else if (checked.has(language.family)) {
+      lines.checked += file.lines;
+      weighted += file.lines * t(thresholds, "weightCheckedDynamic");
+    } else {
+      lines.unchecked += file.lines;
+      uncheckedByFamily.set(language.family, (uncheckedByFamily.get(language.family) ?? 0) + file.lines);
+    }
+  }
+  const total = lines.strong + lines.weak + lines.checked + lines.unchecked;
+  return { share: total === 0 ? 0 : weighted / total, total, lines, uncheckedByFamily, typeScriptLines, strictTypeScript };
+}
+
+/** The type-strictness score for a typed share. */
+export function typeScoreOf(share: number, thresholds: Thresholds): number {
+  return band(share, [[5, t(thresholds, "minShare5")], [4, t(thresholds, "minShare4")], [3, t(thresholds, "minShare3")], [2, t(thresholds, "minShare2")]], "higher");
+}
+
 const typeStrictness: RuleSpec = {
   keys: ["minShare2", "minShare3", "minShare4", "minShare5", "weightStrong", "weightWeak", "weightCheckedDynamic", "weightTypeScriptNonStrict"],
   ascending: [["minShare2", "minShare3", "minShare4", "minShare5"]],
@@ -106,33 +162,10 @@ const typeStrictness: RuleSpec = {
     if ("missing" in structure) return structure.missing;
     const testsDocs = need(results.testsDocs, "tests and docs");
     if ("missing" in testsDocs) return testsDocs.missing;
-    const testPaths = new Set(testsDocs.value.tests.files.map((file) => file.path));
     const checkers = testsDocs.value.typeCheckers;
-    const checked = new Set<string>(checkers.map((checker) => checker.language));
-    const strictTypeScript = checkers.some((checker) => checker.checker === "TypeScript (strict)");
-    const lines = { strong: 0, weak: 0, checked: 0, unchecked: 0 };
-    let weighted = 0;
-    for (const file of sourceFiles(structure.value, testPaths)) {
-      const language = languageOf(file.path);
-      if (!language) continue;
-      if (language.typing === "strong") {
-        lines.strong += file.lines;
-        const typeScriptLoose = language.family === "typescript" && !strictTypeScript;
-        weighted += file.lines * t(thresholds, typeScriptLoose ? "weightTypeScriptNonStrict" : "weightStrong");
-      } else if (language.typing === "weak") {
-        lines.weak += file.lines;
-        weighted += file.lines * t(thresholds, "weightWeak");
-      } else if (checked.has(language.family)) {
-        lines.checked += file.lines;
-        weighted += file.lines * t(thresholds, "weightCheckedDynamic");
-      } else {
-        lines.unchecked += file.lines;
-      }
-    }
-    const total = lines.strong + lines.weak + lines.checked + lines.unchecked;
+    const { share, total, lines } = typedShare(structure.value, testsDocs.value, thresholds);
     if (total === 0) return { status: "not-measured", reason: "no source lines" };
-    const share = weighted / total;
-    const score = band(share, [[5, t(thresholds, "minShare5")], [4, t(thresholds, "minShare4")], [3, t(thresholds, "minShare3")], [2, t(thresholds, "minShare2")]], "higher");
+    const score = typeScoreOf(share, thresholds);
     return {
       status: "scored",
       score,

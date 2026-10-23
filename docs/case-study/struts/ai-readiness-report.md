@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\struts` at commit `f2ea51ac3e3c` |
-| Audit date | 2026-10-22 |
+| Audit date | 2026-10-23 |
 | Verdict | **adopt** (provisional: direct-api-calls not measured) |
 | Readiness level | **5 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -136,6 +136,58 @@ Red paths:
 
 Not zoned (no source files): (root), .github, .mvn, assembly, bom, docs, jakarta, parent, src, thoughts.
 
+## Harness adaptation plan
+
+For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with the guardrails and recommendations below.
+
+| Level | Item | Trigger | Surfaces |
+|---|---|---|---|
+| required | red-paths | red zone: 13 paths | AGENTS.md, .claude/settings.json |
+| recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
+
+### required: red-paths
+
+Trigger: red zone: 13 paths. Surfaces: `AGENTS.md`, `.claude/settings.json`.
+
+Change: List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.
+
+Why: Auth, billing, permission and secret code needs human review of every change.
+
+- apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java (authentication): deny Edit(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java), Write(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java)
+- apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java (login): deny Edit(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java), Write(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java)
+- apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java (logout): deny Edit(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java), Write(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java)
+- core/src/main/java/org/apache/struts2/components/Password.java (password): deny Edit(core/src/main/java/org/apache/struts2/components/Password.java), Write(core/src/main/java/org/apache/struts2/components/Password.java)
+- core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java (roles): deny Edit(core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java), Write(core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java)
+- core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java (authorization): deny Edit(core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java), Write(core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java)
+- core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java (password): deny Edit(core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java), Write(core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java)
+- core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java (password): deny Edit(core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java), Write(core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java)
+- plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java (password): deny Edit(plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java), Write(plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java)
+- plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java (authorization): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java)
+- plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java (authorization): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java)
+- plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java (permission): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java)
+- plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java (password): deny Edit(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java), Write(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java)
+
+### recommended: written-intent
+
+Trigger: documented-intent 3. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
+
+Change: Add the non-standard practices that are still unwritten to AGENTS.md, and record significant decisions in DECISIONS.md.
+
+Why: Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).
+
+- README: README.md; contributing: CONTRIBUTING.md; architecture: none; decision records: 0; conventions: docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md, docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md, thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md
+- stated rules: 34 in 6 files
+- agent context files (presence alone scores nothing): AGENTS.md, CLAUDE.md
+
+## Modernization roadmap
+
+Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
+
+| # | Factor | Score | Effort | Priority | Step | Verdict after |
+|---|---|---|---|---|---|---|
+| 1 | documented-intent | 3 → 4 | M | 0.5 | add an architecture doc or decision records | unchanged |
+| 2 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
+
 ## Not measured
 
 - factor `direct-api-calls`: no collector signal yet: needs call-site analysis
@@ -147,7 +199,7 @@ Not zoned (no source files): (root), .github, .mvn, assembly, bom, docs, jakarta
 
 ### Git history
 
-7461 non-merge commits (428 in the 12 months to 2026-10-22), 149 authors, first 2006-02-22, last 2026-10-22, 3848 tracked files.
+7461 non-merge commits (428 in the 12 months to 2026-10-23), 149 authors, first 2006-02-22, last 2026-10-22, 3848 tracked files.
 
 Hotspots (most commits in the last 12 months):
 
@@ -272,8 +324,9 @@ Largest files:
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (1 day before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
 - Deferrals: none
+- Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 
 Read-only commands run against the target:
 

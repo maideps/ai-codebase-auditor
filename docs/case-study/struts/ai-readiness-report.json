@@ -1,11 +1,11 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-22",
+  "auditDate": "2026-10-23",
   "target": {
     "path": "D:\\7-Maide\\Projects\\audit-targets\\struts",
     "head": "f2ea51ac3e3c723d670e1734c413d5fe5c31104c"
@@ -16,9 +16,10 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 1
+      "ageDays": 2
     },
-    "deferrals": null
+    "deferrals": null,
+    "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
   },
   "verdict": {
     "verdict": "adopt",
@@ -294,6 +295,100 @@
     ],
     "note": null
   },
+  "plan": {
+    "harness": {
+      "name": "ai-harness-framework",
+      "version": "0.5.0",
+      "commit": "7fb142a"
+    },
+    "framing": "Adopt the harness as is, with the guardrails and recommendations below.",
+    "items": [
+      {
+        "id": "red-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          ".claude/settings.json"
+        ],
+        "change": "List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.",
+        "why": "Auth, billing, permission and secret code needs human review of every change.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "red",
+          "count": 13
+        },
+        "details": [
+          "apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java (authentication): deny Edit(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java), Write(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatAuthenticationInterceptor.java)",
+          "apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java (login): deny Edit(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java), Write(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLoginAction.java)",
+          "apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java (logout): deny Edit(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java), Write(apps/showcase/src/main/java/org/apache/struts2/showcase/chat/ChatLogoutAction.java)",
+          "core/src/main/java/org/apache/struts2/components/Password.java (password): deny Edit(core/src/main/java/org/apache/struts2/components/Password.java), Write(core/src/main/java/org/apache/struts2/components/Password.java)",
+          "core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java (roles): deny Edit(core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java), Write(core/src/main/java/org/apache/struts2/interceptor/RolesInterceptor.java)",
+          "core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java (authorization): deny Edit(core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java), Write(core/src/main/java/org/apache/struts2/interceptor/parameter/ParameterAuthorizationContext.java)",
+          "core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java (password): deny Edit(core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java), Write(core/src/main/java/org/apache/struts2/views/freemarker/tags/PasswordModel.java)",
+          "core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java (password): deny Edit(core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java), Write(core/src/main/java/org/apache/struts2/views/jsp/ui/PasswordTag.java)",
+          "plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java (password): deny Edit(plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java), Write(plugins/javatemplates/src/main/java/org/apache/struts2/views/java/simple/PasswordHandler.java)",
+          "plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java (authorization): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/AuthorizationAwareContentTypeHandler.java)",
+          "plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java (authorization): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java)",
+          "plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java (permission): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java)",
+          "plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java (password): deny Edit(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java), Write(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java)"
+        ]
+      },
+      {
+        "id": "written-intent",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "docs/ARCHITECTURE.md"
+        ],
+        "change": "Add the non-standard practices that are still unwritten to AGENTS.md, and record significant decisions in DECISIONS.md.",
+        "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "documented-intent",
+          "score": 3
+        },
+        "details": [
+          "README: README.md; contributing: CONTRIBUTING.md; architecture: none; decision records: 0; conventions: docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md, docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md, thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md",
+          "stated rules: 34 in 6 files",
+          "agent context files (presence alone scores nothing): AGENTS.md, CLAUDE.md"
+        ]
+      }
+    ],
+    "notAssessed": []
+  },
+  "roadmap": [
+    {
+      "factor": "documented-intent",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "add an architecture doc or decision records",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "README: README.md; contributing: CONTRIBUTING.md; architecture: none; decision records: 0; conventions: docs/superpowers/plans/2026-07-20-WW-5620-log4j2-logging-standardization.md, docs/superpowers/plans/2026-10-14-WW-5770-scoped-convention-result-path.md, thoughts/shared/research/2025-12-02-WW-5593-convention-plugin-noclass-exception.md",
+        "stated rules: 34 in 6 files",
+        "agent context files (presence alone scores nothing): AGENTS.md, CLAUDE.md"
+      ]
+    },
+    {
+      "factor": "file-size",
+      "class": "constraining",
+      "from": 4,
+      "to": 5,
+      "action": "bring the p90 file length from 246 to 200 lines",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "1518 source files: p90 246 lines, 6 over 1000 lines (0.40%)",
+        "largest: core/src/main/java/org/apache/struts2/components/UIBean.java (1552 lines), core/src/main/java/org/apache/struts2/config/entities/ConstantConfig.java (1445 lines), core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (1404 lines), core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java (1260 lines), plugins/convention/src/main/java/org/apache/struts2/convention/PackageBasedActionConfigBuilder.java (1255 lines)"
+      ]
+    }
+  ],
   "notMeasured": [
     {
       "kind": "factor",
@@ -321,8 +416,8 @@
       "status": "measured",
       "head": "f2ea51ac3e3c723d670e1734c413d5fe5c31104c",
       "window": {
-        "since": "2025-10-22T23:59:59.999Z",
-        "until": "2026-10-22T23:59:59.999Z"
+        "since": "2025-10-23T23:59:59.999Z",
+        "until": "2026-10-23T23:59:59.999Z"
       },
       "totals": {
         "commits": 7461,

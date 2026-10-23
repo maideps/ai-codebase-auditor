@@ -1,9 +1,9 @@
-# AI-readiness audit: phpbb
+# AI-readiness audit: phpBB
 
 | | |
 |---|---|
-| Target | `D:\7-Maide\Projects\audit-targets\phpbb` at commit `27fb7748768e` |
-| Audit date | 2026-10-22 |
+| Target | `D:\7-Maide\Projects\audit-targets\phpBB` at commit `27fb7748768e` |
+| Audit date | 2026-10-23 |
 | Verdict | **adopt** (provisional: direct-api-calls not measured) |
 | Readiness level | **5 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -232,6 +232,138 @@ Red paths:
 
 Not zoned (no source files): .vscode, tests.
 
+## Harness adaptation plan
+
+For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with the guardrails and recommendations below.
+
+| Level | Item | Trigger | Surfaces |
+|---|---|---|---|
+| required | detected-stack | test-feedback 5 | package.json layer scripts |
+| required | red-paths | red zone: 40 paths | AGENTS.md, .claude/settings.json |
+| required | yellow-modules | yellow zone: 9 modules | AGENTS.md |
+| recommended | typed-changes | type-strictness 3 | package.json typecheck script, DECISIONS.md |
+| recommended | legible-context | file-size 3 | AGENTS.md |
+| recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
+
+### required: detected-stack
+
+Trigger: test-feedback 5. Surfaces: `package.json layer scripts`.
+
+Change: Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.
+
+Why: The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).
+
+- the harness would detect node (from package.json), but the main language is php
+
+### required: red-paths
+
+Trigger: red zone: 40 paths. Surfaces: `AGENTS.md`, `.claude/settings.json`.
+
+Change: List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.
+
+Why: Auth, billing, permission and secret code needs human review of every change.
+
+- build/doctum-checkout.conf.php (checkout): deny Edit(build/doctum-checkout.conf.php), Write(build/doctum-checkout.conf.php)
+- phpBB/adm/style/permissions.js (permissions): deny Edit(phpBB/adm/style/permissions.js), Write(phpBB/adm/style/permissions.js)
+- phpBB/develop/add_permissions.php (permissions): deny Edit(phpBB/develop/add_permissions.php), Write(phpBB/develop/add_permissions.php)
+- phpBB/develop/set_permissions.sh (permissions): deny Edit(phpBB/develop/set_permissions.sh), Write(phpBB/develop/set_permissions.sh)
+- phpBB/includes/acp/acp_permission_roles.php (permission): deny Edit(phpBB/includes/acp/acp_permission_roles.php), Write(phpBB/includes/acp/acp_permission_roles.php)
+- phpBB/includes/acp/acp_permissions.php (permissions): deny Edit(phpBB/includes/acp/acp_permissions.php), Write(phpBB/includes/acp/acp_permissions.php)
+- phpBB/includes/acp/auth.php (auth): deny Edit(phpBB/includes/acp/auth.php), Write(phpBB/includes/acp/auth.php)
+- phpBB/includes/acp/info/acp_permission_roles.php (permission): deny Edit(phpBB/includes/acp/info/acp_permission_roles.php), Write(phpBB/includes/acp/info/acp_permission_roles.php)
+- phpBB/includes/acp/info/acp_permissions.php (permissions): deny Edit(phpBB/includes/acp/info/acp_permissions.php), Write(phpBB/includes/acp/info/acp_permissions.php)
+- phpBB/includes/ucp/info/ucp_auth_link.php (auth): deny Edit(phpBB/includes/ucp/info/ucp_auth_link.php), Write(phpBB/includes/ucp/info/ucp_auth_link.php)
+- phpBB/includes/ucp/ucp_auth_link.php (auth): deny Edit(phpBB/includes/ucp/ucp_auth_link.php), Write(phpBB/includes/ucp/ucp_auth_link.php)
+- phpBB/language/en/acp/permissions.php (permissions): deny Edit(phpBB/language/en/acp/permissions.php), Write(phpBB/language/en/acp/permissions.php)
+- phpBB/language/en/acp/permissions_phpbb.php (permissions): deny Edit(phpBB/language/en/acp/permissions_phpbb.php), Write(phpBB/language/en/acp/permissions_phpbb.php)
+- phpBB/phpbb/auth/ (auth): deny Edit(phpBB/phpbb/auth/**), Write(phpBB/phpbb/auth/**)
+- phpBB/phpbb/cron/task/core/purge_oauth_states.php (oauth): deny Edit(phpBB/phpbb/cron/task/core/purge_oauth_states.php), Write(phpBB/phpbb/cron/task/core/purge_oauth_states.php)
+- phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php), Write(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php)
+- phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php), Write(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php)
+- phpBB/phpbb/db/migration/data/v310/forgot_password.php (password): deny Edit(phpBB/phpbb/db/migration/data/v310/forgot_password.php), Write(phpBB/phpbb/db/migration/data/v310/forgot_password.php)
+- phpBB/phpbb/db/migration/data/v310/passwords.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords.php), Write(phpBB/phpbb/db/migration/data/v310/passwords.php)
+- phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php), Write(phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php)
+- phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php), Write(phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php)
+- phpBB/phpbb/db/migration/data/v310/passwords_p2.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords_p2.php), Write(phpBB/phpbb/db/migration/data/v310/passwords_p2.php)
+- phpBB/phpbb/db/migration/data/v310/signature_module_auth.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v310/signature_module_auth.php), Write(phpBB/phpbb/db/migration/data/v310/signature_module_auth.php)
+- phpBB/phpbb/db/migration/data/v320/announce_global_permission.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v320/announce_global_permission.php), Write(phpBB/phpbb/db/migration/data/v320/announce_global_permission.php)
+- phpBB/phpbb/db/migration/data/v320/oauth_states.php (oauth): deny Edit(phpBB/phpbb/db/migration/data/v320/oauth_states.php), Write(phpBB/phpbb/db/migration/data/v320/oauth_states.php)
+- phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php), Write(phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php)
+- phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php), Write(phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php)
+- phpBB/phpbb/db/migration/data/v330/reset_password.php (password): deny Edit(phpBB/phpbb/db/migration/data/v330/reset_password.php), Write(phpBB/phpbb/db/migration/data/v330/reset_password.php)
+- phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php (oauth): deny Edit(phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php), Write(phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php)
+- phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php (roles): deny Edit(phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php), Write(phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php)
+- phpBB/phpbb/db/migration/data/v400/add_storage_permission.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v400/add_storage_permission.php), Write(phpBB/phpbb/db/migration/data/v400/add_storage_permission.php)
+- phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php), Write(phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php)
+- phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php), Write(phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php)
+- phpBB/phpbb/db/migration/tool/permission.php (permission): deny Edit(phpBB/phpbb/db/migration/tool/permission.php), Write(phpBB/phpbb/db/migration/tool/permission.php)
+- phpBB/phpbb/feed/event/http_auth_subscriber.php (auth): deny Edit(phpBB/phpbb/feed/event/http_auth_subscriber.php), Write(phpBB/phpbb/feed/event/http_auth_subscriber.php)
+- phpBB/phpbb/passwords/ (passwords): deny Edit(phpBB/phpbb/passwords/**), Write(phpBB/phpbb/passwords/**)
+- phpBB/phpbb/permissions.php (permissions): deny Edit(phpBB/phpbb/permissions.php), Write(phpBB/phpbb/permissions.php)
+- phpBB/phpbb/report/exception/report_permission_denied_exception.php (permission): deny Edit(phpBB/phpbb/report/exception/report_permission_denied_exception.php), Write(phpBB/phpbb/report/exception/report_permission_denied_exception.php)
+- phpBB/phpbb/ucp/controller/oauth.php (oauth): deny Edit(phpBB/phpbb/ucp/controller/oauth.php), Write(phpBB/phpbb/ucp/controller/oauth.php)
+- phpBB/phpbb/ucp/controller/reset_password.php (password): deny Edit(phpBB/phpbb/ucp/controller/reset_password.php), Write(phpBB/phpbb/ucp/controller/reset_password.php)
+
+### required: yellow-modules
+
+Trigger: yellow zone: 9 modules. Surfaces: `AGENTS.md`.
+
+Change: List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- phpBB/(files): files too large for unsupervised edits: p90 2124 lines > 800; 33.3% of files over 1000 lines > 7%
+- phpBB/assets: files too large for unsupervised edits: p90 1914 lines > 800; 30% of files over 1000 lines > 7%
+- phpBB/includes: files too large for unsupervised edits: p90 1545 lines > 800; 18.7% of files over 1000 lines > 7%
+- phpBB/install: files too large for unsupervised edits: p90 1605 lines > 800; 12.5% of files over 1000 lines > 7%
+- phpBB/phpbb/(files): files too large for unsupervised edits: p90 930 lines > 800
+- phpBB/phpbb/event: files too large for unsupervised edits: p90 808 lines > 800
+- phpBB/phpbb/log: files too large for unsupervised edits: p90 1008 lines > 800; 33.3% of files over 1000 lines > 7%
+- phpBB/phpbb/search: files too large for unsupervised edits: p90 1170 lines > 800; 25% of files over 1000 lines > 7%
+- phpBB/phpbb/tree: files too large for unsupervised edits: p90 875 lines > 800
+
+### recommended: typed-changes
+
+Trigger: type-strictness 3. Surfaces: `package.json typecheck script`, `DECISIONS.md`.
+
+Change: Raise the checker's strictness for new and touched modules.
+
+Why: Dynamic code without a checker lets an agent's type mistakes through every static layer.
+
+- main dynamic language: javascript (11804 source lines); suggested checker: TypeScript checkJs
+
+### recommended: legible-context
+
+Trigger: file-size 3. Surfaces: `AGENTS.md`.
+
+Change: List the largest files in AGENTS.md as split-before-feature files.
+
+Why: Large files push the relevant code out of an agent's context and invite confident edits to code it has not read.
+
+- files over 1000 lines: phpBB/includes/utf/data/recode_cjk.php (45177), phpBB/includes/functions.php (4270), phpBB/assets/javascript/cropper.js (3625), phpBB/includes/functions_admin.php (3236), phpBB/includes/functions_user.php (3150), phpBB/includes/functions_posting.php (2944), phpBB/includes/acp/acp_users.php (2714), phpBB/viewtopic.php (2462), phpBB/includes/functions_convert.php (2346), phpBB/includes/functions_privmsgs.php (2319)
+
+### recommended: written-intent
+
+Trigger: documented-intent 3. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
+
+Change: Add the non-standard practices that are still unwritten to AGENTS.md, and record significant decisions in DECISIONS.md.
+
+Why: Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).
+
+- README: README.md; contributing: .github/CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none
+- stated rules: 0 in 0 files
+- agent context files (presence alone scores nothing): none
+
+## Modernization roadmap
+
+Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
+
+| # | Factor | Score | Effort | Priority | Step | Verdict after |
+|---|---|---|---|---|---|---|
+| 1 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
+| 2 | dependency-currency | 4 → 5 | M | 0.5 | upgrade php from 8.2 to 8.3 | unchanged |
+| 3 | file-size | 3 → 4 | L | 0.33 | split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines | unchanged |
+
 ## Not measured
 
 - factor `direct-api-calls`: no collector signal yet: needs call-site analysis
@@ -258,7 +390,7 @@ Not zoned (no source files): .vscode, tests.
 
 ### Git history
 
-28503 non-merge commits (483 in the 12 months to 2026-10-22), 358 authors, first 2001-02-17, last 2026-10-22, 3006 tracked files.
+28503 non-merge commits (483 in the 12 months to 2026-10-23), 358 authors, first 2001-02-17, last 2026-10-22, 3006 tracked files.
 
 Hotspots (most commits in the last 12 months):
 
@@ -343,8 +475,9 @@ Largest files:
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (1 day before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
 - Deferrals: none
+- Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 
 Read-only commands run against the target:
 

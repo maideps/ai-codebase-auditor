@@ -104,6 +104,40 @@ function zonesSection(report: AuditReport): string[] {
   return lines;
 }
 
+function triggerText(item: AuditReport["plan"]["items"][number]): string {
+  return item.trigger.kind === "factor"
+    ? `${item.trigger.factor} ${item.trigger.score}`
+    : `${item.trigger.zone} zone: ${count(item.trigger.count, item.trigger.zone === "red" ? "path" : "module")}`;
+}
+
+function planSection(report: AuditReport): string[] {
+  const { plan } = report;
+  const harness = `${plan.harness.name} ${plan.harness.version}${plan.harness.commit ? ` (commit ${code(plan.harness.commit)})` : ""}`;
+  const lines = ["## Harness adaptation plan", "", `For ${harness}. ${plan.framing}`, ""];
+  lines.push(...table(["Level", "Item", "Trigger", "Surfaces"], plan.items.map((item) => [item.level, item.id, triggerText(item), item.surfaces.join(", ")])));
+  for (const item of plan.items) {
+    lines.push("", `### ${item.level}: ${item.id}`, "", `Trigger: ${triggerText(item)}. Surfaces: ${item.surfaces.map(code).join(", ")}.`, "", `Change: ${item.change}`, "", `Why: ${item.why}`);
+    if (item.details.length > 0) lines.push("", ...item.details.map((detail) => `- ${detail}`));
+  }
+  if (plan.notAssessed.length > 0) {
+    lines.push("", "Not assessed (factor not measured):", "", ...plan.notAssessed.map((entry) => `- ${entry.requirement} (${entry.factor}): ${entry.reason}`));
+  }
+  return lines;
+}
+
+function roadmapSection(report: AuditReport): string[] {
+  return [
+    "## Modernization roadmap",
+    "",
+    "Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).",
+    "",
+    ...table(
+      ["#", "Factor", "Score", "Effort", "Priority", "Step", "Verdict after"],
+      report.roadmap.map((step, index) => [String(index + 1), step.factor, `${step.from} → ${step.to}`, step.effort, String(step.priority), step.action, step.verdictAfter ?? "unchanged"]),
+    ),
+  ];
+}
+
 function notMeasuredSection(report: AuditReport): string[] {
   const lines = ["## Not measured", ""];
   if (report.notMeasured.length === 0) return [...lines, "Everything was measured."];
@@ -176,6 +210,7 @@ function methodSection(report: AuditReport): string[] {
     `- Decision config: ${code(inputs.decisionConfig)}`,
     `- End-of-life table: ${code(inputs.eolTable.path)}, as of ${inputs.eolTable.asOf} (${count(inputs.eolTable.ageDays, "day")} before the audit)`,
     `- Deferrals: ${inputs.deferrals ? code(inputs.deferrals) : "none"}`,
+    `- Harness requirements: ${code(inputs.harnessRequirements)}`,
     "",
     "Read-only commands run against the target:",
     "",
@@ -188,6 +223,9 @@ function methodSection(report: AuditReport): string[] {
 }
 
 export function renderMarkdown(report: AuditReport): string {
-  const sections = [headline(report), verdictSection(report), scoresSection(report), zonesSection(report), notMeasuredSection(report), signalsSection(report), methodSection(report)];
+  const sections = [
+    headline(report), verdictSection(report), scoresSection(report), zonesSection(report),
+    planSection(report), roadmapSection(report), notMeasuredSection(report), signalsSection(report), methodSection(report),
+  ];
   return `${sections.map((lines) => lines.join("\n")).join("\n\n")}\n`;
 }

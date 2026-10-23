@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readVersion, runCli, USAGE } from "./cli.js";
+import { DEFAULT_HARNESS_REQUIREMENTS_PATH } from "./config/harness-requirements.js";
 import { createFixtureRepo } from "./testing/git-fixture.js";
 
 const root = mkdtempSync(path.join(os.tmpdir(), "aca-cli-"));
@@ -44,6 +45,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain("Readiness level: not determined (no blocking factor could be scored)");
     expect(result.stdout).toMatch(/Verdict: none\n {2}rule: no verdict: test-feedback is not measured \(code structure not measured \(git failed: .+\)\)/);
     expect(result.stdout).toMatch(/ {2}no zones: code structure not measured \(git failed: .+\)/);
+    expect(result.stdout).toContain("Harness adaptation plan (ai-harness-framework 0.5.0): No plan: there is no verdict to plan for.\n  no items\n");
   });
 
   it("reports git-based collectors as not measured when git cannot read the target", () => {
@@ -146,6 +148,8 @@ describe("runCli: audit", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(`Config: ${config}`);
     expect(result.stdout).toContain("Factors: 1 (1 blocking, 0 constraining)");
+    // The default harness requirements name factors this config leaves out: listed, not an error.
+    expect(result.stdout).toContain("  not assessed: verifiable-changes, typed-changes, legible-context, written-intent, reproducible-runs, supported-runtime");
   });
 
   it("requires a repository path", () => {
@@ -209,6 +213,39 @@ describe("runCli: scores", () => {
     expect(result.stdout).toContain("  rule: 2 weak factors (score ≤ 2): type-strictness 1, documented-intent 2");
     expect(result.stdout).toMatch(/ {2}green {3}src +2 source files: test-feedback 5 ≥ 3/);
     expect(result.stdout).toContain("  red paths: none");
+  });
+
+  it("prints the harness adaptation plan and the roadmap, each item citing its trigger", () => {
+    const result = runCli(["audit", scored], "1.2.3");
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Harness adaptation plan (ai-harness-framework 0.5.0): Adopt the harness with these adaptations.");
+    expect(result.stdout).toMatch(/ {2}required +typed-changes +type-strictness 1\n {2}required +written-intent +documented-intent 2\n/);
+    // No root package.json or pyproject.toml: the harness would detect no stack.
+    expect(result.stdout).toMatch(/ {2}required +detected-stack +test-feedback 5\n/);
+    expect(result.stdout).toMatch(/ {2}recommended +reproducible-runs +dev-deploy-simplicity 3\n/);
+    expect(result.stdout).toContain("  not assessed: supported-runtime");
+    expect(result.stdout).toContain("Modernization roadmap (by gain against effort):\n  1. documented-intent 2→3 [S] write at least 3 project rules");
+    expect(result.stdout).toContain("  2. type-strictness 1→3 [M] configure TypeScript checkJs for javascript with a baseline");
+  });
+
+  it("reads harness requirements from --harness and rejects unknown factors and invalid files", () => {
+    const requirements = JSON.parse(readFileSync(DEFAULT_HARNESS_REQUIREMENTS_PATH, "utf8")) as {
+      requirements: { factor: string }[];
+    };
+    const own = path.join(root, "own-requirements.json");
+    writeFileSync(own, JSON.stringify({ ...requirements, harness: { name: "my-harness", version: "1.0.0" } }), "utf8");
+    expect(runCli(["audit", scored, "--harness", own], "1.2.3").stdout).toContain("Harness adaptation plan (my-harness 1.0.0): ");
+    const unknown = path.join(root, "unknown-requirement.json");
+    const renamed = requirements.requirements.map((requirement, index) => (index === 1 ? { ...requirement, factor: "made-up" } : requirement));
+    writeFileSync(unknown, JSON.stringify({ ...requirements, requirements: renamed }), "utf8");
+    const unknownResult = runCli(["audit", scored, "--harness", unknown], "1.2.3");
+    expect(unknownResult.exitCode).toBe(2);
+    expect(unknownResult.stderr).toContain(`error: ${unknown}: requirements[1].factor made-up is not a configured factor`);
+    const invalid = path.join(root, "invalid-requirements.json");
+    writeFileSync(invalid, "{", "utf8");
+    const invalidResult = runCli(["audit", scored, "--harness", invalid], "1.2.3");
+    expect(invalidResult.exitCode).toBe(2);
+    expect(invalidResult.stderr).toContain(`error: ${invalid}:`);
   });
 
   it("applies a current deferral and shows it", () => {

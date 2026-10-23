@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\redmine` at commit `77cad6adb89c` |
-| Audit date | 2026-10-22 |
+| Audit date | 2026-10-23 |
 | Verdict | **adapt** (provisional: direct-api-calls not measured) |
 | Readiness level | **5 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -203,6 +203,147 @@ Red paths:
 
 Not zoned (no source files): (root), .github, doc, files, log, plugins, public, test, themes, tmp.
 
+## Harness adaptation plan
+
+For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these adaptations.
+
+| Level | Item | Trigger | Surfaces |
+|---|---|---|---|
+| required | typed-changes | type-strictness 1 | package.json typecheck script, DECISIONS.md |
+| required | detected-stack | test-feedback 5 | package.json layer scripts |
+| required | red-paths | red zone: 78 paths | AGENTS.md, .claude/settings.json |
+| recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
+
+### required: typed-changes
+
+Trigger: type-strictness 1. Surfaces: `package.json typecheck script`, `DECISIONS.md`.
+
+Change: Add a type checker for the main dynamic language in check mode, with a baseline so existing code passes and new code is checked; point the typecheck layer at it and record the baseline as a dated deferral.
+
+Why: Dynamic code without a checker lets an agent's type mistakes through every static layer.
+
+- main dynamic language: ruby (65580 source lines); suggested checker: Sorbet or Steep
+
+### required: detected-stack
+
+Trigger: test-feedback 5. Surfaces: `package.json layer scripts`.
+
+Change: Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.
+
+Why: The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).
+
+- the harness would detect node (from package.json), but the main language is ruby
+
+### required: red-paths
+
+Trigger: red zone: 78 paths. Surfaces: `AGENTS.md`, `.claude/settings.json`.
+
+Change: List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.
+
+Why: Auth, billing, permission and secret code needs human review of every change.
+
+- app/controllers/auth_sources_controller.rb (auth): deny Edit(app/controllers/auth_sources_controller.rb), Write(app/controllers/auth_sources_controller.rb)
+- app/controllers/oauth2_applications_controller.rb (oauth): deny Edit(app/controllers/oauth2_applications_controller.rb), Write(app/controllers/oauth2_applications_controller.rb)
+- app/controllers/roles_controller.rb (roles): deny Edit(app/controllers/roles_controller.rb), Write(app/controllers/roles_controller.rb)
+- app/helpers/auth_sources_helper.rb (auth): deny Edit(app/helpers/auth_sources_helper.rb), Write(app/helpers/auth_sources_helper.rb)
+- app/helpers/roles_helper.rb (roles): deny Edit(app/helpers/roles_helper.rb), Write(app/helpers/roles_helper.rb)
+- app/models/auth_source.rb (auth): deny Edit(app/models/auth_source.rb), Write(app/models/auth_source.rb)
+- app/models/auth_source_ldap.rb (auth): deny Edit(app/models/auth_source_ldap.rb), Write(app/models/auth_source_ldap.rb)
+- app/models/member_role.rb (role): deny Edit(app/models/member_role.rb), Write(app/models/member_role.rb)
+- app/models/role.rb (role): deny Edit(app/models/role.rb), Write(app/models/role.rb)
+- app/models/workflow_permission.rb (permission): deny Edit(app/models/workflow_permission.rb), Write(app/models/workflow_permission.rb)
+- db/migrate/012_add_comments_permissions.rb (permissions): deny Edit(db/migrate/012_add_comments_permissions.rb), Write(db/migrate/012_add_comments_permissions.rb)
+- db/migrate/014_add_queries_permissions.rb (permissions): deny Edit(db/migrate/014_add_queries_permissions.rb), Write(db/migrate/014_add_queries_permissions.rb)
+- db/migrate/016_add_repositories_permissions.rb (permissions): deny Edit(db/migrate/016_add_repositories_permissions.rb), Write(db/migrate/016_add_repositories_permissions.rb)
+- db/migrate/020_add_role_position.rb (role): deny Edit(db/migrate/020_add_role_position.rb), Write(db/migrate/020_add_role_position.rb)
+- db/migrate/024_add_roadmap_permission.rb (permission): deny Edit(db/migrate/024_add_roadmap_permission.rb), Write(db/migrate/024_add_roadmap_permission.rb)
+- db/migrate/025_add_search_permission.rb (permission): deny Edit(db/migrate/025_add_search_permission.rb), Write(db/migrate/025_add_search_permission.rb)
+- db/migrate/026_add_repository_login_and_password.rb (login): deny Edit(db/migrate/026_add_repository_login_and_password.rb), Write(db/migrate/026_add_repository_login_and_password.rb)
+- db/migrate/030_add_projects_feeds_permissions.rb (permissions): deny Edit(db/migrate/030_add_projects_feeds_permissions.rb), Write(db/migrate/030_add_projects_feeds_permissions.rb)
+- db/migrate/033_add_timelog_permissions.rb (permissions): deny Edit(db/migrate/033_add_timelog_permissions.rb), Write(db/migrate/033_add_timelog_permissions.rb)
+- db/migrate/043_add_relations_permissions.rb (permissions): deny Edit(db/migrate/043_add_relations_permissions.rb), Write(db/migrate/043_add_relations_permissions.rb)
+- db/migrate/047_add_boards_permissions.rb (permissions): deny Edit(db/migrate/047_add_boards_permissions.rb), Write(db/migrate/047_add_boards_permissions.rb)
+- db/migrate/049_add_wiki_destroy_page_permission.rb (permission): deny Edit(db/migrate/049_add_wiki_destroy_page_permission.rb), Write(db/migrate/049_add_wiki_destroy_page_permission.rb)
+- db/migrate/050_add_wiki_attachments_permissions.rb (permissions): deny Edit(db/migrate/050_add_wiki_attachments_permissions.rb), Write(db/migrate/050_add_wiki_attachments_permissions.rb)
+- db/migrate/056_add_repositories_changes_permission.rb (permission): deny Edit(db/migrate/056_add_repositories_changes_permission.rb), Write(db/migrate/056_add_repositories_changes_permission.rb)
+- db/migrate/059_add_roles_assignable.rb (roles): deny Edit(db/migrate/059_add_roles_assignable.rb), Write(db/migrate/059_add_roles_assignable.rb)
+- db/migrate/061_add_roles_builtin.rb (roles): deny Edit(db/migrate/061_add_roles_builtin.rb), Write(db/migrate/061_add_roles_builtin.rb)
+- db/migrate/062_insert_builtin_roles.rb (roles): deny Edit(db/migrate/062_insert_builtin_roles.rb), Write(db/migrate/062_insert_builtin_roles.rb)
+- db/migrate/063_add_roles_permissions.rb (roles): deny Edit(db/migrate/063_add_roles_permissions.rb), Write(db/migrate/063_add_roles_permissions.rb)
+- db/migrate/064_drop_permissions.rb (permissions): deny Edit(db/migrate/064_drop_permissions.rb), Write(db/migrate/064_drop_permissions.rb)
+- db/migrate/074_add_auth_sources_tls.rb (auth): deny Edit(db/migrate/074_add_auth_sources_tls.rb), Write(db/migrate/074_add_auth_sources_tls.rb)
+- db/migrate/084_change_auth_sources_account_limit.rb (auth): deny Edit(db/migrate/084_change_auth_sources_account_limit.rb), Write(db/migrate/084_change_auth_sources_account_limit.rb)
+- db/migrate/085_add_role_tracker_old_status_index_to_workflows.rb (role): deny Edit(db/migrate/085_add_role_tracker_old_status_index_to_workflows.rb), Write(db/migrate/085_add_role_tracker_old_status_index_to_workflows.rb)
+- db/migrate/096_add_commit_access_permission.rb (permission): deny Edit(db/migrate/096_add_commit_access_permission.rb), Write(db/migrate/096_add_commit_access_permission.rb)
+- db/migrate/097_add_view_wiki_edits_permission.rb (permission): deny Edit(db/migrate/097_add_view_wiki_edits_permission.rb), Write(db/migrate/097_add_view_wiki_edits_permission.rb)
+- db/migrate/099_add_delete_wiki_pages_attachments_permission.rb (permission): deny Edit(db/migrate/099_add_delete_wiki_pages_attachments_permission.rb), Write(db/migrate/099_add_delete_wiki_pages_attachments_permission.rb)
+- db/migrate/107_add_open_id_authentication_tables.rb (authentication): deny Edit(db/migrate/107_add_open_id_authentication_tables.rb), Write(db/migrate/107_add_open_id_authentication_tables.rb)
+- db/migrate/20090503121501_create_member_roles.rb (roles): deny Edit(db/migrate/20090503121501_create_member_roles.rb), Write(db/migrate/20090503121501_create_member_roles.rb)
+- db/migrate/20090503121505_populate_member_roles.rb (roles): deny Edit(db/migrate/20090503121505_populate_member_roles.rb), Write(db/migrate/20090503121505_populate_member_roles.rb)
+- db/migrate/20090503121510_drop_members_role_id.rb (role): deny Edit(db/migrate/20090503121510_drop_members_role_id.rb), Write(db/migrate/20090503121510_drop_members_role_id.rb)
+- db/migrate/20090704172358_add_member_roles_inherited_from.rb (roles): deny Edit(db/migrate/20090704172358_add_member_roles_inherited_from.rb), Write(db/migrate/20090704172358_add_member_roles_inherited_from.rb)
+- db/migrate/20091017213257_add_missing_indexes_to_auth_sources.rb (auth): deny Edit(db/migrate/20091017213257_add_missing_indexes_to_auth_sources.rb), Write(db/migrate/20091017213257_add_missing_indexes_to_auth_sources.rb)
+- db/migrate/20091017213716_add_missing_indexes_to_member_roles.rb (roles): deny Edit(db/migrate/20091017213716_add_missing_indexes_to_member_roles.rb), Write(db/migrate/20091017213716_add_missing_indexes_to_member_roles.rb)
+- db/migrate/20091114105931_add_view_issues_permission.rb (permission): deny Edit(db/migrate/20091114105931_add_view_issues_permission.rb), Write(db/migrate/20091114105931_add_view_issues_permission.rb)
+- db/migrate/20110223180953_salt_user_passwords.rb (passwords): deny Edit(db/migrate/20110223180953_salt_user_passwords.rb), Write(db/migrate/20110223180953_salt_user_passwords.rb)
+- db/migrate/20110226120112_change_repositories_password_limit.rb (password): deny Edit(db/migrate/20110226120112_change_repositories_password_limit.rb), Write(db/migrate/20110226120112_change_repositories_password_limit.rb)
+- db/migrate/20110226120132_change_auth_sources_account_password_limit.rb (auth): deny Edit(db/migrate/20110226120132_change_auth_sources_account_password_limit.rb), Write(db/migrate/20110226120132_change_auth_sources_account_password_limit.rb)
+- db/migrate/20110408103312_add_roles_issues_visibility.rb (roles): deny Edit(db/migrate/20110408103312_add_roles_issues_visibility.rb), Write(db/migrate/20110408103312_add_roles_issues_visibility.rb)
+- db/migrate/20120205111326_change_users_login_limit.rb (login): deny Edit(db/migrate/20120205111326_change_users_login_limit.rb), Write(db/migrate/20120205111326_change_users_login_limit.rb)
+- db/migrate/20120301153455_add_auth_sources_filter.rb (auth): deny Edit(db/migrate/20120301153455_add_auth_sources_filter.rb), Write(db/migrate/20120301153455_add_auth_sources_filter.rb)
+- db/migrate/20120707064544_add_auth_sources_timeout.rb (auth): deny Edit(db/migrate/20120707064544_add_auth_sources_timeout.rb), Write(db/migrate/20120707064544_add_auth_sources_timeout.rb)
+- db/migrate/20130110122628_split_documents_permissions.rb (permissions): deny Edit(db/migrate/20130110122628_split_documents_permissions.rb), Write(db/migrate/20130110122628_split_documents_permissions.rb)
+- db/migrate/20130602092539_create_queries_roles.rb (roles): deny Edit(db/migrate/20130602092539_create_queries_roles.rb), Write(db/migrate/20130602092539_create_queries_roles.rb)
+- db/migrate/20130713104233_create_custom_fields_roles.rb (roles): deny Edit(db/migrate/20130713104233_create_custom_fields_roles.rb), Write(db/migrate/20130713104233_create_custom_fields_roles.rb)
+- db/migrate/20130729070143_add_users_must_change_passwd.rb (passwd): deny Edit(db/migrate/20130729070143_add_users_must_change_passwd.rb), Write(db/migrate/20130729070143_add_users_must_change_passwd.rb)
+- db/migrate/20140903143914_add_password_changed_at_to_user.rb (password): deny Edit(db/migrate/20140903143914_add_password_changed_at_to_user.rb), Write(db/migrate/20140903143914_add_password_changed_at_to_user.rb)
+- db/migrate/20141109112308_add_roles_users_visibility.rb (roles): deny Edit(db/migrate/20141109112308_add_roles_users_visibility.rb), Write(db/migrate/20141109112308_add_roles_users_visibility.rb)
+- db/migrate/20150208105930_replace_move_issues_permission.rb (permission): deny Edit(db/migrate/20150208105930_replace_move_issues_permission.rb), Write(db/migrate/20150208105930_replace_move_issues_permission.rb)
+- db/migrate/20150526183158_add_roles_time_entries_visibility.rb (roles): deny Edit(db/migrate/20150526183158_add_roles_time_entries_visibility.rb), Write(db/migrate/20150526183158_add_roles_time_entries_visibility.rb)
+- db/migrate/20150528084820_add_roles_all_roles_managed.rb (roles): deny Edit(db/migrate/20150528084820_add_roles_all_roles_managed.rb), Write(db/migrate/20150528084820_add_roles_all_roles_managed.rb)
+- db/migrate/20150528092912_create_roles_managed_roles.rb (roles): deny Edit(db/migrate/20150528092912_create_roles_managed_roles.rb), Write(db/migrate/20150528092912_create_roles_managed_roles.rb)
+- db/migrate/20150528093249_add_unique_index_on_roles_managed_roles.rb (roles): deny Edit(db/migrate/20150528093249_add_unique_index_on_roles_managed_roles.rb), Write(db/migrate/20150528093249_add_unique_index_on_roles_managed_roles.rb)
+- db/migrate/20151021185456_change_auth_sources_filter_to_text.rb (auth): deny Edit(db/migrate/20151021185456_change_auth_sources_filter_to_text.rb), Write(db/migrate/20151021185456_change_auth_sources_filter_to_text.rb)
+- db/migrate/20160404080304_force_password_reset_during_setup.rb (password): deny Edit(db/migrate/20160404080304_force_password_reset_during_setup.rb), Write(db/migrate/20160404080304_force_password_reset_during_setup.rb)
+- db/migrate/20160529063352_add_roles_settings.rb (roles): deny Edit(db/migrate/20160529063352_add_roles_settings.rb), Write(db/migrate/20160529063352_add_roles_settings.rb)
+- db/migrate/20161002133421_add_index_on_member_roles_inherited_from.rb (roles): deny Edit(db/migrate/20161002133421_add_index_on_member_roles_inherited_from.rb), Write(db/migrate/20161002133421_add_index_on_member_roles_inherited_from.rb)
+- db/migrate/20170418090031_add_view_news_to_all_existing_roles.rb (roles): deny Edit(db/migrate/20170418090031_add_view_news_to_all_existing_roles.rb), Write(db/migrate/20170418090031_add_view_news_to_all_existing_roles.rb)
+- db/migrate/20170419144536_add_view_messages_to_all_existing_roles.rb (roles): deny Edit(db/migrate/20170419144536_add_view_messages_to_all_existing_roles.rb), Write(db/migrate/20170419144536_add_view_messages_to_all_existing_roles.rb)
+- db/migrate/20180913072918_add_verify_peer_to_auth_sources.rb (auth): deny Edit(db/migrate/20180913072918_add_verify_peer_to_auth_sources.rb), Write(db/migrate/20180913072918_add_verify_peer_to_auth_sources.rb)
+- db/migrate/20190620135549_change_roles_name_limit.rb (roles): deny Edit(db/migrate/20190620135549_change_roles_name_limit.rb), Write(db/migrate/20190620135549_change_roles_name_limit.rb)
+- db/migrate/20211213122101_drop_open_id_authentication_tables.rb (authentication): deny Edit(db/migrate/20211213122101_drop_open_id_authentication_tables.rb), Write(db/migrate/20211213122101_drop_open_id_authentication_tables.rb)
+- db/migrate/20220806215628_add_default_time_entry_activity_to_roles.rb (roles): deny Edit(db/migrate/20220806215628_add_default_time_entry_activity_to_roles.rb), Write(db/migrate/20220806215628_add_default_time_entry_activity_to_roles.rb)
+- db/migrate/20221002193055_delete_orphaned_query_and_role_from_queries_roles.rb (role): deny Edit(db/migrate/20221002193055_delete_orphaned_query_and_role_from_queries_roles.rb), Write(db/migrate/20221002193055_delete_orphaned_query_and_role_from_queries_roles.rb)
+- db/migrate/20221214173537_add_select_project_publicity_permission.rb (permission): deny Edit(db/migrate/20221214173537_add_select_project_publicity_permission.rb), Write(db/migrate/20221214173537_add_select_project_publicity_permission.rb)
+- db/migrate/20231012112407_remove_mention_users_permission.rb (permission): deny Edit(db/migrate/20231012112407_remove_mention_users_permission.rb), Write(db/migrate/20231012112407_remove_mention_users_permission.rb)
+- db/migrate/20241103184550_change_builtin_roles_user_visibility.rb (roles): deny Edit(db/migrate/20241103184550_change_builtin_roles_user_visibility.rb), Write(db/migrate/20241103184550_change_builtin_roles_user_visibility.rb)
+- db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb (login): deny Edit(db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb), Write(db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb)
+- db/migrate/20260319170822_add_index_to_users_login.rb (login): deny Edit(db/migrate/20260319170822_add_index_to_users_login.rb), Write(db/migrate/20260319170822_add_index_to_users_login.rb)
+- db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb (permissions): deny Edit(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb), Write(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb)
+
+### recommended: written-intent
+
+Trigger: documented-intent 3. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
+
+Change: Add the non-standard practices that are still unwritten to AGENTS.md, and record significant decisions in DECISIONS.md.
+
+Why: Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).
+
+- README: README.rdoc; contributing: CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none
+- stated rules: 0 in 0 files
+- agent context files (presence alone scores nothing): none
+
+## Modernization roadmap
+
+Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
+
+| # | Factor | Score | Effort | Priority | Step | Verdict after |
+|---|---|---|---|---|---|---|
+| 1 | type-strictness | 1 → 3 | M | 1.5 | configure Sorbet or Steep for ruby with a baseline (typed share 0.00 to 0.53) | adopt |
+| 2 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
+| 3 | dependency-currency | 4 → 5 | M | 0.5 | upgrade ruby from 3.3 to 3.4 | unchanged |
+| 4 | file-size | 4 → 5 | L | 0.33 | split 1 of 9 files over 1000 lines (to 1% of files) and bring the p90 file length from 214 to 200 lines | unchanged |
+
 ## Not measured
 
 - factor `direct-api-calls`: no collector signal yet: needs call-site analysis
@@ -214,7 +355,7 @@ Not zoned (no source files): (root), .github, doc, files, log, plugins, public, 
 
 ### Git history
 
-19890 non-merge commits (837 in the 12 months to 2026-10-22), 12 authors, first 2006-06-28, last 2026-10-22, 2341 tracked files.
+19890 non-merge commits (837 in the 12 months to 2026-10-23), 12 authors, first 2006-06-28, last 2026-10-22, 2341 tracked files.
 
 Hotspots (most commits in the last 12 months):
 
@@ -275,8 +416,9 @@ Largest files:
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (1 day before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
 - Deferrals: none
+- Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 
 Read-only commands run against the target:
 

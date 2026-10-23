@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig } from "../config/decision.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
+import { DEFAULT_HARNESS_REQUIREMENTS_PATH, loadHarnessRequirements } from "../config/harness-requirements.js";
+import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "../config/runtime-eol.js";
 import { decide } from "../decision/decide.js";
+import { buildPlan } from "../plan/plan.js";
+import { buildRoadmap } from "../plan/roadmap.js";
 import { scoreFactors } from "../scoring/score.js";
 import { collected, dependenciesOf, notMeasured, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
 import { renderJson } from "./json.js";
@@ -10,7 +14,11 @@ import { buildReport, type ReportInput } from "./model.js";
 
 const factors = loadFactorConfig(DEFAULT_CONFIG_PATH);
 const decisionConfig = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
-if (!factors.ok || !decisionConfig.ok) throw new Error("default config does not load");
+const requirements = loadHarnessRequirements(DEFAULT_HARNESS_REQUIREMENTS_PATH);
+const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
+if (!factors.ok || !decisionConfig.ok || !requirements.ok || !eolTable.ok) throw new Error("default config does not load");
+const requirementValues = requirements.value;
+const eolValues = eolTable.value;
 const factorConfig = factors.value;
 const decisionValues = decisionConfig.value;
 const now = new Date("2026-10-22T09:00:00Z");
@@ -43,10 +51,13 @@ function sampleInput(): ReportInput {
       decisionConfig: "/tool/config/decision.json",
       eolTable: { path: "/tool/config/runtime-eol.json", asOf: "2026-10-21" },
       deferrals: null,
+      harnessRequirements: "/tool/config/harness-requirements.json",
     },
     collected: results,
     scoring,
     decision,
+    plan: buildPlan({ scoring, decision, results, requirements: requirementValues, weakMax: decisionValues.weakMax }),
+    roadmap: buildRoadmap({ scoring, results, factors: factorConfig, decisionConfig: decisionValues, eolTable: eolValues, auditDate: "2026-10-22" }),
   };
 }
 
@@ -54,7 +65,7 @@ describe("report model", () => {
   it("carries the verdict, readiness, every factor and the not-measured items", () => {
     const report = buildReport(sampleInput());
     expect(report.schema).toBe("ai-codebase-auditor/report");
-    expect(report.schemaVersion).toBe(2);
+    expect(report.schemaVersion).toBe(3);
     expect(report.target).toEqual({ path: "/repos/sample", head: "0123456789abcdef0123456789abcdef01234567" });
     expect(report.inputs.eolTable).toEqual({ path: "/tool/config/runtime-eol.json", asOf: "2026-10-21", ageDays: 1 });
     expect(report.verdict.verdict).toBe("adapt");
@@ -103,6 +114,13 @@ describe("renderers", () => {
     }
     for (const item of json.notMeasured) expect(markdown).toContain(item.reason);
     for (const red of json.zones.redPaths) expect(markdown).toContain(red.path);
+    expect(json.plan.items.length).toBeGreaterThan(0);
+    for (const item of json.plan.items) {
+      expect(markdown).toContain(`### ${item.level}: ${item.id}`);
+      for (const detail of item.details) expect(markdown).toContain(detail);
+    }
+    expect(json.roadmap.length).toBeGreaterThan(0);
+    for (const step of json.roadmap) expect(markdown).toContain(cell(step.action));
   });
 
   it("ends both files with a single LF and uses no CR", () => {

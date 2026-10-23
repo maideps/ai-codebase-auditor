@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "harness": {
+    "name": "ai-harness-framework",
+    "version": "0.5.0",
+    "commit": "7fb142a",
+    "note": "Written against the harness at this commit, including D-029: a required verification layer that only reports SKIP fails verify-feature. Replace this file to plan for another harness."
+  },
+  "requirements": [
+    {
+      "id": "verifiable-changes",
+      "factor": "test-feedback",
+      "assumption": "An agent can verify its own changes: every feature passes real verification layers, and a layer that only reports SKIP counts as nothing (D-029).",
+      "surfaces": ["feature_list.json layers", "package.json test script", "AGENTS.md"],
+      "required": "Before a feature edits a module, capture its current behavior with characterization tests (golden-master style) and make the test layer run them. Add an AGENTS.md rule: the agent that changes logic is never the only author of its tests.",
+      "recommended": "Grow tests in the modules agents will touch first, and keep feature scopes inside green modules.",
+      "why": "Without real tests, every required test layer reports SKIP and fails verify-feature, so no feature can pass honestly."
+    },
+    {
+      "id": "typed-changes",
+      "factor": "type-strictness",
+      "assumption": "Wrong changes are caught before they run, by static types or a type checker in the typecheck layer.",
+      "surfaces": ["package.json typecheck script", "DECISIONS.md"],
+      "required": "Add a type checker for the main dynamic language in check mode, with a baseline so existing code passes and new code is checked; point the typecheck layer at it and record the baseline as a dated deferral.",
+      "recommended": "Raise the checker's strictness for new and touched modules.",
+      "why": "Dynamic code without a checker lets an agent's type mistakes through every static layer."
+    },
+    {
+      "id": "legible-context",
+      "factor": "file-size",
+      "assumption": "Files and the context needed to change them fit in an agent's working context.",
+      "surfaces": ["AGENTS.md"],
+      "required": "Add an AGENTS.md rule to work one module at a time, and list the oversized files: plan edits by function there, and split a file before adding features to it.",
+      "recommended": "List the largest files in AGENTS.md as split-before-feature files.",
+      "why": "Large files push the relevant code out of an agent's context and invite confident edits to code it has not read."
+    },
+    {
+      "id": "written-intent",
+      "factor": "documented-intent",
+      "assumption": "Project-specific conventions are written down where agents read them.",
+      "surfaces": ["AGENTS.md", "docs/ARCHITECTURE.md"],
+      "required": "Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).",
+      "recommended": "Add the non-standard practices that are still unwritten to AGENTS.md, and record significant decisions in DECISIONS.md.",
+      "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988)."
+    },
+    {
+      "id": "reproducible-runs",
+      "factor": "dev-deploy-simplicity",
+      "assumption": "The project builds and verifies with scripted, repeatable steps.",
+      "surfaces": ["init.sh", ".github/workflows/ci.yml", "runtime version file"],
+      "required": "Add what the evidence shows missing: CI from the harness template (templates/ci.yml), a pinned runtime version, a test runner, and a lock file where the ecosystem uses one.",
+      "recommended": "Add the remaining missing signal so every verification run is reproducible.",
+      "why": "init.sh and the verification layers can only be trusted when the environment they run in is pinned and scripted."
+    },
+    {
+      "id": "supported-runtime",
+      "factor": "dependency-currency",
+      "assumption": "Verification runs on a supported runtime that matches production.",
+      "surfaces": ["CI", "verification layers"],
+      "required": "Run the verification layers under the declared legacy runtime (a container or a pinned toolchain in CI), separately from the harness's own Node 18 or later, and keep agents away from runtime-sensitive code paths without that toolchain.",
+      "recommended": "Plan the runtime upgrade before the runtime reaches end of life, and run CI on both the current and the next runtime.",
+      "why": "Code verified on a different runtime than it ships on is not verified."
+    }
+  ],
+  "stackDetection": {
+    "factor": "test-feedback",
+    "surfaces": ["package.json layer scripts"],
+    "change": "Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.",
+    "why": "The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029)."
+  },
+  "zones": {
+    "red": {
+      "surfaces": ["AGENTS.md", ".claude/settings.json"],
+      "change": "List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.",
+      "why": "Auth, billing, permission and secret code needs human review of every change."
+    },
+    "yellow": {
+      "surfaces": ["AGENTS.md"],
+      "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+      "why": "Agents may only edit autonomously where their changes can be verified."
+    }
+  }
+}

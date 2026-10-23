@@ -1,11 +1,11 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-22",
+  "auditDate": "2026-10-23",
   "target": {
     "path": "D:\\7-Maide\\Projects\\audit-targets\\DOOM",
     "head": "a77dfb96cb91780ca334d0d4cfd86957558007e0"
@@ -16,9 +16,10 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 1
+      "ageDays": 2
     },
-    "deferrals": null
+    "deferrals": null,
+    "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
   },
   "verdict": {
     "verdict": "prepare-first",
@@ -221,6 +222,203 @@
     ],
     "note": null
   },
+  "plan": {
+    "harness": {
+      "name": "ai-harness-framework",
+      "version": "0.5.0",
+      "commit": "7fb142a"
+    },
+    "framing": "Do not adopt the harness for feature work yet: complete the required items first, starting with test-feedback.",
+    "items": [
+      {
+        "id": "verifiable-changes",
+        "level": "required",
+        "surfaces": [
+          "feature_list.json layers",
+          "package.json test script",
+          "AGENTS.md"
+        ],
+        "change": "Before a feature edits a module, capture its current behavior with characterization tests (golden-master style) and make the test layer run them. Add an AGENTS.md rule: the agent that changes logic is never the only author of its tests.",
+        "why": "Without real tests, every required test layer reports SKIP and fails verify-feature, so no feature can pass honestly.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "test-feedback",
+          "score": 1
+        },
+        "details": [
+          "0 test files for 146 source files: ratio 0.00",
+          "test runner configs: none",
+          "CI: none"
+        ]
+      },
+      {
+        "id": "legible-context",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "Add an AGENTS.md rule to work one module at a time, and list the oversized files: plan edits by function there, and split a file before adding features to it.",
+        "why": "Large files push the relevant code out of an agent's context and invite confident edits to code it has not read.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "file-size",
+          "score": 2
+        },
+        "details": [
+          "files over 1000 lines: linuxdoom-1.10/info.c (4670), linuxdoom-1.10/tables.c (2130), linuxdoom-1.10/p_enemy.c (2008), linuxdoom-1.10/m_menu.c (1893), linuxdoom-1.10/wi_stuff.c (1850), linuxdoom-1.10/g_game.c (1690), linuxdoom-1.10/st_stuff.c (1471), linuxdoom-1.10/p_spec.c (1362), linuxdoom-1.10/am_map.c (1349), linuxdoom-1.10/info.h (1340)"
+        ]
+      },
+      {
+        "id": "written-intent",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          "docs/ARCHITECTURE.md"
+        ],
+        "change": "Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).",
+        "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "documented-intent",
+          "score": 2
+        },
+        "details": [
+          "README: README.TXT; contributing: none; architecture: none; decision records: 0; conventions: none",
+          "stated rules: 0 in 0 files",
+          "agent context files (presence alone scores nothing): none"
+        ]
+      },
+      {
+        "id": "reproducible-runs",
+        "level": "required",
+        "surfaces": [
+          "init.sh",
+          ".github/workflows/ci.yml",
+          "runtime version file"
+        ],
+        "change": "Add what the evidence shows missing: CI from the harness template (templates/ci.yml), a pinned runtime version, a test runner, and a lock file where the ecosystem uses one.",
+        "why": "init.sh and the verification layers can only be trusted when the environment they run in is pinned and scripted.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "dev-deploy-simplicity",
+          "score": 1
+        },
+        "details": [
+          "missing: CI configured, test runner configured, runtime version declared"
+        ]
+      },
+      {
+        "id": "detected-stack",
+        "level": "required",
+        "surfaces": [
+          "package.json layer scripts"
+        ],
+        "change": "Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.",
+        "why": "The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "test-feedback",
+          "score": 1
+        },
+        "details": [
+          "the harness would detect none, but the main language is c"
+        ]
+      },
+      {
+        "id": "yellow-modules",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 4
+        },
+        "details": [
+          "ipx: test-feedback 1 < 3: add characterization tests before agents edit",
+          "linuxdoom-1.10: test-feedback 1 < 3: add characterization tests before agents edit",
+          "sersrc: test-feedback 1 < 3: add characterization tests before agents edit",
+          "sndserv: test-feedback 1 < 3: add characterization tests before agents edit"
+        ]
+      }
+    ],
+    "notAssessed": [
+      {
+        "requirement": "supported-runtime",
+        "factor": "dependency-currency",
+        "reason": "no declared runtime with a known end-of-life status outside test fixtures"
+      }
+    ]
+  },
+  "roadmap": [
+    {
+      "factor": "test-feedback",
+      "class": "blocking",
+      "from": 1,
+      "to": 3,
+      "action": "add 8 test files (to ratio 0.05), a test runner config and CI",
+      "effort": "M",
+      "gain": 2,
+      "priority": 3,
+      "verdictAfter": "adapt",
+      "evidence": [
+        "0 test files for 146 source files: ratio 0.00",
+        "test runner configs: none",
+        "CI: none"
+      ]
+    },
+    {
+      "factor": "documented-intent",
+      "class": "constraining",
+      "from": 2,
+      "to": 3,
+      "action": "write at least 3 project rules (AGENTS.md or CONTRIBUTING)",
+      "effort": "S",
+      "gain": 1,
+      "priority": 2,
+      "verdictAfter": null,
+      "evidence": [
+        "README: README.TXT; contributing: none; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 0 in 0 files",
+        "agent context files (presence alone scores nothing): none"
+      ]
+    },
+    {
+      "factor": "dev-deploy-simplicity",
+      "class": "constraining",
+      "from": 1,
+      "to": 4,
+      "action": "add CI, a test runner config and a pinned runtime version",
+      "effort": "M",
+      "gain": 3,
+      "priority": 2,
+      "verdictAfter": null,
+      "evidence": [
+        "CI: none",
+        "test runner configs: none",
+        "declared runtimes: none",
+        "lock files: none"
+      ]
+    },
+    {
+      "factor": "file-size",
+      "class": "constraining",
+      "from": 2,
+      "to": 3,
+      "action": "split 3 of 13 files over 1000 lines (to 6.8% of files) and bring the p90 file length from 988 to 800 lines",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.67,
+      "verdictAfter": null,
+      "evidence": [
+        "146 source files: p90 988 lines, 13 over 1000 lines (8.90%)",
+        "largest: linuxdoom-1.10/info.c (4670 lines), linuxdoom-1.10/tables.c (2130 lines), linuxdoom-1.10/p_enemy.c (2008 lines), linuxdoom-1.10/m_menu.c (1893 lines), linuxdoom-1.10/wi_stuff.c (1850 lines)"
+      ]
+    }
+  ],
   "notMeasured": [
     {
       "kind": "factor",
@@ -253,8 +451,8 @@
       "status": "measured",
       "head": "a77dfb96cb91780ca334d0d4cfd86957558007e0",
       "window": {
-        "since": "2025-10-22T23:59:59.999Z",
-        "until": "2026-10-22T23:59:59.999Z"
+        "since": "2025-10-23T23:59:59.999Z",
+        "until": "2026-10-23T23:59:59.999Z"
       },
       "totals": {
         "commits": 4,

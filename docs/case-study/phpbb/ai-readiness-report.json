@@ -1,13 +1,13 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-22",
+  "auditDate": "2026-10-23",
   "target": {
-    "path": "D:\\7-Maide\\Projects\\audit-targets\\phpbb",
+    "path": "D:\\7-Maide\\Projects\\audit-targets\\phpBB",
     "head": "27fb7748768ec3c1426f86a82ab553f85b04b71b"
   },
   "inputs": {
@@ -16,9 +16,10 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 1
+      "ageDays": 2
     },
-    "deferrals": null
+    "deferrals": null,
+    "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
   },
   "verdict": {
     "verdict": "adopt",
@@ -886,6 +887,221 @@
     ],
     "note": null
   },
+  "plan": {
+    "harness": {
+      "name": "ai-harness-framework",
+      "version": "0.5.0",
+      "commit": "7fb142a"
+    },
+    "framing": "Adopt the harness as is, with the guardrails and recommendations below.",
+    "items": [
+      {
+        "id": "detected-stack",
+        "level": "required",
+        "surfaces": [
+          "package.json layer scripts"
+        ],
+        "change": "Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.",
+        "why": "The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "test-feedback",
+          "score": 5
+        },
+        "details": [
+          "the harness would detect node (from package.json), but the main language is php"
+        ]
+      },
+      {
+        "id": "red-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          ".claude/settings.json"
+        ],
+        "change": "List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.",
+        "why": "Auth, billing, permission and secret code needs human review of every change.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "red",
+          "count": 40
+        },
+        "details": [
+          "build/doctum-checkout.conf.php (checkout): deny Edit(build/doctum-checkout.conf.php), Write(build/doctum-checkout.conf.php)",
+          "phpBB/adm/style/permissions.js (permissions): deny Edit(phpBB/adm/style/permissions.js), Write(phpBB/adm/style/permissions.js)",
+          "phpBB/develop/add_permissions.php (permissions): deny Edit(phpBB/develop/add_permissions.php), Write(phpBB/develop/add_permissions.php)",
+          "phpBB/develop/set_permissions.sh (permissions): deny Edit(phpBB/develop/set_permissions.sh), Write(phpBB/develop/set_permissions.sh)",
+          "phpBB/includes/acp/acp_permission_roles.php (permission): deny Edit(phpBB/includes/acp/acp_permission_roles.php), Write(phpBB/includes/acp/acp_permission_roles.php)",
+          "phpBB/includes/acp/acp_permissions.php (permissions): deny Edit(phpBB/includes/acp/acp_permissions.php), Write(phpBB/includes/acp/acp_permissions.php)",
+          "phpBB/includes/acp/auth.php (auth): deny Edit(phpBB/includes/acp/auth.php), Write(phpBB/includes/acp/auth.php)",
+          "phpBB/includes/acp/info/acp_permission_roles.php (permission): deny Edit(phpBB/includes/acp/info/acp_permission_roles.php), Write(phpBB/includes/acp/info/acp_permission_roles.php)",
+          "phpBB/includes/acp/info/acp_permissions.php (permissions): deny Edit(phpBB/includes/acp/info/acp_permissions.php), Write(phpBB/includes/acp/info/acp_permissions.php)",
+          "phpBB/includes/ucp/info/ucp_auth_link.php (auth): deny Edit(phpBB/includes/ucp/info/ucp_auth_link.php), Write(phpBB/includes/ucp/info/ucp_auth_link.php)",
+          "phpBB/includes/ucp/ucp_auth_link.php (auth): deny Edit(phpBB/includes/ucp/ucp_auth_link.php), Write(phpBB/includes/ucp/ucp_auth_link.php)",
+          "phpBB/language/en/acp/permissions.php (permissions): deny Edit(phpBB/language/en/acp/permissions.php), Write(phpBB/language/en/acp/permissions.php)",
+          "phpBB/language/en/acp/permissions_phpbb.php (permissions): deny Edit(phpBB/language/en/acp/permissions_phpbb.php), Write(phpBB/language/en/acp/permissions_phpbb.php)",
+          "phpBB/phpbb/auth/ (auth): deny Edit(phpBB/phpbb/auth/**), Write(phpBB/phpbb/auth/**)",
+          "phpBB/phpbb/cron/task/core/purge_oauth_states.php (oauth): deny Edit(phpBB/phpbb/cron/task/core/purge_oauth_states.php), Write(phpBB/phpbb/cron/task/core/purge_oauth_states.php)",
+          "phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php), Write(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth.php)",
+          "phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php), Write(phpBB/phpbb/db/migration/data/v310/auth_provider_oauth2.php)",
+          "phpBB/phpbb/db/migration/data/v310/forgot_password.php (password): deny Edit(phpBB/phpbb/db/migration/data/v310/forgot_password.php), Write(phpBB/phpbb/db/migration/data/v310/forgot_password.php)",
+          "phpBB/phpbb/db/migration/data/v310/passwords.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords.php), Write(phpBB/phpbb/db/migration/data/v310/passwords.php)",
+          "phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php), Write(phpBB/phpbb/db/migration/data/v310/passwords_convert_p1.php)",
+          "phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php), Write(phpBB/phpbb/db/migration/data/v310/passwords_convert_p2.php)",
+          "phpBB/phpbb/db/migration/data/v310/passwords_p2.php (passwords): deny Edit(phpBB/phpbb/db/migration/data/v310/passwords_p2.php), Write(phpBB/phpbb/db/migration/data/v310/passwords_p2.php)",
+          "phpBB/phpbb/db/migration/data/v310/signature_module_auth.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v310/signature_module_auth.php), Write(phpBB/phpbb/db/migration/data/v310/signature_module_auth.php)",
+          "phpBB/phpbb/db/migration/data/v320/announce_global_permission.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v320/announce_global_permission.php), Write(phpBB/phpbb/db/migration/data/v320/announce_global_permission.php)",
+          "phpBB/phpbb/db/migration/data/v320/oauth_states.php (oauth): deny Edit(phpBB/phpbb/db/migration/data/v320/oauth_states.php), Write(phpBB/phpbb/db/migration/data/v320/oauth_states.php)",
+          "phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php), Write(phpBB/phpbb/db/migration/data/v32x/f_list_topics_permission_add.php)",
+          "phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php), Write(phpBB/phpbb/db/migration/data/v32x/user_emoji_permission.php)",
+          "phpBB/phpbb/db/migration/data/v330/reset_password.php (password): deny Edit(phpBB/phpbb/db/migration/data/v330/reset_password.php), Write(phpBB/phpbb/db/migration/data/v330/reset_password.php)",
+          "phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php (oauth): deny Edit(phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php), Write(phpBB/phpbb/db/migration/data/v33x/add_oauth_state_time.php)",
+          "phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php (roles): deny Edit(phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php), Write(phpBB/phpbb/db/migration/data/v33x/remove_orphaned_roles.php)",
+          "phpBB/phpbb/db/migration/data/v400/add_storage_permission.php (permission): deny Edit(phpBB/phpbb/db/migration/data/v400/add_storage_permission.php), Write(phpBB/phpbb/db/migration/data/v400/add_storage_permission.php)",
+          "phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php), Write(phpBB/phpbb/db/migration/data/v400/extensions_catalog_auth.php)",
+          "phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php (auth): deny Edit(phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php), Write(phpBB/phpbb/db/migration/data/v400/remove_smtp_auth_method.php)",
+          "phpBB/phpbb/db/migration/tool/permission.php (permission): deny Edit(phpBB/phpbb/db/migration/tool/permission.php), Write(phpBB/phpbb/db/migration/tool/permission.php)",
+          "phpBB/phpbb/feed/event/http_auth_subscriber.php (auth): deny Edit(phpBB/phpbb/feed/event/http_auth_subscriber.php), Write(phpBB/phpbb/feed/event/http_auth_subscriber.php)",
+          "phpBB/phpbb/passwords/ (passwords): deny Edit(phpBB/phpbb/passwords/**), Write(phpBB/phpbb/passwords/**)",
+          "phpBB/phpbb/permissions.php (permissions): deny Edit(phpBB/phpbb/permissions.php), Write(phpBB/phpbb/permissions.php)",
+          "phpBB/phpbb/report/exception/report_permission_denied_exception.php (permission): deny Edit(phpBB/phpbb/report/exception/report_permission_denied_exception.php), Write(phpBB/phpbb/report/exception/report_permission_denied_exception.php)",
+          "phpBB/phpbb/ucp/controller/oauth.php (oauth): deny Edit(phpBB/phpbb/ucp/controller/oauth.php), Write(phpBB/phpbb/ucp/controller/oauth.php)",
+          "phpBB/phpbb/ucp/controller/reset_password.php (password): deny Edit(phpBB/phpbb/ucp/controller/reset_password.php), Write(phpBB/phpbb/ucp/controller/reset_password.php)"
+        ]
+      },
+      {
+        "id": "yellow-modules",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 9
+        },
+        "details": [
+          "phpBB/(files): files too large for unsupervised edits: p90 2124 lines > 800; 33.3% of files over 1000 lines > 7%",
+          "phpBB/assets: files too large for unsupervised edits: p90 1914 lines > 800; 30% of files over 1000 lines > 7%",
+          "phpBB/includes: files too large for unsupervised edits: p90 1545 lines > 800; 18.7% of files over 1000 lines > 7%",
+          "phpBB/install: files too large for unsupervised edits: p90 1605 lines > 800; 12.5% of files over 1000 lines > 7%",
+          "phpBB/phpbb/(files): files too large for unsupervised edits: p90 930 lines > 800",
+          "phpBB/phpbb/event: files too large for unsupervised edits: p90 808 lines > 800",
+          "phpBB/phpbb/log: files too large for unsupervised edits: p90 1008 lines > 800; 33.3% of files over 1000 lines > 7%",
+          "phpBB/phpbb/search: files too large for unsupervised edits: p90 1170 lines > 800; 25% of files over 1000 lines > 7%",
+          "phpBB/phpbb/tree: files too large for unsupervised edits: p90 875 lines > 800"
+        ]
+      },
+      {
+        "id": "typed-changes",
+        "level": "recommended",
+        "surfaces": [
+          "package.json typecheck script",
+          "DECISIONS.md"
+        ],
+        "change": "Raise the checker's strictness for new and touched modules.",
+        "why": "Dynamic code without a checker lets an agent's type mistakes through every static layer.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "type-strictness",
+          "score": 3
+        },
+        "details": [
+          "main dynamic language: javascript (11804 source lines); suggested checker: TypeScript checkJs"
+        ]
+      },
+      {
+        "id": "legible-context",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List the largest files in AGENTS.md as split-before-feature files.",
+        "why": "Large files push the relevant code out of an agent's context and invite confident edits to code it has not read.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "file-size",
+          "score": 3
+        },
+        "details": [
+          "files over 1000 lines: phpBB/includes/utf/data/recode_cjk.php (45177), phpBB/includes/functions.php (4270), phpBB/assets/javascript/cropper.js (3625), phpBB/includes/functions_admin.php (3236), phpBB/includes/functions_user.php (3150), phpBB/includes/functions_posting.php (2944), phpBB/includes/acp/acp_users.php (2714), phpBB/viewtopic.php (2462), phpBB/includes/functions_convert.php (2346), phpBB/includes/functions_privmsgs.php (2319)"
+        ]
+      },
+      {
+        "id": "written-intent",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "docs/ARCHITECTURE.md"
+        ],
+        "change": "Add the non-standard practices that are still unwritten to AGENTS.md, and record significant decisions in DECISIONS.md.",
+        "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "documented-intent",
+          "score": 3
+        },
+        "details": [
+          "README: README.md; contributing: .github/CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none",
+          "stated rules: 0 in 0 files",
+          "agent context files (presence alone scores nothing): none"
+        ]
+      }
+    ],
+    "notAssessed": []
+  },
+  "roadmap": [
+    {
+      "factor": "documented-intent",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "write 10 more rules, across at least 2 files, and add an architecture doc or decision records",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "README: README.md; contributing: .github/CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 0 in 0 files",
+        "agent context files (presence alone scores nothing): none"
+      ]
+    },
+    {
+      "factor": "dependency-currency",
+      "class": "constraining",
+      "from": 4,
+      "to": 5,
+      "action": "upgrade php from 8.2 to 8.3",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "php ^8.2 (phpBB/composer.json, require.php): cycle 8.2 supported until 2026-12-31",
+        "php 8.2.27 (phpBB/composer.json, config.platform.php): cycle 8.2 supported until 2026-12-31",
+        "php ^8.2 (phpBB/phpbb/composer.json, require.php): cycle 8.2 supported until 2026-12-31",
+        "ignored as test fixtures: php >=5.4.7 (tests/dbal/ext/foo/bar/composer.json), php >=5.3 (tests/extension/ext/barfoo/composer.json), php >=5.3 (tests/extension/ext/vendor2/bar/composer.json), php >=5.3 (tests/extension/ext/vendor2/foo/composer.json), php >=5.3 (tests/extension/ext/vendor3/foo/composer.json), php >=5.3 (tests/extension/ext/vendor4/bar/composer.json), php >=5.3 (tests/extension/ext/vendor5/foo/composer.json), php >=5.3 (tests/functional/fixtures/ext/foo/bar/composer.json), php >=5.3 (tests/functional/fixtures/ext/foo/foo/composer.json)"
+      ]
+    },
+    {
+      "factor": "file-size",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "1370 source files: p90 473 lines, 53 over 1000 lines (3.87%)",
+        "largest: phpBB/includes/utf/data/recode_cjk.php (45177 lines), phpBB/includes/functions.php (4270 lines), phpBB/assets/javascript/cropper.js (3625 lines), phpBB/includes/functions_admin.php (3236 lines), phpBB/includes/functions_user.php (3150 lines)"
+      ]
+    }
+  ],
   "notMeasured": [
     {
       "kind": "factor",
@@ -988,8 +1204,8 @@
       "status": "measured",
       "head": "27fb7748768ec3c1426f86a82ab553f85b04b71b",
       "window": {
-        "since": "2025-10-22T23:59:59.999Z",
-        "until": "2026-10-22T23:59:59.999Z"
+        "since": "2025-10-23T23:59:59.999Z",
+        "until": "2026-10-23T23:59:59.999Z"
       },
       "totals": {
         "commits": 28503,

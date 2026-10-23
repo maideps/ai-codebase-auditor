@@ -237,3 +237,28 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
 **Consequences:**
 - Positive: DOOM (readiness 1, *prepare first*) and Redmine (readiness 5, *adapt*) land at opposite ends; all five verdicts match their reviewed expectations; every first-run false positive that changed a score is fixed.
 - Negative: readiness now rests on one measured blocking factor until direct-api-calls has a collector; `specs/` directories holding design specs are skipped as test paths; the calibration set is five repositories, so thresholds remain hypotheses for other stacks.
+
+### D-014: Harness adaptation plan and modernization roadmap from fixed rules and a separate requirements file
+
+**Date:** 2026-10-22
+**Status:** accepted (rules proposed in docs/sprints/feat-010.md and approved in review)
+**Context:** Version 2 has two parts. The plan says which ai-harness-framework rules to change for a repository. The roadmap orders the steps that raise its scores. Both must cite evidence like the scores do, and the audit must still work without the harness.
+**Decision:**
+- Harness assumptions live in `config/harness-requirements.json`, one requirement per factor. The file names the harness version (0.5.0, commit `7fb142a`), and `--harness <file>` replaces it.
+- A requirement is **required** at score ≤ `weakMax` and **recommended** at `weakMax` + 1. At 4 or 5 nothing is added. An unmeasured or unconfigured factor makes it **not assessed**.
+- Three items have other triggers:
+  - detected-stack: the harness's root-marker detection would miss the main language;
+  - red paths: an `AGENTS.md` proposal-only list plus Claude Code `permissions.deny` rules;
+  - yellow modules: an `AGENTS.md` "characterization tests first" list.
+- The verdict frames the plan. *Prepare first* drops recommended items but keeps the zone guardrails.
+- Roadmap steps have rule-based S/M/L effort and are ordered by gain × weight ÷ effort. A weak factor reaching 3 gains 1 extra, and blocking factors weigh 2. `verdictAfter` re-runs the decision engine's verdict rules with the step's score.
+- Plan and roadmap go into the existing report as `schemaVersion` 3.
+- Only a user-supplied `--harness` file must name configured factors. The default file may meet a reduced `--config`, and the plan then lists those requirements as not assessed.
+**Alternatives considered:**
+- Separate `ai-harness-plan` files — Rejected in review: one report keeps plan, scores and evidence in step.
+- Order the roadmap by gain alone — Rejected in review: a one-level gain from splitting 20 files is not worth the same as writing three rules.
+- An `AGENTS.md`-only red-path guardrail — Rejected in review: Claude Code enforces deny rules, while a list is only advisory.
+- Drop zone items under prepare first — Rejected after the case-study run: agents still write characterization tests near red paths and in yellow modules.
+**Consequences:**
+- Positive: every plan item and step names its factor score or zone, and the case study confirms this for all five repositories. Redmine's roadmap shows that one step (a Ruby checker) turns *adapt* into *adopt*. Another harness can be planned for by swapping one file.
+- Negative: effort ignores code difficulty; the requirements file must be updated when the harness changes; red-term false positives become deny rules a person may need to prune.

@@ -93,6 +93,8 @@ describe("audit", () => {
     expect(result.stdout).toMatch(/Readiness level: [1-5] of 5, set by [a-z-]+ \(provisional: direct-api-calls not measured\)/);
     expect(result.stdout).toMatch(/Verdict: (adopt|adapt|prepare first) \(provisional: direct-api-calls not measured\)/);
     expect(result.stdout).toContain("Risk zones (green: agents may edit; yellow: characterization tests first; red: proposals only):");
+    expect(result.stdout).toMatch(/Harness adaptation plan \(ai-harness-framework [0-9.]+\): /);
+    expect(result.stdout).toContain("Modernization roadmap (by gain against effort):");
     expect(snapshot(repo)).toEqual(before);
   });
 
@@ -107,8 +109,16 @@ describe("audit", () => {
       expect(a.length).toBeGreaterThan(0);
       expect(a.equals(readFileSync(path.join(second, name)))).toBe(true);
     }
-    const report = JSON.parse(readFileSync(path.join(first, "ai-readiness-report.json"), "utf8")) as { schemaVersion: number; verdict: { verdict: string } };
-    expect(report.schemaVersion).toBe(2);
+    const report = JSON.parse(readFileSync(path.join(first, "ai-readiness-report.json"), "utf8")) as {
+      schemaVersion: number;
+      verdict: { verdict: string };
+      plan: { framing: string; items: { trigger: { kind: string } }[] };
+      roadmap: { factor: string }[];
+    };
+    expect(report.schemaVersion).toBe(3);
+    expect(report.plan.framing.length).toBeGreaterThan(0);
+    for (const item of report.plan.items) expect(["factor", "zone"]).toContain(item.trigger.kind);
+    expect(Array.isArray(report.roadmap)).toBe(true);
     expect(["adopt", "adapt", "prepare-first"]).toContain(report.verdict.verdict);
     expect(snapshot(repo)).toEqual(before);
   });

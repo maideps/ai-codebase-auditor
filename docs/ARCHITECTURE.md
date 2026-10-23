@@ -2,7 +2,7 @@
 
 ## Pipeline
 
-The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Layout (the MVP pipeline is complete; version 2 adds the harness adaptation plan):
+The audit is a one-way pipeline that reads the target repository and never writes to it or runs its code. Layout (the MVP pipeline plus version 2: the harness adaptation plan and the modernization roadmap):
 
 ```
 src/
@@ -14,6 +14,7 @@ src/
   config/runtime-eol.ts loads and validates config/runtime-eol.json
   config/deferrals.ts loads and validates a --deferrals file
   config/decision.ts  loads and validates config/decision.json
+  config/harness-requirements.ts loads and validates config/harness-requirements.json or a --harness file
   testing/            test-only helpers (git fixture repos); not built
   collectors/         read-only signal collection, one module per source
     types.ts            Measurement<T>: measured with evidence, or not measured with a reason
@@ -26,11 +27,13 @@ src/
     dependencies/       parsers.ts (one static parser per manifest), versions.ts (spec → lowest version → cycle), toml.ts
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red paths), decide.ts
+  plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)
   report/             model.ts (one AuditReport model), json.ts, markdown.ts, write.ts (--out, target guard)
 config/
   factors.json        factor list, blocking vs. constraining, thresholds
   runtime-eol.json    dated end-of-life table for Node.js, Python, PHP, Ruby, Java
   decision.json       weak-score limit, green rule, module splitting, red path terms
+  harness-requirements.json  ai-harness-framework assumptions per factor, stack detection, zone guardrails
 ```
 
 ```
@@ -41,7 +44,9 @@ repository (read-only)
    ├─ scoring ───── FactorScore[] (1–5, evidence, deferral flag)
    │                  ▲ config/factors.json
    ├─ decision ──── Verdict + readiness level + risk zone per module
-   │                  ▲ harness requirements file (version 2)
+   │
+   ├─ plan ──────── harness adaptation plan + modernization roadmap
+   │                  ▲ config/harness-requirements.json (or --harness)
    └─ report ────── Markdown + JSON
 ```
 
@@ -50,9 +55,10 @@ repository (read-only)
 - `cli` may depend on every other module. Nothing depends on `cli`.
 - `result` and `config` depend on nothing in `src/` but each other; any module may use them (collectors use config types only, and receive loaded config such as the EOL table from `cli`). `target` is used only by `cli`.
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
-- `report` depends on collector, scoring and decision output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target.
+- `report` depends on collector, scoring, decision and plan output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target.
 - The CLI takes one audit date (UTC) and passes the end of that day to every date-based step, so reports are byte-identical for the same repository, configs and date.
-- `decision` depends on `scoring` results, collector output types, `file-kinds` and loaded config (factors, decision); it is pure and never reads the repository. The harness requirements file joins it in version 2.
+- `decision` depends on `scoring` results, collector output types, `file-kinds` and loaded config (factors, decision); it is pure and never reads the repository.
+- `plan` depends on `scoring` results and helpers (the type-share and band rules, so a roadmap step reuses the factor's own arithmetic), `decision` (the verdict rules, re-run to compute `verdictAfter`), collector output types and loaded config (factors, decision, EOL table, harness requirements). It is pure and never reads the repository. The harness requirements live in their own file, so the audit and the roadmap work without the harness, and another team can supply its own with `--harness`.
 - `scoring` depends on collector output types, `file-kinds` and loaded config (factors with thresholds, deferrals); it is pure and never reads the repository. Every threshold lives in `config/factors.json`; rules hold no default numbers, and `checkThresholds` rejects missing, unused or out-of-order thresholds at startup.
 - Collectors depend on nothing but Node built-ins, `collectors/types.ts`, the shared helpers `collectors/git.ts` and `collectors/tree.ts`, and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
 - A collector that cannot measure returns `not-measured` with a reason; it never throws for an expected condition (missing tool, shallow clone, empty repository) and never substitutes a guess.

@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -18,7 +18,8 @@
       "asOf": "2026-10-21",
       "ageDays": 1
     },
-    "deferrals": null
+    "deferrals": null,
+    "harnessRequirements": "/tool/config/harness-requirements.json"
   },
   "verdict": {
     "verdict": "adapt",
@@ -219,6 +220,155 @@
     ],
     "note": null
   },
+  "plan": {
+    "harness": {
+      "name": "ai-harness-framework",
+      "version": "0.5.0",
+      "commit": "7fb142a"
+    },
+    "framing": "Adopt the harness with these adaptations.",
+    "items": [
+      {
+        "id": "typed-changes",
+        "level": "required",
+        "surfaces": [
+          "package.json typecheck script",
+          "DECISIONS.md"
+        ],
+        "change": "Add a type checker for the main dynamic language in check mode, with a baseline so existing code passes and new code is checked; point the typecheck layer at it and record the baseline as a dated deferral.",
+        "why": "Dynamic code without a checker lets an agent's type mistakes through every static layer.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "type-strictness",
+          "score": 1
+        },
+        "details": [
+          "main dynamic language: javascript (270 source lines); suggested checker: TypeScript checkJs"
+        ]
+      },
+      {
+        "id": "written-intent",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          "docs/ARCHITECTURE.md"
+        ],
+        "change": "Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).",
+        "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "documented-intent",
+          "score": 2
+        },
+        "details": [
+          "README: README.md; contributing: none; architecture: none; decision records: 0; conventions: none",
+          "stated rules: 2 in 1 file",
+          "agent context files (presence alone scores nothing): AGENTS.md"
+        ]
+      },
+      {
+        "id": "supported-runtime",
+        "level": "required",
+        "surfaces": [
+          "CI",
+          "verification layers"
+        ],
+        "change": "Run the verification layers under the declared legacy runtime (a container or a pinned toolchain in CI), separately from the harness's own Node 18 or later, and keep agents away from runtime-sensitive code paths without that toolchain.",
+        "why": "Code verified on a different runtime than it ships on is not verified.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "dependency-currency",
+          "score": 1
+        },
+        "details": [
+          "node >=14 (package.json, engines.node): cycle 14 end-of-life since 2023-04-30"
+        ]
+      },
+      {
+        "id": "detected-stack",
+        "level": "required",
+        "surfaces": [
+          "package.json layer scripts"
+        ],
+        "change": "Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.",
+        "why": "The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "test-feedback",
+          "score": 5
+        },
+        "details": [
+          "the harness would detect none, but the main language is javascript"
+        ]
+      },
+      {
+        "id": "red-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          ".claude/settings.json"
+        ],
+        "change": "List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.",
+        "why": "Auth, billing, permission and secret code needs human review of every change.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "red",
+          "count": 1
+        },
+        "details": [
+          "src/auth/ (auth): deny Edit(src/auth/**), Write(src/auth/**)"
+        ]
+      }
+    ],
+    "notAssessed": []
+  },
+  "roadmap": [
+    {
+      "factor": "dependency-currency",
+      "class": "constraining",
+      "from": 1,
+      "to": 5,
+      "action": "upgrade node from 14 to 24",
+      "effort": "M",
+      "gain": 4,
+      "priority": 2.5,
+      "verdictAfter": null,
+      "evidence": [
+        "node >=14 (package.json, engines.node): cycle 14 end-of-life since 2023-04-30"
+      ]
+    },
+    {
+      "factor": "documented-intent",
+      "class": "constraining",
+      "from": 2,
+      "to": 3,
+      "action": "write at least 3 project rules (AGENTS.md or CONTRIBUTING)",
+      "effort": "S",
+      "gain": 1,
+      "priority": 2,
+      "verdictAfter": null,
+      "evidence": [
+        "README: README.md; contributing: none; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 2 in 1 file",
+        "agent context files (presence alone scores nothing): AGENTS.md"
+      ]
+    },
+    {
+      "factor": "type-strictness",
+      "class": "constraining",
+      "from": 1,
+      "to": 3,
+      "action": "configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60)",
+      "effort": "M",
+      "gain": 2,
+      "priority": 1.5,
+      "verdictAfter": null,
+      "evidence": [
+        "typed share 0.00 of 270 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 270)",
+        "type checkers: none"
+      ]
+    }
+  ],
   "notMeasured": [
     {
       "kind": "factor",

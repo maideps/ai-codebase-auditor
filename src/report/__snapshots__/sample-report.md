@@ -122,6 +122,80 @@ Red paths:
 
 Not zoned (no source files): test.
 
+## Harness adaptation plan
+
+For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these adaptations.
+
+| Level | Item | Trigger | Surfaces |
+|---|---|---|---|
+| required | typed-changes | type-strictness 1 | package.json typecheck script, DECISIONS.md |
+| required | written-intent | documented-intent 2 | AGENTS.md, docs/ARCHITECTURE.md |
+| required | supported-runtime | dependency-currency 1 | CI, verification layers |
+| required | detected-stack | test-feedback 5 | package.json layer scripts |
+| required | red-paths | red zone: 1 path | AGENTS.md, .claude/settings.json |
+
+### required: typed-changes
+
+Trigger: type-strictness 1. Surfaces: `package.json typecheck script`, `DECISIONS.md`.
+
+Change: Add a type checker for the main dynamic language in check mode, with a baseline so existing code passes and new code is checked; point the typecheck layer at it and record the baseline as a dated deferral.
+
+Why: Dynamic code without a checker lets an agent's type mistakes through every static layer.
+
+- main dynamic language: javascript (270 source lines); suggested checker: TypeScript checkJs
+
+### required: written-intent
+
+Trigger: documented-intent 2. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
+
+Change: Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).
+
+Why: Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).
+
+- README: README.md; contributing: none; architecture: none; decision records: 0; conventions: none
+- stated rules: 2 in 1 file
+- agent context files (presence alone scores nothing): AGENTS.md
+
+### required: supported-runtime
+
+Trigger: dependency-currency 1. Surfaces: `CI`, `verification layers`.
+
+Change: Run the verification layers under the declared legacy runtime (a container or a pinned toolchain in CI), separately from the harness's own Node 18 or later, and keep agents away from runtime-sensitive code paths without that toolchain.
+
+Why: Code verified on a different runtime than it ships on is not verified.
+
+- node >=14 (package.json, engines.node): cycle 14 end-of-life since 2023-04-30
+
+### required: detected-stack
+
+Trigger: test-feedback 5. Surfaces: `package.json layer scripts`.
+
+Change: Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.
+
+Why: The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).
+
+- the harness would detect none, but the main language is javascript
+
+### required: red-paths
+
+Trigger: red zone: 1 path. Surfaces: `AGENTS.md`, `.claude/settings.json`.
+
+Change: List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.
+
+Why: Auth, billing, permission and secret code needs human review of every change.
+
+- src/auth/ (auth): deny Edit(src/auth/**), Write(src/auth/**)
+
+## Modernization roadmap
+
+Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
+
+| # | Factor | Score | Effort | Priority | Step | Verdict after |
+|---|---|---|---|---|---|---|
+| 1 | dependency-currency | 1 → 5 | M | 2.5 | upgrade node from 14 to 24 | unchanged |
+| 2 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
+| 3 | type-strictness | 1 → 3 | M | 1.5 | configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60) | unchanged |
+
 ## Not measured
 
 - factor `direct-api-calls`: no collector signal yet: needs call-site analysis
@@ -177,6 +251,7 @@ None.
 - Decision config: `/tool/config/decision.json`
 - End-of-life table: `/tool/config/runtime-eol.json`, as of 2026-10-21 (1 day before the audit)
 - Deferrals: none
+- Harness requirements: `/tool/config/harness-requirements.json`
 
 Read-only commands run against the target:
 

@@ -8,10 +8,12 @@ import type { GitHistory } from "../collectors/git-history.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
 import type { Decision, Verdict, Zones } from "../decision/types.js";
+import type { Plan } from "../plan/plan.js";
+import type { RoadmapStep } from "../plan/roadmap.js";
 import type { CollectorResults, FactorScore, Readiness, Scoring } from "../scoring/types.js";
 
 export const REPORT_SCHEMA = "ai-codebase-auditor/report";
-export const REPORT_SCHEMA_VERSION = 2;
+export const REPORT_SCHEMA_VERSION = 3;
 
 export interface ReportInput {
   tool: { name: string; version: string };
@@ -23,10 +25,13 @@ export interface ReportInput {
     decisionConfig: string;
     eolTable: { path: string; asOf: string };
     deferrals: string | null;
+    harnessRequirements: string;
   };
   collected: CollectorResults;
   scoring: Scoring;
   decision: Decision;
+  plan: Plan;
+  roadmap: RoadmapStep[];
 }
 
 export type NotMeasuredKind = "factor" | "collector" | "runtime" | "manifest" | "doc" | "tool";
@@ -50,11 +55,14 @@ export interface AuditReport {
     decisionConfig: string;
     eolTable: { path: string; asOf: string; ageDays: number };
     deferrals: string | null;
+    harnessRequirements: string;
   };
   verdict: Verdict;
   readiness: Readiness;
   factors: FactorScore[];
   zones: Zones;
+  plan: Plan;
+  roadmap: RoadmapStep[];
   notMeasured: NotMeasuredItem[];
   signals: {
     gitHistory: Signal<{
@@ -142,6 +150,7 @@ export function buildReport(input: ReportInput): AuditReport {
         ageDays: Math.floor((Date.parse(`${input.auditDate}T00:00:00Z`) - Date.parse(`${input.inputs.eolTable.asOf}T00:00:00Z`)) / DAY_MS),
       },
       deferrals: input.inputs.deferrals,
+      harnessRequirements: input.inputs.harnessRequirements,
     },
     // Rebuilt in schema order: the decision engine's own key order is an implementation detail.
     verdict: {
@@ -154,6 +163,8 @@ export function buildReport(input: ReportInput): AuditReport {
     readiness: scoring.readiness,
     factors: scoring.factors,
     zones: decision.zones,
+    plan: input.plan,
+    roadmap: input.roadmap,
     notMeasured: notMeasuredItems(input),
     signals: {
       gitHistory: signal(collected.history, (history) => ({

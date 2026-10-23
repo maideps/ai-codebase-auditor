@@ -1,11 +1,11 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-22",
+  "auditDate": "2026-10-23",
   "target": {
     "path": "D:\\7-Maide\\Projects\\audit-targets\\moin-1.9",
     "head": "8c6341e92bce1049214cd3abfdd0f29351480176"
@@ -16,9 +16,10 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 1
+      "ageDays": 2
     },
-    "deferrals": null
+    "deferrals": null,
+    "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
   },
   "verdict": {
     "verdict": "adapt",
@@ -461,6 +462,255 @@
     ],
     "note": null
   },
+  "plan": {
+    "harness": {
+      "name": "ai-harness-framework",
+      "version": "0.5.0",
+      "commit": "7fb142a"
+    },
+    "framing": "Adopt the harness with these adaptations.",
+    "items": [
+      {
+        "id": "typed-changes",
+        "level": "required",
+        "surfaces": [
+          "package.json typecheck script",
+          "DECISIONS.md"
+        ],
+        "change": "Add a type checker for the main dynamic language in check mode, with a baseline so existing code passes and new code is checked; point the typecheck layer at it and record the baseline as a dated deferral.",
+        "why": "Dynamic code without a checker lets an agent's type mistakes through every static layer.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "type-strictness",
+          "score": 1
+        },
+        "details": [
+          "main dynamic language: python (236203 source lines); suggested checker: mypy or Pyright"
+        ]
+      },
+      {
+        "id": "written-intent",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          "docs/ARCHITECTURE.md"
+        ],
+        "change": "Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).",
+        "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "documented-intent",
+          "score": 2
+        },
+        "details": [
+          "README: README.rst; contributing: none; architecture: none; decision records: 0; conventions: none",
+          "stated rules: 0 in 0 files",
+          "agent context files (presence alone scores nothing): none"
+        ]
+      },
+      {
+        "id": "supported-runtime",
+        "level": "required",
+        "surfaces": [
+          "CI",
+          "verification layers"
+        ],
+        "change": "Run the verification layers under the declared legacy runtime (a container or a pinned toolchain in CI), separately from the harness's own Node 18 or later, and keep agents away from runtime-sensitive code paths without that toolchain.",
+        "why": "Code verified on a different runtime than it ships on is not verified.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "dependency-currency",
+          "score": 1
+        },
+        "details": [
+          "python 2.7 (setup.py, classifier): cycle 2.7 end-of-life since 2020-01-01"
+        ]
+      },
+      {
+        "id": "detected-stack",
+        "level": "required",
+        "surfaces": [
+          "package.json layer scripts"
+        ],
+        "change": "Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.",
+        "why": "The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).",
+        "trigger": {
+          "kind": "factor",
+          "factor": "test-feedback",
+          "score": 3
+        },
+        "details": [
+          "the harness would detect none, but the main language is python"
+        ]
+      },
+      {
+        "id": "red-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          ".claude/settings.json"
+        ],
+        "change": "List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.",
+        "why": "Auth, billing, permission and secret code needs human review of every change.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "red",
+          "count": 7
+        },
+        "details": [
+          "MoinMoin/action/login.py (login): deny Edit(MoinMoin/action/login.py), Write(MoinMoin/action/login.py)",
+          "MoinMoin/action/logout.py (logout): deny Edit(MoinMoin/action/logout.py), Write(MoinMoin/action/logout.py)",
+          "MoinMoin/auth/ (auth): deny Edit(MoinMoin/auth/**), Write(MoinMoin/auth/**)",
+          "MoinMoin/support/BasicAuthTransport.py (auth): deny Edit(MoinMoin/support/BasicAuthTransport.py), Write(MoinMoin/support/BasicAuthTransport.py)",
+          "MoinMoin/support/werkzeug/wrappers/auth.py (auth): deny Edit(MoinMoin/support/werkzeug/wrappers/auth.py), Write(MoinMoin/support/werkzeug/wrappers/auth.py)",
+          "MoinMoin/userform/login.py (login): deny Edit(MoinMoin/userform/login.py), Write(MoinMoin/userform/login.py)",
+          "contrib/auth_externalcookie/ (auth): deny Edit(contrib/auth_externalcookie/**), Write(contrib/auth_externalcookie/**)"
+        ]
+      },
+      {
+        "id": "yellow-modules",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 9
+        },
+        "details": [
+          "MoinMoin/(files): files too large for unsupervised edits: p90 2006 lines > 800; 25% of files over 1000 lines > 7%",
+          "MoinMoin/_tests: files too large for unsupervised edits: p90 916 lines > 800",
+          "MoinMoin/config: files too large for unsupervised edits: p90 1477 lines > 800; 50% of files over 1000 lines > 7%",
+          "MoinMoin/converter: files too large for unsupervised edits: p90 1459 lines > 800; 50% of files over 1000 lines > 7%",
+          "MoinMoin/formatter: files too large for unsupervised edits: p90 1052 lines > 800; 18.2% of files over 1000 lines > 7%",
+          "MoinMoin/support: files too large for unsupervised edits: p90 960 lines > 800; 9% of files over 1000 lines > 7%",
+          "MoinMoin/theme: files too large for unsupervised edits: p90 1959 lines > 800; 16.7% of files over 1000 lines > 7%",
+          "MoinMoin/xmlrpc: files too large for unsupervised edits: p90 1201 lines > 800; 14.3% of files over 1000 lines > 7%",
+          "jabberbot: files too large for unsupervised edits: p90 1686 lines > 800; 11.1% of files over 1000 lines > 7%"
+        ]
+      },
+      {
+        "id": "verifiable-changes",
+        "level": "recommended",
+        "surfaces": [
+          "feature_list.json layers",
+          "package.json test script",
+          "AGENTS.md"
+        ],
+        "change": "Grow tests in the modules agents will touch first, and keep feature scopes inside green modules.",
+        "why": "Without real tests, every required test layer reports SKIP and fails verify-feature, so no feature can pass honestly.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "test-feedback",
+          "score": 3
+        },
+        "details": [
+          "96 test files for 1226 source files: ratio 0.08",
+          "test runner configs: MoinMoin/conftest.py",
+          "CI: .travis.yml"
+        ]
+      },
+      {
+        "id": "legible-context",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List the largest files in AGENTS.md as split-before-feature files.",
+        "why": "Large files push the relevant code out of an agent's context and invite confident edits to code it has not read.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "file-size",
+          "score": 3
+        },
+        "details": [
+          "files over 1000 lines: MoinMoin/support/pygments/lexers/_lasso_builtins.py (5327), MoinMoin/support/pygments/lexers/_php_builtins.py (4756), MoinMoin/support/werkzeug/datastructures.py (3120), MoinMoin/support/pygments/lexers/_scilab_builtins.py (3094), MoinMoin/support/parsedatetime/__init__.py (2789), MoinMoin/support/passlib/utils/handlers.py (2712), MoinMoin/support/pygments/lexers/lisp.py (2694), MoinMoin/wikiutil.py (2667), MoinMoin/support/passlib/context.py (2632), MoinMoin/support/pygments/lexers/_openedge_builtins.py (2547)"
+        ]
+      }
+    ],
+    "notAssessed": []
+  },
+  "roadmap": [
+    {
+      "factor": "documented-intent",
+      "class": "constraining",
+      "from": 2,
+      "to": 3,
+      "action": "write at least 3 project rules (AGENTS.md or CONTRIBUTING)",
+      "effort": "S",
+      "gain": 1,
+      "priority": 2,
+      "verdictAfter": null,
+      "evidence": [
+        "README: README.rst; contributing: none; architecture: none; decision records: 0; conventions: none",
+        "stated rules: 0 in 0 files",
+        "agent context files (presence alone scores nothing): none"
+      ]
+    },
+    {
+      "factor": "dependency-currency",
+      "class": "constraining",
+      "from": 1,
+      "to": 5,
+      "action": "upgrade python from 2.7 to 3.11",
+      "effort": "L",
+      "gain": 4,
+      "priority": 1.67,
+      "verdictAfter": null,
+      "evidence": [
+        "python 2.7 (setup.py, classifier): cycle 2.7 end-of-life since 2020-01-01"
+      ]
+    },
+    {
+      "factor": "type-strictness",
+      "class": "constraining",
+      "from": 1,
+      "to": 3,
+      "action": "configure mypy or Pyright for python with a baseline (typed share 0.06 to 0.50)",
+      "effort": "M",
+      "gain": 2,
+      "priority": 1.5,
+      "verdictAfter": null,
+      "evidence": [
+        "typed share 0.06 of 323903 source lines (strong 18670, weak 0, checked dynamic 0, unchecked dynamic 305233)",
+        "type checkers: none"
+      ]
+    },
+    {
+      "factor": "test-feedback",
+      "class": "blocking",
+      "from": 3,
+      "to": 4,
+      "action": "add 88 test files (to ratio 0.15)",
+      "effort": "M",
+      "gain": 1,
+      "priority": 1,
+      "verdictAfter": null,
+      "evidence": [
+        "96 test files for 1226 source files: ratio 0.08",
+        "test runner configs: MoinMoin/conftest.py",
+        "CI: .travis.yml"
+      ]
+    },
+    {
+      "factor": "file-size",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "1226 source files: p90 573 lines, 56 over 1000 lines (4.57%)",
+        "largest: MoinMoin/support/pygments/lexers/_lasso_builtins.py (5327 lines), MoinMoin/support/pygments/lexers/_php_builtins.py (4756 lines), MoinMoin/support/werkzeug/datastructures.py (3120 lines), MoinMoin/support/pygments/lexers/_scilab_builtins.py (3094 lines), MoinMoin/support/parsedatetime/__init__.py (2789 lines)"
+      ]
+    }
+  ],
   "notMeasured": [
     {
       "kind": "factor",
@@ -493,8 +743,8 @@
       "status": "measured",
       "head": "8c6341e92bce1049214cd3abfdd0f29351480176",
       "window": {
-        "since": "2025-10-22T23:59:59.999Z",
-        "until": "2026-10-22T23:59:59.999Z"
+        "since": "2025-10-23T23:59:59.999Z",
+        "until": "2026-10-23T23:59:59.999Z"
       },
       "totals": {
         "commits": 5901,

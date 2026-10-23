@@ -21,6 +21,8 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | decision (`src/decision/`, `config/decision.json`) | A | A | A | A | A |
 | config/decision (`src/config/decision.ts`) | A | A | A | A | A |
 | report (`src/report/`) | A | A | A | A | A |
+| plan (`src/plan/`) | A | A | A | A | A |
+| config/harness-requirements (`src/config/harness-requirements.ts`, `config/harness-requirements.json`) | A | A | A | A | A |
 | testing (`src/testing/git-fixture.ts`) | n/a | A | B | A | A |
 
 - `cli`: unit tests cover every command and error path, and the e2e smoke run covers the built binary, including that the audited repository is left unchanged. No coverage tool is configured, hence B.
@@ -37,12 +39,14 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `file-kinds`: pure data, covered through the collector and scoring tests rather than its own suite, hence B.
 - `decision`: 29 tests cover every verdict rule and boundary (scores 2 and 3, measured and unmeasured boundaries, deferred scores), provisional marking, red terms (camelCase, digits, whole words, no match on session, invoice, author, rolex), red-directory collapsing, green and yellow at the file-size edges, all-red modules, splitting at the share and depth limits, and test files left unzoned.
 - `config/decision`: 11 tests on validation and the default terms.
+- `plan`: 26 plan tests cover each requirement at scores 2, 3 and 4, not-assessed factors, every verdict's framing, stack detection for each harness marker and an undetected language, zone items with deny rules, and every item citing its trigger. 18 roadmap tests cover each factor's step and effort bands, the ordering formula with ties, `verdictAfter` and runtime upgrade targets. The case-study script confirms every item and step in the five reports cites a matching score or zone.
+- `config/harness-requirements`: 12 tests on validation (ids, duplicates, surfaces, unknown keys, zones), unknown factors and the default file.
 - `report`: file snapshots of both formats for a fixed, git-free input, determinism, same content across formats, LF endings, cell escaping, the out-directory guard (inside, link into the target, sibling with a shared prefix) and writing; the e2e run compares two real runs byte for byte.
 - `testing`: test-only, excluded from the build.
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-009 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-010 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -57,6 +61,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-10-22: feat-010 added the harness adaptation plan and modernization roadmap (`src/plan/`, `config/harness-requirements.json`, `--harness`, report schemaVersion 3, D-014).
 - 2026-10-22: feat-008 added the report model, Markdown and JSON renderers, `--out` with a target guard, the audit-date time unit and the HEAD commit (D-012).
 
 ---

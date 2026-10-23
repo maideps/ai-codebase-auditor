@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\moin-1.9` at commit `8c6341e92bce` |
-| Audit date | 2026-10-22 |
+| Audit date | 2026-10-23 |
 | Verdict | **adapt** (provisional: direct-api-calls not measured) |
 | Readiness level | **3 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -158,6 +158,131 @@ Red paths:
 
 Not zoned (no source files): .github, docs, scripts.
 
+## Harness adaptation plan
+
+For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these adaptations.
+
+| Level | Item | Trigger | Surfaces |
+|---|---|---|---|
+| required | typed-changes | type-strictness 1 | package.json typecheck script, DECISIONS.md |
+| required | written-intent | documented-intent 2 | AGENTS.md, docs/ARCHITECTURE.md |
+| required | supported-runtime | dependency-currency 1 | CI, verification layers |
+| required | detected-stack | test-feedback 3 | package.json layer scripts |
+| required | red-paths | red zone: 7 paths | AGENTS.md, .claude/settings.json |
+| required | yellow-modules | yellow zone: 9 modules | AGENTS.md |
+| recommended | verifiable-changes | test-feedback 3 | feature_list.json layers, package.json test script, AGENTS.md |
+| recommended | legible-context | file-size 3 | AGENTS.md |
+
+### required: typed-changes
+
+Trigger: type-strictness 1. Surfaces: `package.json typecheck script`, `DECISIONS.md`.
+
+Change: Add a type checker for the main dynamic language in check mode, with a baseline so existing code passes and new code is checked; point the typecheck layer at it and record the baseline as a dated deferral.
+
+Why: Dynamic code without a checker lets an agent's type mistakes through every static layer.
+
+- main dynamic language: python (236203 source lines); suggested checker: mypy or Pyright
+
+### required: written-intent
+
+Trigger: documented-intent 2. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
+
+Change: Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).
+
+Why: Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).
+
+- README: README.rst; contributing: none; architecture: none; decision records: 0; conventions: none
+- stated rules: 0 in 0 files
+- agent context files (presence alone scores nothing): none
+
+### required: supported-runtime
+
+Trigger: dependency-currency 1. Surfaces: `CI`, `verification layers`.
+
+Change: Run the verification layers under the declared legacy runtime (a container or a pinned toolchain in CI), separately from the harness's own Node 18 or later, and keep agents away from runtime-sensitive code paths without that toolchain.
+
+Why: Code verified on a different runtime than it ships on is not verified.
+
+- python 2.7 (setup.py, classifier): cycle 2.7 end-of-life since 2020-01-01
+
+### required: detected-stack
+
+Trigger: test-feedback 3. Surfaces: `package.json layer scripts`.
+
+Change: Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.
+
+Why: The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).
+
+- the harness would detect none, but the main language is python
+
+### required: red-paths
+
+Trigger: red zone: 7 paths. Surfaces: `AGENTS.md`, `.claude/settings.json`.
+
+Change: List these paths as proposal-only in AGENTS.md, and add Claude Code permissions.deny rules so agents cannot edit them directly; agents propose diffs for a person to apply.
+
+Why: Auth, billing, permission and secret code needs human review of every change.
+
+- MoinMoin/action/login.py (login): deny Edit(MoinMoin/action/login.py), Write(MoinMoin/action/login.py)
+- MoinMoin/action/logout.py (logout): deny Edit(MoinMoin/action/logout.py), Write(MoinMoin/action/logout.py)
+- MoinMoin/auth/ (auth): deny Edit(MoinMoin/auth/**), Write(MoinMoin/auth/**)
+- MoinMoin/support/BasicAuthTransport.py (auth): deny Edit(MoinMoin/support/BasicAuthTransport.py), Write(MoinMoin/support/BasicAuthTransport.py)
+- MoinMoin/support/werkzeug/wrappers/auth.py (auth): deny Edit(MoinMoin/support/werkzeug/wrappers/auth.py), Write(MoinMoin/support/werkzeug/wrappers/auth.py)
+- MoinMoin/userform/login.py (login): deny Edit(MoinMoin/userform/login.py), Write(MoinMoin/userform/login.py)
+- contrib/auth_externalcookie/ (auth): deny Edit(contrib/auth_externalcookie/**), Write(contrib/auth_externalcookie/**)
+
+### required: yellow-modules
+
+Trigger: yellow zone: 9 modules. Surfaces: `AGENTS.md`.
+
+Change: List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- MoinMoin/(files): files too large for unsupervised edits: p90 2006 lines > 800; 25% of files over 1000 lines > 7%
+- MoinMoin/_tests: files too large for unsupervised edits: p90 916 lines > 800
+- MoinMoin/config: files too large for unsupervised edits: p90 1477 lines > 800; 50% of files over 1000 lines > 7%
+- MoinMoin/converter: files too large for unsupervised edits: p90 1459 lines > 800; 50% of files over 1000 lines > 7%
+- MoinMoin/formatter: files too large for unsupervised edits: p90 1052 lines > 800; 18.2% of files over 1000 lines > 7%
+- MoinMoin/support: files too large for unsupervised edits: p90 960 lines > 800; 9% of files over 1000 lines > 7%
+- MoinMoin/theme: files too large for unsupervised edits: p90 1959 lines > 800; 16.7% of files over 1000 lines > 7%
+- MoinMoin/xmlrpc: files too large for unsupervised edits: p90 1201 lines > 800; 14.3% of files over 1000 lines > 7%
+- jabberbot: files too large for unsupervised edits: p90 1686 lines > 800; 11.1% of files over 1000 lines > 7%
+
+### recommended: verifiable-changes
+
+Trigger: test-feedback 3. Surfaces: `feature_list.json layers`, `package.json test script`, `AGENTS.md`.
+
+Change: Grow tests in the modules agents will touch first, and keep feature scopes inside green modules.
+
+Why: Without real tests, every required test layer reports SKIP and fails verify-feature, so no feature can pass honestly.
+
+- 96 test files for 1226 source files: ratio 0.08
+- test runner configs: MoinMoin/conftest.py
+- CI: .travis.yml
+
+### recommended: legible-context
+
+Trigger: file-size 3. Surfaces: `AGENTS.md`.
+
+Change: List the largest files in AGENTS.md as split-before-feature files.
+
+Why: Large files push the relevant code out of an agent's context and invite confident edits to code it has not read.
+
+- files over 1000 lines: MoinMoin/support/pygments/lexers/_lasso_builtins.py (5327), MoinMoin/support/pygments/lexers/_php_builtins.py (4756), MoinMoin/support/werkzeug/datastructures.py (3120), MoinMoin/support/pygments/lexers/_scilab_builtins.py (3094), MoinMoin/support/parsedatetime/__init__.py (2789), MoinMoin/support/passlib/utils/handlers.py (2712), MoinMoin/support/pygments/lexers/lisp.py (2694), MoinMoin/wikiutil.py (2667), MoinMoin/support/passlib/context.py (2632), MoinMoin/support/pygments/lexers/_openedge_builtins.py (2547)
+
+## Modernization roadmap
+
+Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
+
+| # | Factor | Score | Effort | Priority | Step | Verdict after |
+|---|---|---|---|---|---|---|
+| 1 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
+| 2 | dependency-currency | 1 → 5 | L | 1.67 | upgrade python from 2.7 to 3.11 | unchanged |
+| 3 | type-strictness | 1 → 3 | M | 1.5 | configure mypy or Pyright for python with a baseline (typed share 0.06 to 0.50) | unchanged |
+| 4 | test-feedback | 3 → 4 | M | 1 | add 88 test files (to ratio 0.15) | unchanged |
+| 5 | file-size | 3 → 4 | L | 0.33 | split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines | unchanged |
+
 ## Not measured
 
 - factor `direct-api-calls`: no collector signal yet: needs call-site analysis
@@ -170,7 +295,7 @@ Not zoned (no source files): .github, docs, scripts.
 
 ### Git history
 
-5901 non-merge commits (12 in the 12 months to 2026-10-22), 46 authors, first 2005-09-22, last 2026-07-28, 2087 tracked files.
+5901 non-merge commits (12 in the 12 months to 2026-10-23), 46 authors, first 2005-09-22, last 2026-07-28, 2087 tracked files.
 
 Hotspots (most commits in the last 12 months):
 
@@ -230,8 +355,9 @@ Largest files:
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (1 day before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
 - Deferrals: none
+- Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 
 Read-only commands run against the target:
 

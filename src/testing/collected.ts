@@ -67,12 +67,12 @@ export function testsDocsOf(spec: TestsDocsSpec = {}): Measurement<TestsDocs> {
   };
 }
 
-export function dependenciesOf(runtimes: Partial<RuntimeAssessment>[]): Measurement<Dependencies> {
+export function dependenciesOf(runtimes: Partial<RuntimeAssessment>[], manifests: Dependencies["manifests"] = []): Measurement<Dependencies> {
   return {
     status: "measured",
     evidence,
     value: {
-      manifests: [],
+      manifests,
       runtimes: runtimes.map((runtime) => ({
         runtime: "node", spec: "18", source: "package.json", via: "engines.node",
         lowest: "18", cycle: "18", status: "supported", eol: "2030-01-01", reason: null, testFixture: false,

@@ -2,7 +2,7 @@
 
 **Status:** final, reviewed 2026-10-22. The proposals from the first run were approved and applied (D-013). The reports in each folder are the regenerated ones; machine-readable labels are in [labels.json](labels.json).
 
-Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 2). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
+Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 3: regenerated for feat-010 with the plan and roadmap; scores and verdicts did not change). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
 
 ## Repositories
 
@@ -134,6 +134,25 @@ The first-run labels for findings that changed are kept in the notes.
 | dependency-currency | 4 | TP | Gemfile `ruby '>= 3.3.0'`, Ruby 3.3 supported until 2027-03-31 |
 | git authors | — | NO | 12 authors from a Subversion mirror |
 | red paths | 78 | TP | auth sources, OAuth, roles and permissions models, and old migrations on those tables. Editing old migrations is risky anyway. |
+
+## Plan and Roadmap (feat-010)
+
+The reports were regenerated with the harness adaptation plan and the modernization roadmap (D-014). Every plan item and roadmap step cites a factor score that matches the report's own scores, or a zone count that matches its zones; this was checked with a script over the five JSON files.
+
+| Repository | Verdict | Plan, required | Plan, recommended | Roadmap, first steps |
+|---|---|---|---|---|
+| DOOM | prepare first | verifiable-changes, legible-context, written-intent, reproducible-runs, detected-stack (no stack found), yellow modules (4) | dropped under prepare first | test-feedback 1→3: 8 test files, a runner and CI [M], verdict after *adapt*; documented-intent 2→3 [S]; dev-deploy 1→4 [M] |
+| moin-1.9 | adapt | typed-changes (mypy or Pyright), written-intent, supported-runtime (Python 2.7), detected-stack (`setup.py` only), red paths (7), yellow modules (9) | verifiable-changes, legible-context | documented-intent 2→3 [S]; Python 2.7 to 3.11 [L]; type-strictness 1→3 [M] |
+| phpBB | adopt | detected-stack (root `package.json`: taken for Node), red paths (40), yellow modules (9) | typed-changes, legible-context, written-intent | documented-intent 3→4 [M]; PHP 8.2 to 8.3 [M]; file-size 3→4 [L] |
+| Struts | adopt | red paths (13) | written-intent | documented-intent 3→4 [M]; file-size 4→5 [L] |
+| Redmine | adapt | typed-changes (Sorbet or Steep), detected-stack (root `package.json`: taken for Node), red paths (78) | written-intent | type-strictness 1→3 [M], verdict after *adopt*; documented-intent 3→4 [M]; Ruby 3.3 to 3.4 [M] |
+
+Compared with the contract's estimate, three things differ:
+- phpBB's file-size step is L, not M: its p90 length (473 lines) is over the next band too.
+- phpBB has 9 yellow modules, which the estimate missed: its modules fail the per-module file-size rule.
+- DOOM's yellow modules now appear under prepare first. The first build dropped zone guardrails there; they are required items, and agents writing characterization tests still need them.
+
+Audit times with the plan and roadmap: 1.0 to 6.8 s, peak memory up to 196 MB.
 
 ## Known Limits Kept After Review
 

@@ -9,11 +9,12 @@ npm run build
 node dist/cli.js audit <repo-path>                  # default factors from config/factors.json
 node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js audit <repo-path> --deferrals deferrals.json
+node dist/cli.js audit <repo-path> --harness my-harness.json  # another harness's requirements
 node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown and JSON report
 node dist/cli.js --help
 ```
 
-`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the four collectors. Relative paths resolve against the current directory. Scores, the verdict and reports arrive with feat-006 to feat-008.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the four collectors. Relative paths resolve against the current directory. It then prints the scores, the readiness level, the verdict with risk zones, the harness adaptation plan and the first roadmap steps.
 
 ### Git history
 
@@ -121,6 +122,43 @@ Risk zones cover source files that are not tests:
 
 Zones use test-feedback's base score, because a deferral adds no tests. Directories without source files are listed as not zoned.
 
+### Harness adaptation plan
+
+The plan says which ai-harness-framework rules, context files and guardrails to change for this repository. It comes from `config/harness-requirements.json`, which names the harness version it was written for (0.5.0, commit `7fb142a`). `--harness <file>` replaces it; factors that file names must be configured.
+
+Each requirement ties a harness assumption to one factor:
+- score ≤ 2 (`weakMax`): its adaptation is **required**;
+- score 3: it is **recommended**;
+- score 4 or 5: nothing is added;
+- not measured, or not in the factor config: listed as **not assessed**.
+
+| Requirement | Factor | Adaptation |
+|---|---|---|
+| verifiable-changes | test-feedback | characterization tests per module before a feature edits it; the test layer must run real tests (harness D-029) |
+| typed-changes | type-strictness | a checker for the main dynamic language with a baseline, recorded as a dated deferral |
+| legible-context | file-size | work per module; list the files over 1000 lines in `AGENTS.md` |
+| written-intent | documented-intent | non-standard practices as `AGENTS.md` rules; `docs/ARCHITECTURE.md` filled by hand |
+| reproducible-runs | dev-deploy-simplicity | the missing CI, runtime pin, test runner or lock file |
+| supported-runtime | dependency-currency | run the verification layers under the declared legacy runtime |
+
+Three more items have other triggers:
+- **detected-stack** (required): the harness's stack detection, from root markers, would not find the main language. Declare each layer command explicitly.
+- **red paths** (required): list them as proposal-only in `AGENTS.md` and add Claude Code `permissions.deny` rules, such as `Edit(app/auth/**)` and `Write(app/auth/**)`.
+- **yellow modules** (required): list them as "characterization tests first" in `AGENTS.md`, with each reason.
+
+The verdict frames the plan. *Prepare first* keeps only the required items: test-feedback first, then the zone guardrails, which still apply while agents write tests. *Adapt* lists required items, zone guardrails, then recommended ones. *Adopt* has no weak factor, so only zone guardrails, stack and recommended items can appear. Every item names the factor score or zone that triggered it.
+
+### Modernization roadmap
+
+One step per scored factor below 5 that has a concrete next action, with the metric gap: test files to add, files to split, rules to write, signals to add, or the runtime cycle to upgrade to. Each step has an effort, S, M or L, from fixed rules (for example, at most 20 test files to add is S).
+
+Steps are ordered by **priority = gain × weight ÷ effort**:
+- **gain** is the score increase, plus 1 when a weak factor reaches 3;
+- **weight** is 2 for blocking factors, 1 otherwise;
+- **effort** counts S as 1, M as 2 and L as 3.
+
+Ties go to blocking factors, then config order. `verdictAfter` is the verdict the decision rules give with only that step applied, shown when it differs from today's.
+
 ### Report files
 
 `--out <dir>` writes `ai-readiness-report.md` and `ai-readiness-report.json` to `<dir>`, creating it if needed and overwriting earlier reports there. Without `--out`, nothing is written. An out directory inside the audited repository (directly or through a link) is an input error.
@@ -130,11 +168,12 @@ Both files come from one report model, so they hold the same content:
 - the readiness level;
 - every factor with its rule, evidence, partial coverage and any deferral;
 - risk zones and red paths;
+- the harness adaptation plan and the modernization roadmap;
 - everything not measured, in one list;
 - signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes);
 - the method: inputs, every read-only command run, collector notes.
 
-Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 2`, documented in [sprints/feat-008.md](sprints/feat-008.md); version 2 added `testFixture` to each runtime (D-013).
+Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 3`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014).
 
 Reports are deterministic. Every date-based rule (the 12-month window, end of life, deferral expiry) uses the audit date in UTC. Keys and lists are in a fixed order, and line endings are LF. Two runs on the same day, repository and configs give identical bytes. The report records the audited commit (`target.head`), so it traces to exact code.
 

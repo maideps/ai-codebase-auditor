@@ -3,7 +3,8 @@
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target, factor config, end-of-life table and optional
 // deferrals, runs the four collectors, scores every factor, decides the
-// verdict and risk zones, and with --out writes the Markdown and JSON report.
+// verdict and risk zones, plans the harness adaptation and the modernization
+// roadmap, and with --out writes the Markdown and JSON report.
 
 import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
@@ -24,6 +25,9 @@ import { renderMarkdown } from "./report/markdown.js";
 import { buildReport } from "./report/model.js";
 import { checkOutDir, writeReports } from "./report/write.js";
 import type { Decision } from "./decision/types.js";
+import { checkRequirementFactors, DEFAULT_HARNESS_REQUIREMENTS_PATH, loadHarnessRequirements } from "./config/harness-requirements.js";
+import { buildPlan, type Plan } from "./plan/plan.js";
+import { buildRoadmap, type RoadmapStep } from "./plan/roadmap.js";
 import { checkThresholds, scoreFactors } from "./scoring/score.js";
 import type { CollectorResults, Scoring } from "./scoring/types.js";
 import type { Result } from "./result.js";
@@ -39,7 +43,7 @@ const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
-export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--out <dir>]
+export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>]
        ai-codebase-auditor --help | --version
 
 Audits a local git repository for AI-agent readiness. The repository is only
@@ -51,6 +55,7 @@ Commands:
 Options:
   -c, --config <file>    Factor configuration (default: config/factors.json)
   -d, --deferrals <file> Documented, dated deferrals that raise a gap's score by one level, up to 3
+      --harness <file>   Harness requirements for the adaptation plan (default: config/harness-requirements.json)
   -o, --out <dir>        Write ai-readiness-report.md and .json there (never inside the target)
   -h, --help             Show this help
   -v, --version          Show the version
@@ -190,6 +195,23 @@ function formatDecision(decision: Decision): string[] {
   ];
 }
 
+function formatPlan(plan: Plan, roadmap: readonly RoadmapStep[]): string[] {
+  const trigger = (item: Plan["items"][number]) =>
+    item.trigger.kind === "factor" ? `${item.trigger.factor} ${item.trigger.score}` : `${item.trigger.zone} zone, ${item.trigger.count}`;
+  const width = Math.max(0, ...plan.items.map((item) => item.id.length)) + 2;
+  return [
+    `Harness adaptation plan (${plan.harness.name} ${plan.harness.version}): ${plan.framing}`,
+    ...(plan.items.length > 0 ? plan.items.map((item) => `  ${item.level.padEnd(13)}${item.id.padEnd(width)}${trigger(item)}`) : ["  no items"]),
+    ...(plan.notAssessed.length > 0 ? [`  not assessed: ${plan.notAssessed.map((entry) => entry.requirement).join(", ")}`] : []),
+    "",
+    "Modernization roadmap (by gain against effort):",
+    ...(roadmap.length > 0
+      ? roadmap.slice(0, 5).map((step, index) => `  ${index + 1}. ${step.factor} ${step.from}→${step.to} [${step.effort}] ${step.action}${step.verdictAfter ? ` (verdict after: ${step.verdictAfter})` : ""}`)
+      : ["  no steps"]),
+    ...(roadmap.length > 5 ? [`  … and ${roadmap.length - 5} more in the report`] : []),
+  ];
+}
+
 function formatSummary(
   target: AuditTarget,
   configPath: string,
@@ -197,6 +219,8 @@ function formatSummary(
   collected: CollectorResults,
   scoring: Scoring,
   decision: Decision,
+  plan: Plan,
+  roadmap: readonly RoadmapStep[],
 ): string {
   const blocking = config.factors.filter((factor) => factor.class === "blocking").length;
   return [
@@ -216,6 +240,8 @@ function formatSummary(
     "",
     ...formatDecision(decision),
     "",
+    ...formatPlan(plan, roadmap),
+    "",
   ].join("\n");
 }
 
@@ -228,6 +254,7 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
         config: { type: "string", short: "c" },
         deferrals: { type: "string", short: "d" },
         out: { type: "string", short: "o" },
+        harness: { type: "string" },
         help: { type: "boolean", short: "h" },
       },
       allowPositionals: true,
@@ -248,6 +275,8 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
   const config = loadFactorConfig(configPath);
   const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
   const decisionConfig = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
+  const harnessPath = parsed.values.harness === undefined ? DEFAULT_HARNESS_REQUIREMENTS_PATH : path.resolve(cwd, parsed.values.harness);
+  const requirements = loadHarnessRequirements(harnessPath);
   const deferralsPath = parsed.values.deferrals === undefined ? null : path.resolve(cwd, parsed.values.deferrals);
   const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
   const outDir = parsed.values.out === undefined ? null : path.resolve(cwd, parsed.values.out);
@@ -257,9 +286,12 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
     ...(eolTable.ok ? [] : eolTable.errors),
     ...(decisionConfig.ok ? [] : decisionConfig.errors),
+    // Only a user's own --harness file must name configured factors: the default
+    // file meets a reduced --config, and the plan lists those as not assessed.
+    ...(requirements.ok ? (config.ok && parsed.values.harness !== undefined ? checkRequirementFactors(requirements.value, config.value, harnessPath) : []) : requirements.errors),
     ...(deferrals.ok ? (config.ok && deferralsPath ? checkDeferralFactors(deferrals.value, config.value, deferralsPath) : []) : deferrals.errors),
   ];
-  if (!target.ok || !config.ok || !eolTable.ok || !decisionConfig.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
+  if (!target.ok || !config.ok || !eolTable.ok || !decisionConfig.ok || !requirements.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
   // The audit date (UTC) is the unit of time: every date-based rule uses the end
   // of that day, so two runs on the same day give the same report bytes.
   const auditDate = new Date().toISOString().slice(0, 10);
@@ -272,7 +304,9 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
   };
   const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value });
   const decision = decide(scoring, collected, config.value, decisionConfig.value);
-  const summary = formatSummary(target.value, configPath, config.value, collected, scoring, decision);
+  const plan = buildPlan({ scoring, decision, results: collected, requirements: requirements.value, weakMax: decisionConfig.value.weakMax });
+  const roadmap = buildRoadmap({ scoring, results: collected, factors: config.value, decisionConfig: decisionConfig.value, eolTable: eolTable.value, auditDate });
+  const summary = formatSummary(target.value, configPath, config.value, collected, scoring, decision, plan, roadmap);
   if (outDir === null) return { exitCode: EXIT_OK, stdout: summary, stderr: "" };
 
   const report = buildReport({
@@ -284,10 +318,13 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
       decisionConfig: DEFAULT_DECISION_CONFIG_PATH,
       eolTable: { path: DEFAULT_EOL_TABLE_PATH, asOf: eolTable.value.asOf },
       deferrals: deferralsPath,
+      harnessRequirements: harnessPath,
     },
     collected,
     scoring,
     decision,
+    plan,
+    roadmap,
   });
   try {
     const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report) });

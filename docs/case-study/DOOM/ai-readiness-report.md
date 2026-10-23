@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\DOOM` at commit `a77dfb96cb91` |
-| Audit date | 2026-10-22 |
+| Audit date | 2026-10-23 |
 | Verdict | **prepare first** (provisional: direct-api-calls not measured) |
 | Readiness level | **1 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -118,6 +118,101 @@ Red paths:
 
 Not zoned (no source files): (root).
 
+## Harness adaptation plan
+
+For ai-harness-framework 0.5.0 (commit `7fb142a`). Do not adopt the harness for feature work yet: complete the required items first, starting with test-feedback.
+
+| Level | Item | Trigger | Surfaces |
+|---|---|---|---|
+| required | verifiable-changes | test-feedback 1 | feature_list.json layers, package.json test script, AGENTS.md |
+| required | legible-context | file-size 2 | AGENTS.md |
+| required | written-intent | documented-intent 2 | AGENTS.md, docs/ARCHITECTURE.md |
+| required | reproducible-runs | dev-deploy-simplicity 1 | init.sh, .github/workflows/ci.yml, runtime version file |
+| required | detected-stack | test-feedback 1 | package.json layer scripts |
+| required | yellow-modules | yellow zone: 4 modules | AGENTS.md |
+
+### required: verifiable-changes
+
+Trigger: test-feedback 1. Surfaces: `feature_list.json layers`, `package.json test script`, `AGENTS.md`.
+
+Change: Before a feature edits a module, capture its current behavior with characterization tests (golden-master style) and make the test layer run them. Add an AGENTS.md rule: the agent that changes logic is never the only author of its tests.
+
+Why: Without real tests, every required test layer reports SKIP and fails verify-feature, so no feature can pass honestly.
+
+- 0 test files for 146 source files: ratio 0.00
+- test runner configs: none
+- CI: none
+
+### required: legible-context
+
+Trigger: file-size 2. Surfaces: `AGENTS.md`.
+
+Change: Add an AGENTS.md rule to work one module at a time, and list the oversized files: plan edits by function there, and split a file before adding features to it.
+
+Why: Large files push the relevant code out of an agent's context and invite confident edits to code it has not read.
+
+- files over 1000 lines: linuxdoom-1.10/info.c (4670), linuxdoom-1.10/tables.c (2130), linuxdoom-1.10/p_enemy.c (2008), linuxdoom-1.10/m_menu.c (1893), linuxdoom-1.10/wi_stuff.c (1850), linuxdoom-1.10/g_game.c (1690), linuxdoom-1.10/st_stuff.c (1471), linuxdoom-1.10/p_spec.c (1362), linuxdoom-1.10/am_map.c (1349), linuxdoom-1.10/info.h (1340)
+
+### required: written-intent
+
+Trigger: documented-intent 2. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
+
+Change: Write the project's non-standard practices as rules in AGENTS.md, and fill docs/ARCHITECTURE.md by hand: the harness placeholder check passes generic template text (maideps/ai-harness-framework#23).
+
+Why: Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988).
+
+- README: README.TXT; contributing: none; architecture: none; decision records: 0; conventions: none
+- stated rules: 0 in 0 files
+- agent context files (presence alone scores nothing): none
+
+### required: reproducible-runs
+
+Trigger: dev-deploy-simplicity 1. Surfaces: `init.sh`, `.github/workflows/ci.yml`, `runtime version file`.
+
+Change: Add what the evidence shows missing: CI from the harness template (templates/ci.yml), a pinned runtime version, a test runner, and a lock file where the ecosystem uses one.
+
+Why: init.sh and the verification layers can only be trusted when the environment they run in is pinned and scripted.
+
+- missing: CI configured, test runner configured, runtime version declared
+
+### required: detected-stack
+
+Trigger: test-feedback 1. Surfaces: `package.json layer scripts`.
+
+Change: Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.
+
+Why: The harness picks layer commands from root markers; when it does not detect the repository's main language, its layers run the wrong tool or SKIP, and a SKIP-only required layer fails verify-feature (D-029).
+
+- the harness would detect none, but the main language is c
+
+### required: yellow-modules
+
+Trigger: yellow zone: 4 modules. Surfaces: `AGENTS.md`.
+
+Change: List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- ipx: test-feedback 1 < 3: add characterization tests before agents edit
+- linuxdoom-1.10: test-feedback 1 < 3: add characterization tests before agents edit
+- sersrc: test-feedback 1 < 3: add characterization tests before agents edit
+- sndserv: test-feedback 1 < 3: add characterization tests before agents edit
+
+Not assessed (factor not measured):
+
+- supported-runtime (dependency-currency): no declared runtime with a known end-of-life status outside test fixtures
+
+## Modernization roadmap
+
+Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
+
+| # | Factor | Score | Effort | Priority | Step | Verdict after |
+|---|---|---|---|---|---|---|
+| 1 | test-feedback | 1 → 3 | M | 3 | add 8 test files (to ratio 0.05), a test runner config and CI | adapt |
+| 2 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
+| 3 | dev-deploy-simplicity | 1 → 4 | M | 2 | add CI, a test runner config and a pinned runtime version | unchanged |
+| 4 | file-size | 2 → 3 | L | 0.67 | split 3 of 13 files over 1000 lines (to 6.8% of files) and bring the p90 file length from 988 to 800 lines | unchanged |
+
 ## Not measured
 
 - factor `direct-api-calls`: no collector signal yet: needs call-site analysis
@@ -130,7 +225,7 @@ Not zoned (no source files): (root).
 
 ### Git history
 
-4 non-merge commits (0 in the 12 months to 2026-10-22), 2 authors, first 2012-01-31, last 2024-01-16, 165 tracked files.
+4 non-merge commits (0 in the 12 months to 2026-10-23), 2 authors, first 2012-01-31, last 2024-01-16, 165 tracked files.
 
 Hotspots (most commits in the last 12 months):
 
@@ -186,8 +281,9 @@ None.
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (1 day before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
 - Deferrals: none
+- Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 
 Read-only commands run against the target:
 
