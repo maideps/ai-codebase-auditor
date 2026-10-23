@@ -47,6 +47,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toMatch(/ {2}no zones: code structure not measured \(git failed: .+\)/);
     expect(result.stdout).toMatch(/Dynamic calls: not measured \(git failed: .+\)/);
     expect(result.stdout).toMatch(/Co-change: not measured \(git failed: .+\)/);
+    expect(result.stdout).toMatch(/Observability: not measured \(git failed: .+\)/);
     expect(result.stdout).toContain("Harness adaptation plan (ai-harness-framework 0.5.0): No plan: there is no verdict to plan for.\n  no items\n");
   });
 
@@ -151,7 +152,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain(`Config: ${config}`);
     expect(result.stdout).toContain("Factors: 1 (1 blocking, 0 constraining)");
     // The default harness requirements name factors this config leaves out: listed, not an error.
-    expect(result.stdout).toContain("  not assessed: verifiable-changes, typed-changes, traceable-calls, legible-context, scoped-lanes, written-intent, reproducible-runs, supported-runtime");
+    expect(result.stdout).toContain("  not assessed: verifiable-changes, typed-changes, traceable-calls, legible-context, scoped-lanes, written-intent, observable-changes, reproducible-runs, supported-runtime");
   });
 
   it("requires a repository path", () => {
@@ -211,13 +212,15 @@ describe("runCli: scores", () => {
     expect(result.stdout).toMatch(/blocking\s+direct-api-calls\s+-\s+not measured: only 3 covered product files; at least 10 are needed/);
     expect(result.stdout).toMatch(/constraining\s+module-boundaries\s+-\s+not measured: only 1 commit changes product source in a current module; at least 50 are needed/);
     expect(result.stdout).toContain("Co-change (git log of recent non-merge commits; nothing is run):\n  commits read: 1; with source files: 1, 2026-01-01 to 2026-01-01\n");
+    // No logging in the fixture: observability scores 1.
+    expect(result.stdout).toMatch(/constraining\s+observability\s+1\s+no logging calls, configuration or logging framework, no error reporting, metrics or tracing/);
     expect(result.stdout).toContain(
       "Dynamic calls (covered languages read statically, tests included; nothing is run):\n  covered files: 4 (javascript 4), 0 with computed-target calls, 0 sites\n  constructs: none\n  skipped: none\n",
     );
     expect(result.stdout).toContain("Readiness level: 5 of 5, set by test-feedback (provisional: direct-api-calls not measured)");
-    // Tests score 5, but nothing is typed and the only doc is a README: adapt, with modules green.
+    // Tests score 5, but nothing is typed, the only doc is a README and nothing logs: adapt, with modules green.
     expect(result.stdout).toContain("Verdict: adapt (provisional: direct-api-calls not measured)");
-    expect(result.stdout).toContain("  rule: 2 weak factors (score ≤ 2): type-strictness 1, documented-intent 2");
+    expect(result.stdout).toContain("  rule: 3 weak factors (score ≤ 2): type-strictness 1, documented-intent 2, observability 1");
     expect(result.stdout).toMatch(/ {2}green {3}src +2 source files: test-feedback 5 ≥ 3/);
     expect(result.stdout).toContain("  red paths: none");
   });

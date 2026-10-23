@@ -310,3 +310,30 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
   - modules are directories, so real modules that do not follow directories are scored on the wrong units;
   - co-change by design (migrations with models, example apps with features) counts as coupling;
   - the log is read twice, once by git-history and once here, which raises peak memory on moin-1.9 to 308 MB.
+
+### D-017: Observability scored as a ladder of logging, error reporting, and metrics or tracing
+
+**Date:** 2026-10-23
+**Status:** accepted (rules proposed in docs/sprints/feat-013.md and approved in review)
+**Context:** observability ("logs, errors and metrics show what the code does when it runs") was the last factor without a signal. The survey found no error-reporting, metrics or tracing client in any of the five calibration repositories. It also found logging call density misleading: Rails logs requests and errors by itself, so Redmine has few explicit logger calls.
+**Decision:**
+- An observability collector reads tracked source files statically for:
+  - logging calls (one receiver-name pattern across languages, plus Python's `logging`, PHP's `error_log` and phpBB-style logs, `syslog`, and `fprintf(stderr, …)`), with comments and strings stripped;
+  - `console` output, counted apart;
+  - logging configuration files and framework log settings outside test directories;
+  - observability imports.
+- The score combines the collector with the dependency collector's manifests: frameworks that log by default, and integrations (development dependencies left out). Names live in `src/observability-names.ts`.
+- Logging is present at logging calls in ≥ 2% of product files, a committed configuration, or a logging framework. That rung scores 3, with 2 for sparse calls and 1 for none. Error reporting and metrics-or-tracing each add one level; without logging present, they add one at most.
+- The harness requirement `observable-changes` and an M-effort roadmap step cover the factor. The report goes to `schemaVersion` 6 with `signals.observability`.
+**Alternatives considered:**
+- Requiring both logging calls and a configuration — Rejected in review: phpBB, which keeps its own database logs, would turn weak and *adapt*.
+- Only `syslog` for C — Rejected in review: `fprintf(stderr, …)` is C's logging convention.
+- A 5% call threshold — Rejected in review.
+- Counting `console.error` and `console.warn` — Rejected in review: in browser code they are debugging output.
+**Consequences:**
+- Positive: all nine factors have a signal, and a factor is not measured only for a stated reason. All 50 sampled logging files in the case study log for real.
+- Negative:
+  - presence is not quality: logs that no one reads, and swallowed exceptions, are not seen;
+  - the name lists need updates as libraries change;
+  - the receiver-name pattern can miss loggers with unusual names;
+  - on this calibration set every repository scores 3, so the factor does not yet tell them apart.

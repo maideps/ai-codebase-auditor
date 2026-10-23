@@ -26,7 +26,7 @@ Triggered by: test-feedback 5, direct-api-calls 4.
 | file-size | constraining | 3 | lower of p90 473 lines (→ 3) and 3.87% of files over 1000 lines (→ 3) |
 | module-boundaries | constraining | 3 | 20.80% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 3 | docs with contributing, architecture, convention or decision docs |
-| observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
+| observability | constraining | 3 | logging present (calls in 3.28% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 5 | 4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed |
 | dependency-currency | constraining | 4 | a runtime reaches end of life on 2026-12-31, within 12 months |
 
@@ -101,7 +101,18 @@ Evidence:
 
 ### observability: Observability
 
-Not measured (constraining): no collector signal yet: needs a logging and metrics detector.
+Score **3** (constraining). Rule: logging present (calls in 3.28% of files), no error reporting, metrics or tracing.
+
+Evidence:
+
+- logging calls in 44 of 1343 product source files (3.28%): phpBB-style log 165, logger call 1
+- logging configuration: none
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 6 files
+
+Partial: whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected.
 
 ### dev-deploy-simplicity: Dev and deploy simplicity
 
@@ -264,6 +275,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with
 | recommended | legible-context | file-size 3 | AGENTS.md |
 | recommended | scoped-lanes | module-boundaries 3 | AGENTS.md, feature lanes (lane-new) |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
+| recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
 ### required: detected-stack
 
@@ -384,6 +396,21 @@ Why: Agents follow written rules; unwritten local conventions are exactly what t
 - stated rules: 0 in 0 files
 - agent context files (presence alone scores nothing): none
 
+### recommended: observable-changes
+
+Trigger: observability 3. Surfaces: `AGENTS.md`, `e2e/smoke layer`.
+
+Change: Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.
+
+Why: Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.
+
+- logging calls in 44 of 1343 product source files (3.28%): phpBB-style log 165, logger call 1
+- logging configuration: none
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 6 files
+
 ## Modernization roadmap
 
 Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
@@ -392,13 +419,13 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 |---|---|---|---|---|---|---|
 | 1 | direct-api-calls | 4 → 5 | L | 0.67 | make the computed-target calls explicit in 26 of 52 files (to 2% of files), starting with phpBB/includes/acp/acp_database.php (14), phpBB/install/convert/convertor.php (13), phpBB/includes/functions_user.php (9) | unchanged |
 | 2 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
-| 3 | dependency-currency | 4 → 5 | M | 0.5 | upgrade php from 8.2 to 8.3 | unchanged |
-| 4 | file-size | 3 → 4 | L | 0.33 | split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines | unchanged |
-| 5 | module-boundaries | 3 → 4 | L | 0.33 | reduce cross-module changes from 20.8% to 20% of commits, starting with the most coupled pairs phpBB/phpbb/auth + phpBB/phpbb/ucp (9 commits together) and phpBB/includes + phpBB/install (13 commits together) | unchanged |
+| 3 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
+| 4 | dependency-currency | 4 → 5 | M | 0.5 | upgrade php from 8.2 to 8.3 | unchanged |
+| 5 | file-size | 3 → 4 | L | 0.33 | split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines | unchanged |
+| 6 | module-boundaries | 3 → 4 | L | 0.33 | reduce cross-module changes from 20.8% to 20% of commits, starting with the most coupled pairs phpBB/phpbb/auth + phpBB/phpbb/ucp (9 commits together) and phpBB/includes + phpBB/install (13 commits together) | unchanged |
 
 ## Not measured
 
-- factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `phpBB/config/development/container/environment.yml`: not a supported manifest
 - manifest `phpBB/config/development/routing/environment.yml`: not a supported manifest
 - manifest `phpBB/config/installer/container/environment.yml`: not a supported manifest
@@ -537,6 +564,13 @@ Files with the most sites:
 | `phpBB/includes/functions_content.php` | 3 | variable variable |
 | `phpBB/includes/functions_convert.php` | 3 | call_user_func by name, eval |
 
+### Observability
+
+Logging calls in 46 of 1915 source files, tests included (phpBB-style log 175, logger call 1). Console output only: 6 files. Skipped: generated 6, minified 28, vendored 3.
+
+- Logging configuration: none
+- Integration imports: none
+
 ### Co-change
 
 5000 non-merge commits read (cut off at the read limit); 3898 change source files, 2017-12-25 to 2026-10-22. The module-boundaries factor above maps them onto today's modules.
@@ -595,3 +629,6 @@ Collector notes:
 - the most recent non-merge commits are read from git log; renames show as a delete and an add
 - only source files count; vendored and generated paths are left out
 - nothing is checked out, run or written
+- comments and strings are stripped before matching logging calls, for languages with a known syntax
+- console.log and its siblings are counted apart: in browser code they are debugging output
+- integrations are read from import lines; manifests are read by the dependency collector

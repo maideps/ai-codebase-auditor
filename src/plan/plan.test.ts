@@ -15,7 +15,7 @@ const requirements = requirementsLoaded.value;
 const decisionConfig = decisionLoaded.value;
 
 const noZones: Zones = { modules: [], redPaths: [], unzoned: [], note: null };
-const allGood = { "test-feedback": 5, "type-strictness": 5, "direct-api-calls": 5, "file-size": 5, "module-boundaries": 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
+const allGood = { "test-feedback": 5, "type-strictness": 5, "direct-api-calls": 5, "file-size": 5, "module-boundaries": 5, observability: 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
 
 function plan(scores: Record<string, number | null>, options: { zones?: Zones; results?: CollectorResults; evidence?: Record<string, string[]> } = {}): Plan {
   const scoring: Scoring = scoringOf(scores, options.evidence);
@@ -35,6 +35,7 @@ describe("buildPlan requirement levels", () => {
     ["legible-context", "file-size"],
     ["scoped-lanes", "module-boundaries"],
     ["written-intent", "documented-intent"],
+    ["observable-changes", "observability"],
     ["reproducible-runs", "dev-deploy-simplicity"],
     ["supported-runtime", "dependency-currency"],
   ])("%s is required at 2, recommended at 3 and absent at 4 (%s)", (id, factor) => {

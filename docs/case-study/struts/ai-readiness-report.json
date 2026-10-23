@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -151,13 +151,20 @@
       "id": "observability",
       "name": "Observability",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "logging present (calls in 20.30% of files), no error reporting, metrics or tracing",
+      "evidence": [
+        "logging calls in 308 of 1517 product source files (20.30%): logger call 1275, stderr 1",
+        "logging configuration: apps/rest-showcase/src/main/resources/log4j2.xml (configuration file), apps/showcase/src/main/resources/log4j2.xml (configuration file)",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none",
+        "console output only, not counted as logging: 1 file"
+      ],
+      "partial": "whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected",
+      "reason": null,
       "deferral": null
     },
     {
@@ -363,6 +370,29 @@
           "stated rules: 34 in 6 files",
           "agent context files (presence alone scores nothing): AGENTS.md, CLAUDE.md"
         ]
+      },
+      {
+        "id": "observable-changes",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "e2e/smoke layer"
+        ],
+        "change": "Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.",
+        "why": "Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "observability",
+          "score": 3
+        },
+        "details": [
+          "logging calls in 308 of 1517 product source files (20.30%): logger call 1275, stderr 1",
+          "logging configuration: apps/rest-showcase/src/main/resources/log4j2.xml (configuration file), apps/showcase/src/main/resources/log4j2.xml (configuration file)",
+          "logging framework: none",
+          "error reporting: none",
+          "metrics or tracing: none",
+          "console output only, not counted as logging: 1 file"
+        ]
       }
     ],
     "notAssessed": []
@@ -403,6 +433,25 @@
       ]
     },
     {
+      "factor": "observability",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "add an error reporter (for example Sentry)",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "logging calls in 308 of 1517 product source files (20.30%): logger call 1275, stderr 1",
+        "logging configuration: apps/rest-showcase/src/main/resources/log4j2.xml (configuration file), apps/showcase/src/main/resources/log4j2.xml (configuration file)",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none",
+        "console output only, not counted as logging: 1 file"
+      ]
+    },
+    {
       "factor": "file-size",
       "class": "constraining",
       "from": 4,
@@ -436,11 +485,6 @@
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "observability",
-      "reason": "no collector signal yet: needs a logging and metrics detector"
-    },
     {
       "kind": "tool",
       "id": "scc",
@@ -1473,6 +1517,36 @@
         "minified": 1
       }
     },
+    "observability": {
+      "status": "measured",
+      "sourceFiles": 2428,
+      "filesWithLogging": 311,
+      "consoleOnly": 1,
+      "byForm": [
+        {
+          "form": "logger call",
+          "calls": 1279
+        },
+        {
+          "form": "stderr",
+          "calls": 1
+        }
+      ],
+      "configs": [
+        {
+          "path": "apps/rest-showcase/src/main/resources/log4j2.xml",
+          "kind": "configuration file"
+        },
+        {
+          "path": "apps/showcase/src/main/resources/log4j2.xml",
+          "kind": "configuration file"
+        }
+      ],
+      "integrationImports": [],
+      "skippedByReason": {
+        "minified": 1
+      }
+    },
     "coChange": {
       "status": "measured",
       "read": 5000,
@@ -1526,7 +1600,10 @@
       "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
       "the most recent non-merge commits are read from git log; renames show as a delete and an add",
       "only source files count; vendored and generated paths are left out",
-      "nothing is checked out, run or written"
+      "nothing is checked out, run or written",
+      "comments and strings are stripped before matching logging calls, for languages with a known syntax",
+      "console.log and its siblings are counted apart: in browser code they are debugging output",
+      "integrations are read from import lines; manifests are read by the dependency collector"
     ]
   }
 }

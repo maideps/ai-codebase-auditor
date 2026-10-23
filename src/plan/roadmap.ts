@@ -7,7 +7,7 @@ import type { FactorConfig } from "../config/factors.js";
 import type { RuntimeEolTable } from "../config/runtime-eol.js";
 import { decideVerdict } from "../decision/verdict.js";
 import type { VerdictKind } from "../decision/types.js";
-import { coChangeMeasure, dynamicShare, shift, sourceFiles, typedShare, typeScoreOf, type Thresholds } from "../scoring/rules.js";
+import { coChangeMeasure, dynamicShare, observabilitySignals, shift, sourceFiles, typedShare, typeScoreOf, type Thresholds } from "../scoring/rules.js";
 import type { CollectorResults, FactorScore, Scoring } from "../scoring/types.js";
 import { missingDevSignals, type DevSignal } from "./plan.js";
 
@@ -188,6 +188,15 @@ function documentedIntentStep(results: CollectorResults, from: number, t: Thresh
   return parts.length > 0 ? { to, action: parts.join(", and "), effort: "M" } : null;
 }
 
+function observabilityStep(results: CollectorResults, from: number, t: Thresholds, weakMax: number): Candidate {
+  const signals = observabilitySignals(results, t);
+  if (!signals) return null;
+  if (!signals.present) return { to: weakMax + 1, action: "add logging to the main code paths and commit its configuration", effort: "M" };
+  if (signals.errorReporting.length === 0) return { to: from + 1, action: "add an error reporter (for example Sentry)", effort: "M" };
+  if (signals.metricsOrTracing.length === 0) return { to: from + 1, action: "add metrics or tracing (for example OpenTelemetry)", effort: "M" };
+  return null;
+}
+
 function devDeployStep(results: CollectorResults, from: number): Candidate {
   const missing = missingDevSignals(results);
   if (missing.length === 0) return null;
@@ -240,6 +249,7 @@ export function buildRoadmap(input: RoadmapInput): RoadmapStep[] {
       : factor.id === "file-size" ? fileSizeStep(results, from, thresholds, weakMax)
       : factor.id === "module-boundaries" ? moduleBoundariesStep(results, from, thresholds, input)
       : factor.id === "documented-intent" ? documentedIntentStep(results, from, thresholds)
+      : factor.id === "observability" ? observabilityStep(results, from, thresholds, weakMax)
       : factor.id === "dev-deploy-simplicity" ? devDeployStep(results, from)
       : factor.id === "dependency-currency" ? dependencyStep(results, input, thresholds)
       : null;

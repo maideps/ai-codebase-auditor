@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -151,13 +151,20 @@
       "id": "observability",
       "name": "Observability",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "logging present (calls in 3.28% of files), no error reporting, metrics or tracing",
+      "evidence": [
+        "logging calls in 44 of 1343 product source files (3.28%): phpBB-style log 165, logger call 1",
+        "logging configuration: none",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none",
+        "console output only, not counted as logging: 6 files"
+      ],
+      "partial": "whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected",
+      "reason": null,
       "deferral": null
     },
     {
@@ -1077,6 +1084,29 @@
           "stated rules: 0 in 0 files",
           "agent context files (presence alone scores nothing): none"
         ]
+      },
+      {
+        "id": "observable-changes",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "e2e/smoke layer"
+        ],
+        "change": "Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.",
+        "why": "Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "observability",
+          "score": 3
+        },
+        "details": [
+          "logging calls in 44 of 1343 product source files (3.28%): phpBB-style log 165, logger call 1",
+          "logging configuration: none",
+          "logging framework: none",
+          "error reporting: none",
+          "metrics or tracing: none",
+          "console output only, not counted as logging: 6 files"
+        ]
       }
     ],
     "notAssessed": []
@@ -1114,6 +1144,25 @@
         "README: README.md; contributing: .github/CONTRIBUTING.md; architecture: none; decision records: 0; conventions: none",
         "stated rules: 0 in 0 files",
         "agent context files (presence alone scores nothing): none"
+      ]
+    },
+    {
+      "factor": "observability",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "add an error reporter (for example Sentry)",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "logging calls in 44 of 1343 product source files (3.28%): phpBB-style log 165, logger call 1",
+        "logging configuration: none",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none",
+        "console output only, not counted as logging: 6 files"
       ]
     },
     {
@@ -1167,11 +1216,6 @@
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "observability",
-      "reason": "no collector signal yet: needs a logging and metrics detector"
-    },
     {
       "kind": "manifest",
       "id": "phpBB/config/development/container/environment.yml",
@@ -1922,6 +1966,29 @@
         "vendored": 3
       }
     },
+    "observability": {
+      "status": "measured",
+      "sourceFiles": 1915,
+      "filesWithLogging": 46,
+      "consoleOnly": 6,
+      "byForm": [
+        {
+          "form": "phpBB-style log",
+          "calls": 175
+        },
+        {
+          "form": "logger call",
+          "calls": 1
+        }
+      ],
+      "configs": [],
+      "integrationImports": [],
+      "skippedByReason": {
+        "generated": 6,
+        "minified": 28,
+        "vendored": 3
+      }
+    },
     "coChange": {
       "status": "measured",
       "read": 5000,
@@ -1975,7 +2042,10 @@
       "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
       "the most recent non-merge commits are read from git log; renames show as a delete and an add",
       "only source files count; vendored and generated paths are left out",
-      "nothing is checked out, run or written"
+      "nothing is checked out, run or written",
+      "comments and strings are stripped before matching logging calls, for languages with a known syntax",
+      "console.log and its siblings are counted apart: in browser code they are debugging output",
+      "integrations are read from import lines; manifests are read by the dependency collector"
     ]
   }
 }

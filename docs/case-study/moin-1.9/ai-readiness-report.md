@@ -26,7 +26,7 @@ Triggered by: type-strictness 1, documented-intent 2, dependency-currency 1.
 | file-size | constraining | 3 | lower of p90 573 lines (→ 3) and 4.57% of files over 1000 lines (→ 3) |
 | module-boundaries | constraining | 3 | 21.60% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 2 | a README without written rules |
-| observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
+| observability | constraining | 3 | logging present (calls in 6.40% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 4 | 3 of 4 signals: CI configured, test runner configured, runtime version declared |
 | dependency-currency | constraining | 1 | worst runtime is end-of-life since 2020-01-01 |
 
@@ -101,7 +101,18 @@ Evidence:
 
 ### observability: Observability
 
-Not measured (constraining): no collector signal yet: needs a logging and metrics detector.
+Score **3** (constraining). Rule: logging present (calls in 6.40% of files), no error reporting, metrics or tracing.
+
+Evidence:
+
+- logging calls in 78 of 1218 product source files (6.40%): logging module 296, logger call 168, stderr 8, error_log 1
+- logging configuration: MoinMoin/log.py (Python logging config), wikiserverlogging.conf (configuration file)
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
+Partial: whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected.
 
 ### dev-deploy-simplicity: Dev and deploy simplicity
 
@@ -193,6 +204,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | legible-context | file-size 3 | AGENTS.md |
 | recommended | scoped-lanes | module-boundaries 3 | AGENTS.md, feature lanes (lane-new) |
+| recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
 ### required: typed-changes
 
@@ -312,6 +324,21 @@ Why: When changes usually spill across modules, an agent scoped to one module le
 
 - coupled pairs (at least 5 commits together): MoinMoin/(files) + MoinMoin/security (5 together, 56% of MoinMoin/security's 9 commits), (root) + MoinMoin/(files) (8 together, 40% of (root)'s 20 commits), MoinMoin/(files) + MoinMoin/userprefs (8 together, 30% of MoinMoin/userprefs's 27 commits), MoinMoin/(files) + MoinMoin/script (15 together, 29% of MoinMoin/script's 52 commits), MoinMoin/action + MoinMoin/userprefs (7 together, 26% of MoinMoin/userprefs's 27 commits)
 
+### recommended: observable-changes
+
+Trigger: observability 3. Surfaces: `AGENTS.md`, `e2e/smoke layer`.
+
+Change: Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.
+
+Why: Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.
+
+- logging calls in 78 of 1218 product source files (6.40%): logging module 296, logger call 168, stderr 8, error_log 1
+- logging configuration: MoinMoin/log.py (Python logging config), wikiserverlogging.conf (configuration file)
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
 ## Modernization roadmap
 
 Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
@@ -323,12 +350,12 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 3 | type-strictness | 1 → 3 | M | 1.5 | configure mypy or Pyright for python with a baseline (typed share 0.06 to 0.50) | unchanged |
 | 4 | test-feedback | 3 → 4 | M | 1 | add 88 test files (to ratio 0.15) | unchanged |
 | 5 | direct-api-calls | 3 → 4 | L | 0.67 | make the computed-target calls explicit in 36 of 96 files (to 5% of files), starting with MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12) | unchanged |
-| 6 | file-size | 3 → 4 | L | 0.33 | split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines | unchanged |
-| 7 | module-boundaries | 3 → 4 | L | 0.33 | reduce cross-module changes from 21.6% to 20% of commits, starting with the most coupled pairs MoinMoin/(files) + MoinMoin/security (5 commits together) and (root) + MoinMoin/(files) (8 commits together) | unchanged |
+| 6 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
+| 7 | file-size | 3 → 4 | L | 0.33 | split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines | unchanged |
+| 8 | module-boundaries | 3 → 4 | L | 0.33 | reduce cross-module changes from 21.6% to 20% of commits, starting with the most coupled pairs MoinMoin/(files) + MoinMoin/security (5 commits together) and (root) + MoinMoin/(files) (8 commits together) | unchanged |
 
 ## Not measured
 
-- factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `setup.cfg`: not a supported manifest
 - tool `scc`: scc is not installed or not on PATH
 
@@ -429,6 +456,13 @@ Files with the most sites:
 | `MoinMoin/support/pygments/lexers/__init__.py` | 6 | import by name, getattr by name, eval or exec, __getattr__ |
 | `MoinMoin/support/werkzeug/local.py` | 6 | __getattr__, getattr by name |
 
+### Observability
+
+Logging calls in 83 of 1314 source files, tests included (logging module 296, logger call 176, stderr 8, error_log 1). Console output only: 1 file. Skipped: minified 8.
+
+- Logging configuration: `MoinMoin/log.py` (Python logging config), `wikiserverlogging.conf` (configuration file)
+- Integration imports: none
+
 ### Co-change
 
 5000 non-merge commits read (cut off at the read limit); 4372 change source files, 2006-07-07 to 2026-07-28. The module-boundaries factor above maps them onto today's modules.
@@ -487,3 +521,6 @@ Collector notes:
 - the most recent non-merge commits are read from git log; renames show as a delete and an add
 - only source files count; vendored and generated paths are left out
 - nothing is checked out, run or written
+- comments and strings are stripped before matching logging calls, for languages with a known syntax
+- console.log and its siblings are counted apart: in browser code they are debugging output
+- integrations are read from import lines; manifests are read by the dependency collector

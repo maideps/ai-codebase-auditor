@@ -89,7 +89,10 @@
       "id": "observability",
       "name": "Observability",
       "class": "constraining",
-      "description": "Logs, errors and metrics show what the code does when it runs."
+      "description": "Logs, errors and metrics show what the code does when it runs.",
+      "thresholds": {
+        "minLoggingShare": 0.02
+      }
     },
     {
       "id": "dev-deploy-simplicity",

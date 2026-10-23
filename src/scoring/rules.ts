@@ -7,6 +7,7 @@ import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
 import { DYNAMIC_CALL_FAMILIES, isLockFile, isUnderTestPath, languageOf, SOURCE_EXTENSIONS, extensionOf } from "../file-kinds.js";
 import { groupModules, moduleContaining, type ModuleSettings } from "../modules.js";
+import { integrationOf, loggingFrameworkOf } from "../observability-names.js";
 import type { CollectorResults } from "./types.js";
 
 export type Thresholds = Readonly<Record<string, number>>;
@@ -35,7 +36,6 @@ export interface RuleSpec {
 
 /** Factors that exist in the model but have no collector signal yet. */
 export const SIGNAL_LESS: Readonly<Record<string, string>> = {
-  observability: "no collector signal yet: needs a logging and metrics detector",
 };
 
 const t = (thresholds: Thresholds, key: string): number => thresholds[key] ?? Number.NaN;
@@ -460,6 +460,109 @@ const moduleBoundaries: RuleSpec = {
   },
 };
 
+export interface ObservabilitySignals {
+  /** Product source files read by the collector (tests left out). */
+  files: number;
+  filesWithLogging: number;
+  share: number;
+  /** Logging calls per form, most calls first. */
+  forms: [string, number][];
+  configs: { path: string; kind: string }[];
+  /** Frameworks that log by default, with the manifest naming them. */
+  frameworks: { name: string; where: string }[];
+  errorReporting: { name: string; where: string }[];
+  metricsOrTracing: { name: string; where: string }[];
+  consoleOnly: number;
+  /** False when the dependency collector did not run, so manifests were not read. */
+  manifestsRead: boolean;
+  present: boolean;
+}
+
+/** What the repository has for observability; logging is present at minLoggingShare of files, a configuration or a framework. */
+export function observabilitySignals(results: CollectorResults, thresholds: Thresholds): ObservabilitySignals | null {
+  if (results.observability.status !== "measured") return null;
+  const testPaths = results.testsDocs.status === "measured" ? new Set(results.testsDocs.value.tests.files.map((file) => file.path)) : new Set<string>();
+  const product = results.observability.value.files.filter((file) => !testPaths.has(file.path));
+  const withLogging = product.filter((file) => file.logging.length > 0);
+  const forms = new Map<string, number>();
+  for (const file of product) for (const { form, calls } of file.logging) forms.set(form, (forms.get(form) ?? 0) + calls);
+
+  const frameworks: ObservabilitySignals["frameworks"] = [];
+  const integrations: { name: string; kind: string; where: string }[] = [];
+  const manifestsRead = results.dependencies.status === "measured";
+  if (results.dependencies.status === "measured") {
+    for (const manifest of results.dependencies.value.manifests) {
+      if (isUnderTestPath(manifest.path)) continue;
+      for (const dependency of manifest.dependencies) {
+        const framework = loggingFrameworkOf(dependency.name);
+        if (framework) frameworks.push({ name: framework, where: manifest.path });
+        // A development dependency does not run in production.
+        const integration = dependency.scope === "development" ? null : integrationOf(dependency.name);
+        if (integration) integrations.push({ ...integration, where: manifest.path });
+      }
+    }
+  }
+  for (const file of product) for (const integration of file.integrations) integrations.push({ ...integration, where: `${file.path}:${integration.line}` });
+  // Each name once, at its first place: manifests first, then imports.
+  const firstOf = <T extends { name: string }>(items: readonly T[]) => items.filter((item, index) => items.findIndex((other) => other.name === item.name) === index);
+  const configs = results.observability.value.configs;
+  const share = product.length === 0 ? 0 : withLogging.length / product.length;
+  const uniqueFrameworks = firstOf(frameworks);
+  return {
+    files: product.length,
+    filesWithLogging: withLogging.length,
+    share,
+    forms: [...forms.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)),
+    configs,
+    frameworks: uniqueFrameworks,
+    errorReporting: firstOf(integrations.filter((item) => item.kind === "error reporting")).map(({ name, where }) => ({ name, where })),
+    metricsOrTracing: firstOf(integrations.filter((item) => item.kind === "metrics or tracing")).map(({ name, where }) => ({ name, where })),
+    consoleOnly: product.filter((file) => file.logging.length === 0 && file.console > 0).length,
+    manifestsRead,
+    present: share >= t(thresholds, "minLoggingShare") || configs.length > 0 || uniqueFrameworks.length > 0,
+  };
+}
+
+/** The observability score: logging sets 1 to 3, each kind of integration adds one, and without logging integrations add one at most. */
+export function observabilityScoreOf(signals: ObservabilitySignals): number {
+  const integrations = (signals.errorReporting.length > 0 ? 1 : 0) + (signals.metricsOrTracing.length > 0 ? 1 : 0);
+  if (signals.present) return Math.min(5, 3 + integrations);
+  return (signals.filesWithLogging > 0 ? 2 : 1) + Math.min(1, integrations);
+}
+
+const OBSERVABILITY_PARTIAL = "whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected";
+const placed = (items: readonly { name: string; where: string }[]) => (items.length > 0 ? items.map((item) => `${item.name} (${item.where})`).join(", ") : "none");
+
+const observability: RuleSpec = {
+  keys: ["minLoggingShare"],
+  unitInterval: ["minLoggingShare"],
+  score(results, thresholds) {
+    const collected = need(results.observability, "observability");
+    if ("missing" in collected) return collected.missing;
+    const signals = observabilitySignals(results, thresholds);
+    if (!signals) return { status: "not-measured", reason: "observability not measured" };
+    if (signals.files === 0) return { status: "not-measured", reason: "no product source files" };
+    const loggingRule = signals.present
+      ? `logging present (${signals.share >= t(thresholds, "minLoggingShare") ? `calls in ${fixed(signals.share * 100)}% of files` : signals.configs.length > 0 ? "a committed configuration" : "a framework that logs by default"})`
+      : signals.filesWithLogging > 0 ? `logging calls in only ${fixed(signals.share * 100)}% of files, without configuration or framework` : "no logging calls, configuration or logging framework";
+    const extras = [signals.errorReporting.length > 0 && "error reporting", signals.metricsOrTracing.length > 0 && "metrics or tracing"].filter(Boolean);
+    return {
+      status: "scored",
+      score: observabilityScoreOf(signals),
+      rule: `${loggingRule}, ${extras.length > 0 ? `with ${extras.join(" and ")}` : "no error reporting, metrics or tracing"}`,
+      evidence: [
+        `logging calls in ${signals.filesWithLogging} of ${signals.files} product source files (${fixed(signals.share * 100)}%)${signals.forms.length > 0 ? `: ${signals.forms.map(([form, calls]) => `${form} ${calls}`).join(", ")}` : ""}`,
+        `logging configuration: ${signals.configs.length > 0 ? signals.configs.map((config) => `${config.path} (${config.kind})`).join(", ") : "none"}`,
+        `logging framework: ${placed(signals.frameworks)}`,
+        `error reporting: ${placed(signals.errorReporting)}`,
+        `metrics or tracing: ${placed(signals.metricsOrTracing)}`,
+        ...(signals.consoleOnly > 0 ? [`console output only, not counted as logging: ${plural(signals.consoleOnly, "file")}`] : []),
+      ],
+      partial: signals.manifestsRead ? OBSERVABILITY_PARTIAL : `${OBSERVABILITY_PARTIAL}; manifests not read (dependencies not measured): integrations come from imports only`,
+    };
+  },
+};
+
 const devDeploySimplicity: RuleSpec = {
   keys: [],
   score(results) {
@@ -539,6 +642,7 @@ export const RULES: Readonly<Record<string, RuleSpec>> = {
   "file-size": fileSize,
   "module-boundaries": moduleBoundaries,
   "documented-intent": documentedIntent,
+  observability,
   "dev-deploy-simplicity": devDeploySimplicity,
   "dependency-currency": dependencyCurrency,
 };

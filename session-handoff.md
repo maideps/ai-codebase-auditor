@@ -5,7 +5,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 ## Current Objective
 
 - Goal: build the MVP audit pipeline one feature at a time (feat-001 to feat-008), calibrate it (feat-009), add version 2 (feat-010), then measure the remaining factors (feat-011 on).
-- Current status: feat-001 to feat-011 passing. feat-012 (module-boundaries collector) is done and has been run through the gate; see `.harness/state/feat-012.json`. The repository is public at https://github.com/maideps/ai-codebase-auditor.
+- Current status: feat-001 to feat-012 passing. feat-013 (observability collector) is done and has been run through the gate; see `.harness/state/feat-013.json`. All nine factors now have a signal. The repository is public at https://github.com/maideps/ai-codebase-auditor.
 - Branch / commit: `main`; see `git log --oneline -5`.
 
 ## Completed This Session
@@ -26,18 +26,20 @@ Fill this at session end for large sessions; keep it current otherwise.
 - [x] Published the repository and filed maideps/ai-harness-framework#26 (empty `.harness/trails/` fails check-arch on a fresh clone).
 - [x] feat-011 (2026-10-23): dynamic-calls collector and direct-api-calls score from reviewed rules, `traceable-calls` requirement, report schemaVersion 4, single-open file reads, regenerated case study with 40 checked sample sites, D-015.
 - [x] feat-012 (2026-10-23): co-change collector and module-boundaries score from reviewed rules, shared `src/modules.ts`, `scoped-lanes` requirement, report schemaVersion 5, regenerated case study with 12 checked sample commits, D-016.
+- [x] feat-013 (2026-10-23): observability collector and ladder score from reviewed rules, `src/observability-names.ts`, `observable-changes` requirement, report schemaVersion 6, regenerated case study with 50 checked logging files, D-017.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Unit tests | `npx vitest run` | PASS, 498 tests | config, target, cli, all six collectors, modules, scoring, deferrals, decision, plan, roadmap, report |
+| Unit tests | `npx vitest run` | PASS, 564 tests | config, target, cli, all seven collectors, modules, observability names, scoring, deferrals, decision, plan, roadmap, report |
 | Smoke | `npm run e2e` | PASS, 8 tests | audits a fixture repo, writes reports twice with identical bytes, refuses an out directory inside the target, and checks the target, .git included, is unchanged |
-| Feature gates | `npm run verify-feature -- <id>` | feat-001 to feat-011 PASS (clean tree), feat-012 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
+| Feature gates | `npm run verify-feature -- <id>` | feat-001 to feat-012 PASS (clean tree), feat-013 see shard | evidence in `.harness/state/<id>.json`, logs in `.harness/logs/<id>/` |
 | Architecture | `npm run check-arch` | PASS, 6/6 at bdabc39 | |
 
 ## Files Changed
 
+- feat-013: `src/collectors/observability.ts` and test, `src/observability-names.ts` and test, `src/file-kinds.ts` (`isUnderTestDirectory`), `src/scoring/` (observability rule), `config/factors.json`, `config/harness-requirements.json`, `src/plan/roadmap.ts` (observability step), `src/report/` (schemaVersion 6) and snapshots, `src/testing/collected.ts`, `src/cli.ts`, tests, `e2e/smoke.test.ts`, `docs/case-study/`; docs, D-017, `docs/sprints/feat-013.md`, `progress/013-2026-10-23.md`
 - feat-012: `src/collectors/co-change.ts` and test, `src/modules.ts` and test, `src/decision/zones.ts` (shared grouping), `src/scoring/` (module-boundaries rule, rule context), `config/factors.json`, `config/harness-requirements.json`, `src/plan/` (scoped-lanes details, roadmap step), `src/report/` (schemaVersion 5) and snapshots, `src/testing/collected.ts`, `src/cli.ts`, tests, `e2e/smoke.test.ts`, `docs/case-study/`; docs, D-016, `docs/sprints/feat-012.md`, `progress/012-2026-10-23.md`
 - feat-011: `src/collectors/dynamic-calls.ts`, `src/collectors/dynamic-calls/` (strip, patterns) and tests, `src/collectors/tree.ts` (shared generated rule, single-open reads), `src/collectors/code-structure.ts`, `src/file-kinds.ts` (covered families), `src/scoring/` (direct-api-calls rule), `config/factors.json`, `config/harness-requirements.json`, `src/plan/` (traceable-calls details, roadmap step), `src/report/` (schemaVersion 4) and snapshots, `src/testing/collected.ts`, `src/cli.ts`, tests, `e2e/smoke.test.ts`, `docs/case-study/`; docs, D-015, `docs/sprints/feat-011.md`, `progress/011-2026-10-23.md`
 - feat-010: `src/plan/` (plan, roadmap) and tests, `src/config/harness-requirements.ts` and test, `config/harness-requirements.json`, `src/scoring/rules.ts` (shared type-share and band helpers), `src/report/` (schemaVersion 3, plan and roadmap sections) and snapshots, `src/testing/` (scoring helper), `src/cli.ts`, `src/cli.test.ts`, `e2e/smoke.test.ts`, `docs/case-study/` (regenerated); docs, D-014, `docs/sprints/feat-010.md`, `progress/010-2026-10-22.md`
@@ -53,7 +55,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Decisions Made
 
-- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening), D-007 (code-structure counting, exclusions, scc as enrichment), D-008 (path-based test and docs detection, stated rules), D-009 (static dependency parsing, dated EOL table), D-010 (scoring rules, provisional readiness, capped deferrals), D-011 (verdict rules, module splitting, red paths), D-012 (one report model, audit date as time unit, out-directory guard), D-013 (calibration changes), D-014 (plan and roadmap rules, separate harness requirements file), D-015 (direct calls from computed-target call sites), D-016 (module boundaries from co-change).
+- D-001 to D-005 (adoption), D-006 (collector measurement type, git-history conventions, git hardening), D-007 (code-structure counting, exclusions, scc as enrichment), D-008 (path-based test and docs detection, stated rules), D-009 (static dependency parsing, dated EOL table), D-010 (scoring rules, provisional readiness, capped deferrals), D-011 (verdict rules, module splitting, red paths), D-012 (one report model, audit date as time unit, out-directory guard), D-013 (calibration changes), D-014 (plan and roadmap rules, separate harness requirements file), D-015 (direct calls from computed-target call sites), D-016 (module boundaries from co-change), D-017 (observability ladder).
 
 ## Blockers / Risks
 
@@ -65,6 +67,7 @@ Fill this at session end for large sessions; keep it current otherwise.
 - `config/runtime-eol.json` is a snapshot as of 2026-10-21; refresh it at least yearly (docs/USAGE.md).
 - direct-api-calls is not measured for C and other uncovered languages, so DOOM-like repositories stay provisional; configuration-wired dispatch is not counted (D-015).
 - module-boundaries treats directories as modules and counts co-change by design (migrations with models) as coupling; the log is read twice, once per collector (D-016).
+- observability measures presence, not quality; every calibration repository scores 3, so the ladder is not yet calibrated against a repository with integrations (D-017).
 - Known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) are listed in `docs/case-study/README.md`. Red-term false positives now also become `permissions.deny` suggestions in the plan.
 - `config/harness-requirements.json` describes ai-harness-framework 0.5.0 (`7fb142a`); update it when the harness changes.
 - Roadmap effort (S/M/L) comes from counts and ignores code difficulty.
@@ -79,4 +82,4 @@ Fill this at session end for large sessions; keep it current otherwise.
 
 ## Recommended Next Step
 
-- An observability collector (logging and metrics usage), the last factor without a signal. Alternatively, test one generated plan end to end on a copy of a calibration clone.
+- Test one generated harness plan end to end on a copy of a calibration clone, to check the advice rather than the measurements. Also: bump the CI actions to v5 before GitHub drops Node 20.

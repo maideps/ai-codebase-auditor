@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -159,13 +159,20 @@
       "id": "observability",
       "name": "Observability",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "logging present (calls in 10.00% of files), no error reporting, metrics or tracing",
+      "evidence": [
+        "logging calls in 1 of 10 product source files (10.00%): logger call 2",
+        "logging configuration: config/logging.json (configuration file)",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none",
+        "console output only, not counted as logging: 1 file"
+      ],
+      "partial": "whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected",
+      "reason": null,
       "deferral": null
     },
     {
@@ -347,6 +354,29 @@
         "details": [
           "src/auth/ (auth): deny Edit(src/auth/**), Write(src/auth/**)"
         ]
+      },
+      {
+        "id": "observable-changes",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "e2e/smoke layer"
+        ],
+        "change": "Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.",
+        "why": "Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "observability",
+          "score": 3
+        },
+        "details": [
+          "logging calls in 1 of 10 product source files (10.00%): logger call 2",
+          "logging configuration: config/logging.json (configuration file)",
+          "logging framework: none",
+          "error reporting: none",
+          "metrics or tracing: none",
+          "console output only, not counted as logging: 1 file"
+        ]
       }
     ],
     "notAssessed": []
@@ -414,14 +444,28 @@
         "typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)",
         "type checkers: none"
       ]
+    },
+    {
+      "factor": "observability",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "add an error reporter (for example Sentry)",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "logging calls in 1 of 10 product source files (10.00%): logger call 2",
+        "logging configuration: config/logging.json (configuration file)",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none",
+        "console output only, not counted as logging: 1 file"
+      ]
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "observability",
-      "reason": "no collector signal yet: needs a logging and metrics detector"
-    },
     {
       "kind": "manifest",
       "id": "go.mod",
@@ -582,6 +626,26 @@
       "skippedByReason": {
         "minified": 1
       }
+    },
+    "observability": {
+      "status": "measured",
+      "sourceFiles": 13,
+      "filesWithLogging": 1,
+      "consoleOnly": 1,
+      "byForm": [
+        {
+          "form": "logger call",
+          "calls": 2
+        }
+      ],
+      "configs": [
+        {
+          "path": "config/logging.json",
+          "kind": "configuration file"
+        }
+      ],
+      "integrationImports": [],
+      "skippedByReason": {}
     },
     "coChange": {
       "status": "measured",

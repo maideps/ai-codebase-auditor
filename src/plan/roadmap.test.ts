@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
 import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "../config/runtime-eol.js";
 import { scoreFactors } from "../scoring/score.js";
 import type { CollectorResults } from "../scoring/types.js";
-import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
+import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, observabilityOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
 import { buildRoadmap, type RoadmapStep } from "./roadmap.js";
 
 const factors = loadFactorConfig(DEFAULT_CONFIG_PATH);
@@ -115,6 +115,27 @@ describe("module-boundaries steps", () => {
     expect(stepFor(roadmap(collected({ structure: layout, coChange: coChangeOf(commits) })), "module-boundaries")).toMatchObject({
       from: 4, to: 5, effort: "L", action: "reduce cross-module changes from 12% to 10% of commits",
     });
+  });
+});
+
+describe("observability steps", () => {
+  // 100 product files, `logging` of them logging, with optional integration imports.
+  const observed = (logging: number, imports: string[] = []) => {
+    const files = [
+      ...Array.from({ length: 100 }, (_, index) => ({ path: `app/f${index}.py`, logging: index < logging ? 1 : 0 })),
+      ...imports.map((integration, index) => ({ path: `app/i${index}.py`, integration })),
+    ];
+    return collected({ structure: structureOf(files.map((file) => ({ path: file.path, lines: 10 }))), observability: observabilityOf(files) });
+  };
+
+  it.each([
+    ["no logging", observed(0), 1, 3, "add logging to the main code paths and commit its configuration"],
+    ["sparse logging", observed(1), 2, 3, "add logging to the main code paths and commit its configuration"],
+    ["logging without integrations", observed(10), 3, 4, "add an error reporter (for example Sentry)"],
+    ["logging and an error reporter", observed(10, ["import sentry_sdk"]), 4, 5, "add metrics or tracing (for example OpenTelemetry)"],
+    ["logging and metrics", observed(10, ["import prometheus_client"]), 4, 5, "add an error reporter (for example Sentry)"],
+  ])("from %s", (_label, results, from, to, action) => {
+    expect(stepFor(roadmap(results), "observability")).toMatchObject({ from, to, action, effort: "M" });
   });
 });
 

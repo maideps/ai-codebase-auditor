@@ -145,7 +145,7 @@ function notMeasuredSection(report: AuditReport): string[] {
 }
 
 function signalsSection(report: AuditReport): string[] {
-  const { gitHistory, codeStructure, testsDocs, dependencies, dynamicCalls, coChange } = report.signals;
+  const { gitHistory, codeStructure, testsDocs, dependencies, dynamicCalls, coChange, observability } = report.signals;
   const lines = ["## Signals", "", "### Git history", ""];
   if (gitHistory.status === "measured") {
     const t = gitHistory.totals;
@@ -214,6 +214,17 @@ function signalsSection(report: AuditReport): string[] {
       ...table(["File", "Sites", "Constructs"], dynamicCalls.topFiles.map((file) => [code(file.path), String(file.sites), file.constructs.join(", ")])),
     );
   } else lines.push(`Not measured: ${dynamicCalls.reason}.`);
+
+  lines.push("", "### Observability", "");
+  if (observability.status === "measured") {
+    const skipped = Object.entries(observability.skippedByReason).map(([reason, n]) => `${reason} ${n}`);
+    lines.push(
+      `Logging calls in ${observability.filesWithLogging} of ${count(observability.sourceFiles, "source file")}, tests included (${list(observability.byForm.map((f) => `${f.form} ${f.calls}`))}). Console output only: ${count(observability.consoleOnly, "file")}. Skipped: ${list(skipped)}.`,
+      "",
+      `- Logging configuration: ${list(observability.configs.map((config) => `${code(config.path)} (${config.kind})`))}`,
+      `- Integration imports: ${list(observability.integrationImports.map((item) => `${item.name} (${code(`${item.path}:${item.line}`)})`))}`,
+    );
+  } else lines.push(`Not measured: ${observability.reason}.`);
 
   lines.push("", "### Co-change", "");
   if (coChange.status === "measured") {

@@ -26,7 +26,7 @@ Triggered by: type-strictness 1, direct-api-calls 2, documented-intent 2, depend
 | file-size | constraining | 5 | lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5) |
 | module-boundaries | constraining | 5 | 10.00% of the latest 60 commits change more than one module |
 | documented-intent | constraining | 2 | a README without written rules |
-| observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
+| observability | constraining | 3 | logging present (calls in 10.00% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 5 | 4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed |
 | dependency-currency | constraining | 1 | worst runtime is end-of-life since 2023-04-30 |
 
@@ -101,7 +101,18 @@ Evidence:
 
 ### observability: Observability
 
-Not measured (constraining): no collector signal yet: needs a logging and metrics detector.
+Score **3** (constraining). Rule: logging present (calls in 10.00% of files), no error reporting, metrics or tracing.
+
+Evidence:
+
+- logging calls in 1 of 10 product source files (10.00%): logger call 2
+- logging configuration: config/logging.json (configuration file)
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
+Partial: whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected.
 
 ### dev-deploy-simplicity: Dev and deploy simplicity
 
@@ -153,6 +164,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | supported-runtime | dependency-currency 1 | CI, verification layers |
 | required | detected-stack | test-feedback 5 | package.json layer scripts |
 | required | red-paths | red zone: 1 path | AGENTS.md, .claude/settings.json |
+| recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
 ### required: typed-changes
 
@@ -216,6 +228,21 @@ Why: Auth, billing, permission and secret code needs human review of every chang
 
 - src/auth/ (auth): deny Edit(src/auth/**), Write(src/auth/**)
 
+### recommended: observable-changes
+
+Trigger: observability 3. Surfaces: `AGENTS.md`, `e2e/smoke layer`.
+
+Change: Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.
+
+Why: Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.
+
+- logging calls in 1 of 10 product source files (10.00%): logger call 2
+- logging configuration: config/logging.json (configuration file)
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
 ## Modernization roadmap
 
 Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
@@ -226,10 +253,10 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 2 | dependency-currency | 1 → 5 | M | 2.5 | upgrade node from 14 to 24 | unchanged |
 | 3 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
 | 4 | type-strictness | 1 → 3 | M | 1.5 | configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60) | unchanged |
+| 5 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
 
 ## Not measured
 
-- factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `go.mod`: not a supported manifest
 - tool `scc`: test
 
@@ -293,6 +320,13 @@ Files with the most sites:
 |---|---|---|
 | `src/f0.js` | 2 | computed call |
 | `src/auth/login.js` | 1 | eval or Function |
+
+### Observability
+
+Logging calls in 1 of 13 source files, tests included (logger call 2). Console output only: 1 file. Skipped: none.
+
+- Logging configuration: `config/logging.json` (configuration file)
+- Integration imports: none
 
 ### Co-change
 

@@ -26,7 +26,7 @@ Triggered by: type-strictness 1.
 | file-size | constraining | 4 | lower of p90 214 lines (→ 4) and 1.07% of files over 1000 lines (→ 4) |
 | module-boundaries | constraining | 4 | 15.40% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 3 | docs with contributing, architecture, convention or decision docs |
-| observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
+| observability | constraining | 3 | logging present (calls in 4.77% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 5 | 4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed |
 | dependency-currency | constraining | 4 | a runtime reaches end of life on 2027-03-31, within 12 months |
 
@@ -101,7 +101,18 @@ Evidence:
 
 ### observability: Observability
 
-Not measured (constraining): no collector signal yet: needs a logging and metrics detector.
+Score **3** (constraining). Rule: logging present (calls in 4.77% of files), no error reporting, metrics or tracing.
+
+Evidence:
+
+- logging calls in 40 of 838 product source files (4.77%): logger call 97
+- logging configuration: config/application.rb (Rails log setting), config/environments/production.rb (Rails log setting)
+- logging framework: Rails (Gemfile)
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
+Partial: whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected.
 
 ### dev-deploy-simplicity: Dev and deploy simplicity
 
@@ -233,6 +244,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | red-paths | red zone: 78 paths | AGENTS.md, .claude/settings.json |
 | recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
+| recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
 ### required: typed-changes
 
@@ -363,6 +375,21 @@ Why: Agents follow written rules; unwritten local conventions are exactly what t
 - stated rules: 0 in 0 files
 - agent context files (presence alone scores nothing): none
 
+### recommended: observable-changes
+
+Trigger: observability 3. Surfaces: `AGENTS.md`, `e2e/smoke layer`.
+
+Change: Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.
+
+Why: Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.
+
+- logging calls in 40 of 838 product source files (4.77%): logger call 97
+- logging configuration: config/application.rb (Rails log setting), config/environments/production.rb (Rails log setting)
+- logging framework: Rails (Gemfile)
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
 ## Modernization roadmap
 
 Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
@@ -372,13 +399,13 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 1 | type-strictness | 1 → 3 | M | 1.5 | configure Sorbet or Steep for ruby with a baseline (typed share 0.00 to 0.53) | adopt |
 | 2 | direct-api-calls | 3 → 4 | M | 1 | make the computed-target calls explicit in 6 of 47 files (to 4.9% of files), starting with app/models/query.rb (5), lib/redmine/plugin.rb (5), app/controllers/application_controller.rb (4) | unchanged |
 | 3 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
-| 4 | dependency-currency | 4 → 5 | M | 0.5 | upgrade ruby from 3.3 to 3.4 | unchanged |
-| 5 | file-size | 4 → 5 | L | 0.33 | split 1 of 9 files over 1000 lines (to 1% of files) and bring the p90 file length from 214 to 200 lines | unchanged |
-| 6 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 15.4% to 10% of commits, starting with the most coupled pairs app + db (10 commits together) and app + config (20 commits together) | unchanged |
+| 4 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
+| 5 | dependency-currency | 4 → 5 | M | 0.5 | upgrade ruby from 3.3 to 3.4 | unchanged |
+| 6 | file-size | 4 → 5 | L | 0.33 | split 1 of 9 files over 1000 lines (to 1% of files) and bring the p90 file length from 214 to 200 lines | unchanged |
+| 7 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 15.4% to 10% of commits, starting with the most coupled pairs app + db (10 commits together) and app + config (20 commits together) | unchanged |
 
 ## Not measured
 
-- factor `observability`: no collector signal yet: needs a logging and metrics detector
 - tool `scc`: scc is not installed or not on PATH
 
 ## Signals
@@ -477,6 +504,13 @@ Files with the most sites:
 | `app/helpers/issues_helper.rb` | 2 | send by name |
 | `app/models/journal.rb` | 2 | send by name |
 
+### Observability
+
+Logging calls in 40 of 1257 source files, tests included (logger call 97). Console output only: 1 file. Skipped: generated 3, minified 1, vendored 4.
+
+- Logging configuration: `config/application.rb` (Rails log setting), `config/environments/production.rb` (Rails log setting)
+- Integration imports: none
+
 ### Co-change
 
 5000 non-merge commits read (cut off at the read limit); 3389 change source files, 2019-10-17 to 2026-10-22. The module-boundaries factor above maps them onto today's modules.
@@ -535,3 +569,6 @@ Collector notes:
 - the most recent non-merge commits are read from git log; renames show as a delete and an add
 - only source files count; vendored and generated paths are left out
 - nothing is checked out, run or written
+- comments and strings are stripped before matching logging calls, for languages with a known syntax
+- console.log and its siblings are counted apart: in browser code they are debugging output
+- integrations are read from import lines; manifests are read by the dependency collector

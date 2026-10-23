@@ -7,6 +7,7 @@ import type { CoChange } from "../collectors/co-change.js";
 import type { Dependencies, RuntimeAssessment } from "../collectors/dependencies.js";
 import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
+import type { Observability } from "../collectors/observability.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
 import type { Decision, Verdict, Zones } from "../decision/types.js";
@@ -15,7 +16,7 @@ import type { RoadmapStep } from "../plan/roadmap.js";
 import type { CollectorResults, FactorScore, Readiness, Scoring } from "../scoring/types.js";
 
 export const REPORT_SCHEMA = "ai-codebase-auditor/report";
-export const REPORT_SCHEMA_VERSION = 5;
+export const REPORT_SCHEMA_VERSION = 6;
 
 export interface ReportInput {
   tool: { name: string; version: string };
@@ -103,6 +104,17 @@ export interface AuditReport {
       topFiles: { path: string; sites: number; constructs: string[] }[];
       skippedByReason: Record<string, number>;
     }>;
+    /** As the collector read them, tests included; the observability score leaves tests out and adds manifests. */
+    observability: Signal<{
+      sourceFiles: number;
+      filesWithLogging: number;
+      consoleOnly: number;
+      byForm: { form: string; calls: number }[];
+      configs: { path: string; kind: string }[];
+      /** Up to ten integration imports. */
+      integrationImports: { path: string; line: number; name: string; kind: string }[];
+      skippedByReason: Record<string, number>;
+    }>;
     /** The history as the collector read it; the module-boundaries score maps it onto modules. */
     coChange: Signal<{
       read: number;
@@ -132,6 +144,7 @@ function notMeasuredItems(input: ReportInput): NotMeasuredItem[] {
     ["git-history", collected.history], ["code-structure", collected.structure],
     ["tests-docs", collected.testsDocs], ["dependencies", collected.dependencies], ["dynamic-calls", collected.dynamicCalls],
     ["co-change", collected.coChange],
+    ["observability", collected.observability],
   ];
   for (const [id, measurement] of collectors) {
     if (measurement.status === "not-measured") items.push({ kind: "collector", id, reason: measurement.reason });
@@ -153,6 +166,26 @@ function notMeasuredItems(input: ReportInput): NotMeasuredItem[] {
 }
 
 const unique = (values: readonly string[]) => [...new Set(values)];
+
+function summarizeObservability(observability: Observability) {
+  const byForm = new Map<string, number>();
+  for (const file of observability.files) for (const { form, calls } of file.logging) byForm.set(form, (byForm.get(form) ?? 0) + calls);
+  const skippedByReason: Record<string, number> = {};
+  for (const reason of [...new Set(observability.skipped.map((file) => file.reason))].sort(byText)) {
+    skippedByReason[reason] = observability.skipped.filter((file) => file.reason === reason).length;
+  }
+  return {
+    sourceFiles: observability.files.length,
+    filesWithLogging: observability.files.filter((file) => file.logging.length > 0).length,
+    consoleOnly: observability.files.filter((file) => file.logging.length === 0 && file.console > 0).length,
+    byForm: [...byForm.entries()].sort((a, b) => b[1] - a[1] || byText(a[0], b[0])).map(([form, calls]) => ({ form, calls })),
+    configs: observability.configs,
+    integrationImports: observability.files
+      .flatMap((file) => file.integrations.map((integration) => ({ path: file.path, line: integration.line, name: integration.name, kind: integration.kind })))
+      .slice(0, 10),
+    skippedByReason,
+  };
+}
 
 function summarizeDynamicCalls(dynamic: DynamicCalls) {
   const byFamily = new Map<string, { files: number; filesWithSites: number; sites: number }>();
@@ -186,7 +219,7 @@ function summarizeDynamicCalls(dynamic: DynamicCalls) {
 
 export function buildReport(input: ReportInput): AuditReport {
   const { collected, scoring, decision } = input;
-  const evidences = [collected.history, collected.structure, collected.testsDocs, collected.dependencies, collected.dynamicCalls, collected.coChange].map((m) => m.evidence);
+  const evidences = [collected.history, collected.structure, collected.testsDocs, collected.dependencies, collected.dynamicCalls, collected.coChange, collected.observability].map((m) => m.evidence);
   return {
     schema: REPORT_SCHEMA,
     schemaVersion: REPORT_SCHEMA_VERSION,
@@ -251,6 +284,7 @@ export function buildReport(input: ReportInput): AuditReport {
         runtimes: dependencies.runtimes,
       })),
       dynamicCalls: signal(collected.dynamicCalls, summarizeDynamicCalls),
+      observability: signal(collected.observability, summarizeObservability),
       coChange: signal(collected.coChange, (coChange: CoChange) => ({
         read: coChange.read,
         truncated: coChange.truncated,

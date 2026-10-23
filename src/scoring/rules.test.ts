@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
-import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, notMeasured, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
+import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, notMeasured, observabilityOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
 import { RULES, type RuleContext, type RuleOutcome } from "./rules.js";
 import type { CollectorResults } from "./types.js";
 
@@ -378,5 +378,77 @@ describe("module-boundaries", () => {
     expect(run("module-boundaries", oneModule)).toEqual({ status: "not-measured", reason: "only one module (app): no boundaries to cross" });
     expect(run("module-boundaries", results(history(60, 0)), {})).toEqual({ status: "not-measured", reason: "module settings were not given" });
     expect(run("module-boundaries", collected({ structure: layout }))).toEqual({ status: "not-measured", reason: "co-change not measured (no co-change fixture)" });
+  });
+});
+
+describe("observability", () => {
+  // 100 product source files, the first `logging` of them with a logger call.
+  const files = (logging: number, extra: { path: string; logging?: number; console?: number; integration?: string }[] = []) => [
+    ...Array.from({ length: 100 }, (_, index) => ({ path: `app/f${String(index).padStart(3, "0")}.py`, logging: index < logging ? 1 : 0 })),
+    ...extra,
+  ];
+  const manifest = (...names: string[]) => [{
+    path: "requirements.txt", ecosystem: "pip" as const, runtimes: [], issues: [],
+    dependencies: names.map((name) => ({ name, spec: null, scope: "runtime" as const })),
+  }];
+  const results = (logging: number, options: { extra?: Parameters<typeof files>[1]; configs?: Parameters<typeof observabilityOf>[1]; deps?: string[] } = {}) =>
+    collected({
+      structure: structureOf(files(logging, options.extra).map((file) => ({ path: file.path, lines: 10 }))),
+      observability: observabilityOf(files(logging, options.extra), options.configs ?? []),
+      dependencies: dependenciesOf([], manifest(...(options.deps ?? []))),
+    });
+
+  it.each([
+    ["no logging, configuration or framework", 1, results(0)],
+    ["logging calls in 1% of files", 2, results(1)],
+    ["logging calls in 2% of files", 3, results(2)],
+    ["sparse calls with a committed configuration", 3, results(1, { configs: [{ path: "logging.conf", kind: "configuration file" }] })],
+    ["no calls, but a framework that logs by default", 3, results(0, { deps: ["Django"] })],
+    // 3 of 101 files log: the extra file must not drop the share under 2%.
+    ["logging plus an error reporter in an import", 4, results(3, { extra: [{ path: "app/err.py", integration: "import sentry_sdk" }] })],
+    ["logging plus metrics in a manifest", 4, results(2, { deps: ["prometheus_client"] })],
+    ["logging plus error reporting and metrics", 5, results(2, { deps: ["sentry-sdk", "prometheus_client"] })],
+    ["an error reporter without logging adds one level", 2, results(0, { deps: ["sentry-sdk"] })],
+    ["both integrations without logging still add only one", 2, results(0, { deps: ["sentry-sdk", "prometheus_client"] })],
+  ])("%s → %i", (_label, expected, input) => {
+    expect(scoreOf("observability", input)).toBe(expected);
+  });
+
+  it("leaves test files and development dependencies out", () => {
+    const input = collected({
+      structure: structureOf([...files(0), { path: "tests/test_x.py", lines: 10 }].map((file) => ({ path: file.path, lines: 10 }))),
+      observability: observabilityOf([...files(0), { path: "tests/test_x.py", logging: 9, integration: "import sentry_sdk" }]),
+      testsDocs: testsDocsOf({ testFiles: ["tests/test_x.py"] }),
+      dependencies: dependenciesOf([], manifest().map((entry) => ({ ...entry, dependencies: [{ name: "sentry-sdk", spec: null, scope: "development" as const }] }))),
+    });
+    expect(scoreOf("observability", input)).toBe(1);
+  });
+
+  it("cites the share, configuration, framework, integrations and console-only files", () => {
+    const input = results(3, {
+      extra: [{ path: "ui/app.js", console: 4 }, { path: "app/trace.py", integration: "from opentelemetry import trace" }],
+      configs: [{ path: "config/log4j2.xml", kind: "configuration file" }],
+      deps: ["rails", "sentry-ruby"],
+    });
+    const outcome = run("observability", input);
+    expect(outcome).toMatchObject({ status: "scored", score: 5, rule: "logging present (calls in 2.94% of files), with error reporting and metrics or tracing" });
+    expect(outcome.status === "scored" && outcome.evidence).toEqual([
+      "logging calls in 3 of 102 product source files (2.94%): logger call 3",
+      "logging configuration: config/log4j2.xml (configuration file)",
+      "logging framework: Rails (requirements.txt)",
+      "error reporting: Sentry (requirements.txt)",
+      "metrics or tracing: OpenTelemetry (app/trace.py:1)",
+      "console output only, not counted as logging: 1 file",
+    ]);
+    expect(outcome.status === "scored" && outcome.partial).toBe(
+      "whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected",
+    );
+  });
+
+  it("says when manifests could not be read, and is not measured without source or the collector", () => {
+    const noDeps = collected({ structure: structureOf([{ path: "a.py", lines: 1 }]), observability: observabilityOf(files(2)), dependencies: notMeasured("git failed") });
+    expect(run("observability", noDeps)).toMatchObject({ status: "scored", partial: expect.stringContaining("; manifests not read (dependencies not measured): integrations come from imports only") });
+    expect(run("observability", collected({ observability: observabilityOf([]) }))).toEqual({ status: "not-measured", reason: "no product source files" });
+    expect(run("observability", collected())).toEqual({ status: "not-measured", reason: "observability not measured (no observability fixture)" });
   });
 });

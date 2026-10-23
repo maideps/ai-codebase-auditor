@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -144,13 +144,19 @@
       "id": "observability",
       "name": "Observability",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs a logging and metrics detector",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "logging present (calls in 8.22% of files), no error reporting, metrics or tracing",
+      "evidence": [
+        "logging calls in 12 of 146 product source files (8.22%): stderr 51",
+        "logging configuration: none",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none"
+      ],
+      "partial": "whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected",
+      "reason": null,
       "deferral": null
     },
     {
@@ -427,6 +433,24 @@
         "146 source files: p90 988 lines, 13 over 1000 lines (8.90%)",
         "largest: linuxdoom-1.10/info.c (4670 lines), linuxdoom-1.10/tables.c (2130 lines), linuxdoom-1.10/p_enemy.c (2008 lines), linuxdoom-1.10/m_menu.c (1893 lines), linuxdoom-1.10/wi_stuff.c (1850 lines)"
       ]
+    },
+    {
+      "factor": "observability",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "add an error reporter (for example Sentry)",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "logging calls in 12 of 146 product source files (8.22%): stderr 51",
+        "logging configuration: none",
+        "logging framework: none",
+        "error reporting: none",
+        "metrics or tracing: none"
+      ]
     }
   ],
   "notMeasured": [
@@ -439,11 +463,6 @@
       "kind": "factor",
       "id": "module-boundaries",
       "reason": "only 2 commits change product source in a current module; at least 50 are needed"
-    },
-    {
-      "kind": "factor",
-      "id": "observability",
-      "reason": "no collector signal yet: needs a logging and metrics detector"
     },
     {
       "kind": "factor",
@@ -703,6 +722,21 @@
       "topFiles": [],
       "skippedByReason": {}
     },
+    "observability": {
+      "status": "measured",
+      "sourceFiles": 146,
+      "filesWithLogging": 12,
+      "consoleOnly": 0,
+      "byForm": [
+        {
+          "form": "stderr",
+          "calls": 51
+        }
+      ],
+      "configs": [],
+      "integrationImports": [],
+      "skippedByReason": {}
+    },
     "coChange": {
       "status": "measured",
       "read": 4,
@@ -756,7 +790,10 @@
       "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
       "the most recent non-merge commits are read from git log; renames show as a delete and an add",
       "only source files count; vendored and generated paths are left out",
-      "nothing is checked out, run or written"
+      "nothing is checked out, run or written",
+      "comments and strings are stripped before matching logging calls, for languages with a known syntax",
+      "console.log and its siblings are counted apart: in browser code they are debugging output",
+      "integrations are read from import lines; manifests are read by the dependency collector"
     ]
   }
 }

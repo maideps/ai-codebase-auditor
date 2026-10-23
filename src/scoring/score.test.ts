@@ -87,7 +87,7 @@ describe("scoreFactors", () => {
     const scoring = scoreFactors(results, custom, { now });
     expect(factor(scoring, "direct-api-calls")?.reason).toBe("dynamic calls not measured (no dynamic-calls fixture)");
     expect(factor(scoring, "module-boundaries")?.reason).toBe("co-change not measured (no co-change fixture)");
-    expect(factor(scoring, "observability")?.reason).toBe("no collector signal yet: needs a logging and metrics detector");
+    expect(factor(scoring, "observability")?.reason).toBe("observability not measured (no observability fixture)");
     expect(factor(scoring, "team-custom")?.reason).toBe("no scoring rule for factor team-custom");
   });
 });

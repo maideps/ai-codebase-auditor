@@ -62,6 +62,15 @@
       "why": "Agents follow written rules; unwritten local conventions are exactly what they get wrong (arXiv 2602.11988)."
     },
     {
+      "id": "observable-changes",
+      "factor": "observability",
+      "assumption": "A change that breaks at run time shows up somewhere a person or an agent will look, not only in its tests.",
+      "surfaces": ["AGENTS.md", "e2e/smoke layer"],
+      "required": "Before agents change run-time behavior, add error logging with context to the modules they will touch, and make the smoke layer fail when the run logs an error.",
+      "recommended": "Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.",
+      "why": "Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains."
+    },
+    {
       "id": "reproducible-runs",
       "factor": "dev-deploy-simplicity",
       "assumption": "The project builds and verifies with scripted, repeatable steps.",

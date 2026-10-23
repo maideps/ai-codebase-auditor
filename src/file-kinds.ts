@@ -68,6 +68,14 @@ export function isUnderTestPath(filePath: string): boolean {
   );
 }
 
+/**
+ * True when a directory on the path holds tests or test data. Unlike
+ * isUnderTestPath, src/main/resources counts as product: it holds configuration.
+ */
+export function isUnderTestDirectory(filePath: string): boolean {
+  return filePath.split("/").slice(0, -1).some((segment) => TEST_PATH_SEGMENTS.has(segment));
+}
+
 export function isLockFile(filePath: string): boolean {
   return LOCK_FILE_NAMES.has(filePath.slice(filePath.lastIndexOf("/") + 1));
 }

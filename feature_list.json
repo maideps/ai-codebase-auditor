@@ -367,6 +367,37 @@
           "repair": "Resolve cross-layer issues and rerun full verification."
         }
       ]
+    },
+    {
+      "id": "feat-013",
+      "name": "Observability collector",
+      "behavior": "Statically detects how the product reports what it does at run time: logging libraries and logger calls, metrics, tracing and error-reporting clients, from manifests, config files and source, and scores the observability factor with the signals found as evidence, instead of reporting it as not measured.",
+      "verification": "Fixture repositories cover every detection rule and exclusion in each supported language, the factor rule is tested at each threshold edge, and the five calibration repositories are re-audited with every detected signal checked against the clones.",
+      "dependencies": [
+        "feat-012"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/observability",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target, factor config, end-of-life table and optional
-// deferrals, runs the six collectors, scores every factor, decides the
+// deferrals, runs the seven collectors, scores every factor, decides the
 // verdict and risk zones, plans the harness adaptation and the modernization
 // roadmap, and with --out writes the Markdown and JSON report.
 
@@ -14,6 +14,7 @@ import { collectCodeStructure, type CodeStructure } from "./collectors/code-stru
 import { collectDependencies, type Dependencies, type RuntimeAssessment } from "./collectors/dependencies.js";
 import { collectDynamicCalls, type DynamicCalls } from "./collectors/dynamic-calls.js";
 import { collectCoChange, type CoChange } from "./collectors/co-change.js";
+import { collectObservability, type Observability } from "./collectors/observability.js";
 import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
 import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
@@ -163,6 +164,23 @@ function formatDynamicCalls(dynamicCalls: Measurement<DynamicCalls>): string[] {
   ];
 }
 
+function formatObservability(observability: Measurement<Observability>): string[] {
+  if (observability.status === "not-measured") return [`Observability: not measured (${observability.reason})`];
+  const { files, configs } = observability.value;
+  const logging = files.filter((file) => file.logging.length > 0);
+  const forms = new Map<string, number>();
+  for (const file of files) for (const { form, calls } of file.logging) forms.set(form, (forms.get(form) ?? 0) + calls);
+  const imports = files.flatMap((file) => file.integrations.map((integration) => `${integration.name} (${file.path}:${integration.line})`));
+  const consoleOnly = files.filter((file) => file.logging.length === 0 && file.console > 0).length;
+  return [
+    "Observability (source and config read statically, tests included; nothing is run):",
+    `  logging calls: ${logging.length} of ${files.length} source files${forms.size > 0 ? ` (${[...forms.entries()].sort((a, b) => b[1] - a[1]).map(([form, calls]) => `${form} ${calls}`).join(", ")})` : ""}`,
+    `  logging configuration: ${configs.length > 0 ? configs.map((config) => config.path).join(", ") : "none"}`,
+    `  integration imports: ${imports.length > 0 ? imports.slice(0, 5).join(", ") + (imports.length > 5 ? `, and ${imports.length - 5} more` : "") : "none"}`,
+    `  console output only: ${consoleOnly} file${consoleOnly === 1 ? "" : "s"}`,
+  ];
+}
+
 function formatCoChange(coChange: Measurement<CoChange>): string[] {
   if (coChange.status === "not-measured") return [`Co-change: not measured (${coChange.reason})`];
   const { commits, read, truncated } = coChange.value;
@@ -266,6 +284,8 @@ function formatSummary(
     "",
     ...formatCoChange(collected.coChange),
     "",
+    ...formatObservability(collected.observability),
+    "",
     ...formatScores(scoring),
     "",
     ...formatDecision(decision),
@@ -333,6 +353,7 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     dependencies: collectDependencies(target.value.path, { table: eolTable.value, now }),
     dynamicCalls: collectDynamicCalls(target.value.path),
     coChange: collectCoChange(target.value.path),
+    observability: collectObservability(target.value.path),
   };
   const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value, modules: decisionConfig.value });
   const decision = decide(scoring, collected, config.value, decisionConfig.value);

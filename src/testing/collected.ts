@@ -6,9 +6,11 @@ import type { CoChange } from "../collectors/co-change.js";
 import type { Dependencies, RuntimeAssessment } from "../collectors/dependencies.js";
 import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
+import type { LoggingConfigKind, Observability } from "../collectors/observability.js";
 import type { TestsDocs, TypeChecker } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
 import { DYNAMIC_CALL_FAMILIES, languageOf } from "../file-kinds.js";
+import { integrationOf } from "../observability-names.js";
 import type { CollectorResults } from "../scoring/types.js";
 
 const evidence = { commands: ["git ls-tree -r -z HEAD"], notes: [] };
@@ -121,6 +123,30 @@ export function coChangeOf(commits: string[][]): Measurement<CoChange> {
   };
 }
 
+/** Source files with the given logger calls, console calls and an integration import; plus logging configuration. */
+export function observabilityOf(
+  files: { path: string; logging?: number; console?: number; integration?: string }[],
+  configs: { path: string; kind: LoggingConfigKind }[] = [],
+): Measurement<Observability> {
+  return {
+    status: "measured",
+    evidence,
+    value: {
+      files: files.map((file) => {
+        const integration = file.integration ? integrationOf(file.integration) : null;
+        return {
+          path: file.path,
+          logging: file.logging ? [{ form: "logger call", calls: file.logging }] : [],
+          console: file.console ?? 0,
+          integrations: integration ? [{ ...integration, line: 1 }] : [],
+        };
+      }),
+      configs,
+      skipped: [],
+    },
+  };
+}
+
 export function historyOf(): Measurement<GitHistory> {
   return {
     status: "measured",
@@ -142,6 +168,7 @@ export function collected(parts: Partial<CollectorResults> = {}): CollectorResul
     dependencies: dependenciesOf([]),
     dynamicCalls: notMeasured("no dynamic-calls fixture"),
     coChange: notMeasured("no co-change fixture"),
+    observability: notMeasured("no observability fixture"),
     ...parts,
   };
 }

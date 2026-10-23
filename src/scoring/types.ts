@@ -6,6 +6,7 @@ import type { CoChange } from "../collectors/co-change.js";
 import type { Dependencies } from "../collectors/dependencies.js";
 import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
+import type { Observability } from "../collectors/observability.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
 import type { FactorClass } from "../config/factors.js";
@@ -17,6 +18,7 @@ export interface CollectorResults {
   dependencies: Measurement<Dependencies>;
   dynamicCalls: Measurement<DynamicCalls>;
   coChange: Measurement<CoChange>;
+  observability: Measurement<Observability>;
 }
 
 export interface DeferralOutcome {

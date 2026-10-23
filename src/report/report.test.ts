@@ -7,7 +7,7 @@ import { decide } from "../decision/decide.js";
 import { buildPlan } from "../plan/plan.js";
 import { buildRoadmap } from "../plan/roadmap.js";
 import { scoreFactors } from "../scoring/score.js";
-import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, notMeasured, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
+import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, notMeasured, observabilityOf, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
 import { renderJson } from "./json.js";
 import { cell, renderMarkdown } from "./markdown.js";
 import { buildReport, type ReportInput } from "./model.js";
@@ -47,6 +47,10 @@ function sampleInput(): ReportInput {
   });
   if (results.dynamicCalls.status === "measured") results.dynamicCalls.value.skipped.push({ path: "src/bundle.js", reason: "minified" });
   // 60 commits, 6 of them changing src/(files) and src/auth together.
+  results.observability = observabilityOf(
+    [{ path: "src/f0.js", logging: 2 }, { path: "src/auth/login.js", console: 1 }, ...sourceFiles(9, "js", 40).slice(1), ...sourceFiles(3, "js", 5, "test")],
+    [{ path: "config/logging.json", kind: "configuration file" }],
+  );
   results.coChange = coChangeOf(Array.from({ length: 60 }, (_, index) => (index < 6 ? ["src/f0.js", "src/auth/login.js"] : [`src/f${index % 9}.js`])));
   if (results.dependencies.status === "measured") results.dependencies.value.notMeasured.push({ path: "go.mod", reason: "not a supported manifest" });
   const scoring = scoreFactors(results, factorConfig, { now, modules: decisionValues });
@@ -74,13 +78,12 @@ describe("report model", () => {
   it("carries the verdict, readiness, every factor and the not-measured items", () => {
     const report = buildReport(sampleInput());
     expect(report.schema).toBe("ai-codebase-auditor/report");
-    expect(report.schemaVersion).toBe(5);
+    expect(report.schemaVersion).toBe(6);
     expect(report.target).toEqual({ path: "/repos/sample", head: "0123456789abcdef0123456789abcdef01234567" });
     expect(report.inputs.eolTable).toEqual({ path: "/tool/config/runtime-eol.json", asOf: "2026-10-21", ageDays: 1 });
     expect(report.verdict.verdict).toBe("adapt");
     expect(report.factors.map((factor) => factor.id)).toEqual(factorConfig.factors.map((factor) => factor.id));
     expect(report.notMeasured).toEqual([
-      { kind: "factor", id: "observability", reason: "no collector signal yet: needs a logging and metrics detector" },
       { kind: "manifest", id: "go.mod", reason: "not a supported manifest" },
       { kind: "tool", id: "scc", reason: "test" },
     ]);
@@ -102,6 +105,19 @@ describe("report model", () => {
     });
   });
 
+  it("summarizes logging, configuration and integration imports", () => {
+    expect(buildReport(sampleInput()).signals.observability).toEqual({
+      status: "measured",
+      sourceFiles: 13,
+      filesWithLogging: 1,
+      consoleOnly: 1,
+      byForm: [{ form: "logger call", calls: 2 }],
+      configs: [{ path: "config/logging.json", kind: "configuration file" }],
+      integrationImports: [],
+      skippedByReason: {},
+    });
+  });
+
   it("summarizes the co-change history it read", () => {
     expect(buildReport(sampleInput()).signals.coChange).toEqual({
       status: "measured", read: 60, truncated: false, commitsWithSource: 60, oldest: "2025-11-03", newest: "2026-01-01",
@@ -117,6 +133,8 @@ describe("report model", () => {
     expect(report.notMeasured).toContainEqual({ kind: "collector", id: "git-history", reason: "shallow clone: history is incomplete" });
     input.collected.dynamicCalls = notMeasured("repository has no commits");
     expect(buildReport(input).notMeasured).toContainEqual({ kind: "collector", id: "dynamic-calls", reason: "repository has no commits" });
+    input.collected.observability = notMeasured("repository has no commits");
+    expect(buildReport(input).notMeasured).toContainEqual({ kind: "collector", id: "observability", reason: "repository has no commits" });
     input.collected.coChange = notMeasured("shallow clone: history is incomplete");
     expect(buildReport(input).notMeasured).toContainEqual({ kind: "collector", id: "co-change", reason: "shallow clone: history is incomplete" });
   });

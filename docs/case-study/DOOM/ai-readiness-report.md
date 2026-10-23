@@ -26,7 +26,7 @@ Triggered by: test-feedback 1, module-boundaries not measured.
 | file-size | constraining | 2 | lower of p90 988 lines (→ 2) and 8.90% of files over 1000 lines (→ 2) |
 | module-boundaries | constraining | – | not measured: only 2 commits change product source in a current module; at least 50 are needed |
 | documented-intent | constraining | 2 | a README without written rules |
-| observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
+| observability | constraining | 3 | logging present (calls in 8.22% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 1 | 0 of 4 signals: none |
 | dependency-currency | constraining | – | not measured: no declared runtime with a known end-of-life status outside test fixtures |
 
@@ -82,7 +82,17 @@ Evidence:
 
 ### observability: Observability
 
-Not measured (constraining): no collector signal yet: needs a logging and metrics detector.
+Score **3** (constraining). Rule: logging present (calls in 8.22% of files), no error reporting, metrics or tracing.
+
+Evidence:
+
+- logging calls in 12 of 146 product source files (8.22%): stderr 51
+- logging configuration: none
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+
+Partial: whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected.
 
 ### dev-deploy-simplicity: Dev and deploy simplicity
 
@@ -214,12 +224,12 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 2 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
 | 3 | dev-deploy-simplicity | 1 → 4 | M | 2 | add CI, a test runner config and a pinned runtime version | unchanged |
 | 4 | file-size | 2 → 3 | L | 0.67 | split 3 of 13 files over 1000 lines (to 6.8% of files) and bring the p90 file length from 988 to 800 lines | unchanged |
+| 5 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
 
 ## Not measured
 
 - factor `direct-api-calls`: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
 - factor `module-boundaries`: only 2 commits change product source in a current module; at least 50 are needed
-- factor `observability`: no collector signal yet: needs a logging and metrics detector
 - factor `dependency-currency`: no declared runtime with a known end-of-life status outside test fixtures
 - tool `scc`: scc is not installed or not on PATH
 
@@ -291,6 +301,13 @@ Files with the most sites:
 
 None.
 
+### Observability
+
+Logging calls in 12 of 146 source files, tests included (stderr 51). Console output only: 0 files. Skipped: none.
+
+- Logging configuration: none
+- Integration imports: none
+
 ### Co-change
 
 4 non-merge commits read; 3 change source files, 2012-01-31 to 2012-01-31. The module-boundaries factor above maps them onto today's modules.
@@ -349,3 +366,6 @@ Collector notes:
 - the most recent non-merge commits are read from git log; renames show as a delete and an add
 - only source files count; vendored and generated paths are left out
 - nothing is checked out, run or written
+- comments and strings are stripped before matching logging calls, for languages with a known syntax
+- console.log and its siblings are counted apart: in browser code they are debugging output
+- integrations are read from import lines; manifests are read by the dependency collector

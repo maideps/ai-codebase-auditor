@@ -2,7 +2,7 @@
 
 **Status:** final, reviewed 2026-10-22. The proposals from the first run were approved and applied (D-013). The reports in each folder are the regenerated ones; machine-readable labels are in [labels.json](labels.json).
 
-Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 5: regenerated for feat-012 with the module-boundaries score; see the sections on direct calls and module boundaries below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
+Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 6: regenerated for feat-013 with the observability score; see the sections on direct calls, module boundaries and observability below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
 
 ## Repositories
 
@@ -191,10 +191,31 @@ DOOM stays *prepare first*: four commits say nothing about its structure, so its
 
 **Performance.** Full audits took 1.2 to 8.9 s. Peak memory went up to 308 MB on moin-1.9, which now holds two reads of its log.
 
+## Observability (feat-013)
+
+The reports were regenerated with the observability collector and score (D-017). All five score 3, and no verdict or readiness level changed. Every repository logs, and none reports errors or metrics anywhere, which is honest for self-hosted products and a framework library. Each roadmap now ends with "add an error reporter".
+
+| Repository | Logging calls (product files) | Configuration / framework |
+|---|---|---|
+| DOOM | 12 of 146 (8.22%): `fprintf(stderr, …)` | none |
+| moin-1.9 | 78 of 1,218 (6.40%): `logging.*`, `logger.*` | `wikiserverlogging.conf`, `dictConfig` in `MoinMoin/log.py` |
+| phpBB | 44 of 1,343 (3.28%): `$phpbb_log->add` | none |
+| Struts | 308 of 1,517 (20.30%): `LOG.*` | `log4j2.xml` in two showcase apps |
+| Redmine | 40 of 838 (4.77%): `logger.*`, `Rails.logger.*` | `config.log_level` in `config/application.rb` and `config/environments/production.rb`; Rails |
+
+**Checking the findings.** 10 logging files per repository, spread through the list, were read in the clones, 50 in all. Every one holds a real logging call:
+- phpBB's are its admin, moderator, user and critical logs;
+- Redmine's include `logger.error` in error paths;
+- DOOM's are `fprintf(stderr, …)` diagnostics.
+
+The detected configurations and the Rails framework were confirmed too.
+
+One rule gap was found and fixed: Struts's `log4j2.xml` files sit under `src/main/resources`, which the test-path rule from D-013 treats as test data. Configuration now uses test directories only, so they count.
+
 ## Known Limits Kept After Review
 
 1. **Bundled libraries under non-standard directory names** count as product code (moin-1.9 `MoinMoin/support/`). A fix would honor `linguist-vendored` or take a team-supplied exclude list.
 2. **Red-term false positives** from UI and tooling names (`Password*` form-field classes, "doctum-checkout"). Path terms favor recall, and red only means agents propose instead of editing.
 3. **Doc classification by name:** "convention" in a feature name matches, and design specs in a `specs/` directory are skipped as test paths.
-4. **Unmeasured signals:** observability, test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.
+4. **Unmeasured signals:** test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.
 5. **Co-change by design counts as coupling:** Rails migrations change with their models, and example apps change with the features they show. A team can raise the thresholds, or keep such pairs in one module.

@@ -26,7 +26,7 @@ Triggered by: test-feedback 5, direct-api-calls 4.
 | file-size | constraining | 4 | lower of p90 246 lines (→ 4) and 0.40% of files over 1000 lines (→ 5) |
 | module-boundaries | constraining | 4 | 11.00% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 3 | docs with 34 stated rules |
-| observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
+| observability | constraining | 3 | logging present (calls in 20.30% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 4 | 3 of 4 signals: CI configured, test runner configured, runtime version declared |
 | dependency-currency | constraining | 5 | every runtime is supported past 12 months |
 
@@ -101,7 +101,18 @@ Evidence:
 
 ### observability: Observability
 
-Not measured (constraining): no collector signal yet: needs a logging and metrics detector.
+Score **3** (constraining). Rule: logging present (calls in 20.30% of files), no error reporting, metrics or tracing.
+
+Evidence:
+
+- logging calls in 308 of 1517 product source files (20.30%): logger call 1275, stderr 1
+- logging configuration: apps/rest-showcase/src/main/resources/log4j2.xml (configuration file), apps/showcase/src/main/resources/log4j2.xml (configuration file)
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
+Partial: whether logs and reports reach a place someone reads is not visible in the repository; swallowed exceptions are not detected.
 
 ### dev-deploy-simplicity: Dev and deploy simplicity
 
@@ -163,6 +174,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with
 |---|---|---|---|
 | required | red-paths | red zone: 13 paths | AGENTS.md, .claude/settings.json |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
+| recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
 ### required: red-paths
 
@@ -198,6 +210,21 @@ Why: Agents follow written rules; unwritten local conventions are exactly what t
 - stated rules: 34 in 6 files
 - agent context files (presence alone scores nothing): AGENTS.md, CLAUDE.md
 
+### recommended: observable-changes
+
+Trigger: observability 3. Surfaces: `AGENTS.md`, `e2e/smoke layer`.
+
+Change: Add an error reporter or metrics, so a failure after a change is seen, and write in AGENTS.md where the logs go.
+
+Why: Without logs or error reports, a change that passes its tests but fails in use stays invisible until someone complains.
+
+- logging calls in 308 of 1517 product source files (20.30%): logger call 1275, stderr 1
+- logging configuration: apps/rest-showcase/src/main/resources/log4j2.xml (configuration file), apps/showcase/src/main/resources/log4j2.xml (configuration file)
+- logging framework: none
+- error reporting: none
+- metrics or tracing: none
+- console output only, not counted as logging: 1 file
+
 ## Modernization roadmap
 
 Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
@@ -206,12 +233,12 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 |---|---|---|---|---|---|---|
 | 1 | direct-api-calls | 4 → 5 | L | 0.67 | make the computed-target calls explicit in 26 of 56 files (to 2% of files), starting with core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7) | unchanged |
 | 2 | documented-intent | 3 → 4 | M | 0.5 | add an architecture doc or decision records | unchanged |
-| 3 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
-| 4 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 11% to 10% of commits, starting with the most coupled pairs apps + core/src/main (11 commits together) and core/src/main + plugins (49 commits together) | unchanged |
+| 3 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
+| 4 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
+| 5 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 11% to 10% of commits, starting with the most coupled pairs apps + core/src/main (11 commits together) and core/src/main + plugins (49 commits together) | unchanged |
 
 ## Not measured
 
-- factor `observability`: no collector signal yet: needs a logging and metrics detector
 - tool `scc`: scc is not installed or not on PATH
 
 ## Signals
@@ -371,6 +398,13 @@ Files with the most sites:
 | `core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java` | 4 | Class.forName by name |
 | `core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java` | 4 | Class.forName by name |
 
+### Observability
+
+Logging calls in 311 of 2428 source files, tests included (logger call 1279, stderr 1). Console output only: 1 file. Skipped: minified 1.
+
+- Logging configuration: `apps/rest-showcase/src/main/resources/log4j2.xml` (configuration file), `apps/showcase/src/main/resources/log4j2.xml` (configuration file)
+- Integration imports: none
+
 ### Co-change
 
 5000 non-merge commits read (cut off at the read limit); 3115 change source files, 2009-09-28 to 2026-10-22. The module-boundaries factor above maps them onto today's modules.
@@ -429,3 +463,6 @@ Collector notes:
 - the most recent non-merge commits are read from git log; renames show as a delete and an add
 - only source files count; vendored and generated paths are left out
 - nothing is checked out, run or written
+- comments and strings are stripped before matching logging calls, for languages with a known syntax
+- console.log and its siblings are counted apart: in browser code they are debugging output
+- integrations are read from import lines; manifests are read by the dependency collector

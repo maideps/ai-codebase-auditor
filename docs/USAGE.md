@@ -14,7 +14,7 @@ node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Ma
 node dist/cli.js --help
 ```
 
-`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the six collectors. Relative paths resolve against the current directory. It then prints the scores, the readiness level, the verdict with risk zones, the harness adaptation plan and the first roadmap steps.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the seven collectors. Relative paths resolve against the current directory. It then prints the scores, the readiness level, the verdict with risk zones, the harness adaptation plan and the first roadmap steps.
 
 ### Git history
 
@@ -96,6 +96,17 @@ The module-boundaries score maps those files onto today's modules, the same modu
 
 The evidence names the most coupled module pairs: a pair's commits together ÷ the smaller module's commits, for pairs with at least 5 commits together. Coupling through imports or shared data is not measured. The rules are in [sprints/feat-012.md](sprints/feat-012.md).
 
+### Observability
+
+The observability collector reads tracked source files and looks for logging calls: a receiver named `log` or `logger` with a level method (`logger.info(`, `LOG.debug(`, `$this->logger->error(`, Ruby's `logger.warn "…"`), Python's `logging.info(`, PHP's `error_log(` and phpBB-style `$log->add(`, `syslog(`, and `fprintf(stderr, …)`. Comments and strings are stripped first. `console.log` and its siblings are counted apart: in browser code they are debugging output.
+
+It also finds:
+- logging configuration files (`log4j2.xml`, `logback.xml`, `logging.conf` and similar) outside test directories, including `src/main/resources`;
+- framework log settings: `config.log_level` in Rails `config/`, `LOGGING` in Django settings, Python `logging.config.dictConfig`;
+- error-reporting, metrics and tracing clients on import lines.
+
+The score adds the manifests the dependency collector parsed: frameworks that log by default (Rails, Django, Spring Boot, Laravel, Symfony) and integrations (Sentry, Bugsnag, Rollbar, Prometheus, Micrometer, OpenTelemetry and others). Development dependencies do not count. The name lists are in `src/observability-names.ts`, and the rules in [sprints/feat-013.md](sprints/feat-013.md).
+
 #### Refreshing the end-of-life table
 
 `config/runtime-eol.json` is a dated snapshot of [endoflife.date](https://endoflife.date) (Node.js, Python, PHP, Ruby; Java from Eclipse Temurin, with Oracle JDK dates for cycles Temurin never shipped). The audit warns when the table is more than a year old. To refresh it, fetch `https://endoflife.date/api/<product>.json` for `nodejs`, `python`, `php`, `ruby`, `eclipse-temurin` and `oracle-jdk`, keep each cycle's `cycle` and `eol` date, set `asOf` to the fetch date, and commit the table on its own so the change is reviewable.
@@ -110,7 +121,7 @@ Exit codes: `0` success; `2` usage or input error (unknown command or option, mi
 
 After the collectors, `audit` prints one line per factor: its class, its score (or `-` when not measured, with the reason), and the rule that produced it, with `partial:` lines for what the score does not cover. Then the readiness level: the lowest score among scored blocking factors, never an average. While a blocking factor is not measured, the level is marked **provisional** and the factor is named. The rules and thresholds are in [docs/sprints/feat-006.md](sprints/feat-006.md) and `config/factors.json`.
 
-Both blocking factors are scored: test-feedback and direct-api-calls. direct-api-calls is the share of covered product files with at least one computed-target call: 2% or less scores 5, then 5%, 10% and 20% for 4, 3 and 2. It is not measured when the covered languages hold less than half the product source lines (a C codebase, say), or when fewer than 10 covered product files exist; the readiness level is then provisional. module-boundaries is the share of the latest 500 counted commits that change product source in two or more modules: 10% or less scores 5, then 20%, 30% and 40% for 4, 3 and 2. It is not measured under 50 counted commits or with one module. observability has no collector signal yet.
+Both blocking factors are scored: test-feedback and direct-api-calls. direct-api-calls is the share of covered product files with at least one computed-target call: 2% or less scores 5, then 5%, 10% and 20% for 4, 3 and 2. It is not measured when the covered languages hold less than half the product source lines (a C codebase, say), or when fewer than 10 covered product files exist; the readiness level is then provisional. module-boundaries is the share of the latest 500 counted commits that change product source in two or more modules: 10% or less scores 5, then 20%, 30% and 40% for 4, 3 and 2. It is not measured under 50 counted commits or with one module. observability is a ladder: 1 without any logging, 2 with logging calls in under 2% of product files, 3 when logging is present (calls in 2% or more, a committed logging configuration, or a framework that logs by default), plus one each for error reporting and for metrics or tracing. Without logging present, integrations add one level at most.
 
 ### Deferrals
 
@@ -163,6 +174,7 @@ Each requirement ties a harness assumption to one factor:
 | typed-changes | type-strictness | a checker for the main dynamic language with a baseline, recorded as a dated deferral |
 | traceable-calls | direct-api-calls | list the files with computed-target calls in `AGENTS.md`; at ≤ 2, also a lint rule against new `eval` and computed-name calls |
 | scoped-lanes | module-boundaries | list the coupled module pairs in `AGENTS.md`; at ≤ 2, also treat each pair as one area and never give its two modules to parallel lanes |
+| observable-changes | observability | add an error reporter or metrics and say in `AGENTS.md` where logs go; at ≤ 2, add error logging to the modules agents touch and make the smoke layer fail on logged errors |
 | legible-context | file-size | work per module; list the files over 1000 lines in `AGENTS.md` |
 | written-intent | documented-intent | non-standard practices as `AGENTS.md` rules; `docs/ARCHITECTURE.md` filled by hand |
 | reproducible-runs | dev-deploy-simplicity | the missing CI, runtime pin, test runner or lock file |
@@ -197,10 +209,10 @@ Both files come from one report model, so they hold the same content:
 - risk zones and red paths;
 - the harness adaptation plan and the modernization roadmap;
 - everything not measured, in one list;
-- signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls, co-change);
+- signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls, co-change, observability);
 - the method: inputs, every read-only command run, collector notes.
 
-Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 5`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015). Version 5 added `signals.coChange` ([sprints/feat-012.md](sprints/feat-012.md), D-016).
+Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 6`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015). Version 5 added `signals.coChange` ([sprints/feat-012.md](sprints/feat-012.md), D-016). Version 6 added `signals.observability` ([sprints/feat-013.md](sprints/feat-013.md), D-017).
 
 Reports are deterministic. Every date-based rule (the 12-month window, end of life, deferral expiry) uses the audit date in UTC. Keys and lists are in a fixed order, and line endings are LF. Two runs on the same day, repository and configs give identical bytes. The report records the audited commit (`target.head`), so it traces to exact code.
 

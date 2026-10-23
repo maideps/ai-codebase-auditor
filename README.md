@@ -81,7 +81,7 @@ Clone the repositories you audit outside this one. The tool refuses an `--out` d
 | file-size | constraining | p90 file length, share of files over 1000 lines |
 | module-boundaries | constraining | share of the latest 500 commits that change more than one module (from git history, any language) |
 | documented-intent | constraining | contributing, architecture, convention and decision docs, stated rules |
-| observability | constraining | not measured yet |
+| observability | constraining | logging calls, logging configuration or a framework that logs, then error reporting, then metrics or tracing |
 | dev-deploy-simplicity | constraining | CI, test runner, pinned runtime, lock file |
 | dependency-currency | constraining | declared runtimes against a dated end-of-life table |
 
@@ -126,7 +126,7 @@ DOOM's verdict is provisional: its C code has no dynamic-call rules, so direct-a
 ## Status and Limits
 
 Version 2 is complete: the audit, the reports, the harness adaptation plan and the modernization roadmap.
-- Observability has no collector yet.
+- Observability measures what the repository has for logging and reporting, not whether anyone reads the logs.
 - Module boundaries come from how files changed together, so layouts where co-change is by design count as coupling, such as Rails migrations with their models.
 - Direct calls are detected for Python, PHP, Ruby, Java, JavaScript and TypeScript only, by pattern matching rather than parsing. Dispatch wired through configuration (dependency injection, XML mappings, callbacks by symbol) is not counted.
 - Test speed, CI pass rates and branch protection cannot be seen from repository contents.
