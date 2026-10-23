@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -23,11 +23,15 @@
   },
   "verdict": {
     "verdict": "adapt",
-    "rule": "3 weak factors (score ≤ 2): type-strictness 1, documented-intent 2, dependency-currency 1",
+    "rule": "4 weak factors (score ≤ 2): type-strictness 1, direct-api-calls 2, documented-intent 2, dependency-currency 1",
     "triggeredBy": [
       {
         "factor": "type-strictness",
         "score": 1
+      },
+      {
+        "factor": "direct-api-calls",
+        "score": 2
       },
       {
         "factor": "documented-intent",
@@ -38,18 +42,14 @@
         "score": 1
       }
     ],
-    "provisional": true,
-    "unmeasuredBlocking": [
-      "direct-api-calls"
-    ]
+    "provisional": false,
+    "unmeasuredBlocking": []
   },
   "readiness": {
-    "level": 5,
-    "setBy": "test-feedback",
-    "provisional": true,
-    "unmeasuredBlocking": [
-      "direct-api-calls"
-    ]
+    "level": 2,
+    "setBy": "direct-api-calls",
+    "provisional": false,
+    "unmeasuredBlocking": []
   },
   "factors": [
     {
@@ -59,9 +59,9 @@
       "status": "scored",
       "score": 5,
       "baseScore": 5,
-      "rule": "ratio 0.43 ≥ 0.3 with a runner config and CI",
+      "rule": "ratio 0.30 ≥ 0.3 with a runner config and CI",
       "evidence": [
-        "3 test files for 7 source files: ratio 0.43",
+        "3 test files for 10 source files: ratio 0.30",
         "test runner configs: jest.config.js",
         "CI: .github/workflows/ci.yml"
       ],
@@ -78,7 +78,7 @@
       "baseScore": 1,
       "rule": "weighted typed share 0.00",
       "evidence": [
-        "typed share 0.00 of 270 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 270)",
+        "typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)",
         "type checkers: none"
       ],
       "partial": null,
@@ -87,15 +87,21 @@
     },
     {
       "id": "direct-api-calls",
-      "name": "Direct API calls",
+      "name": "Direct calls (visible at call site)",
       "class": "blocking",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs call-site analysis",
+      "status": "scored",
+      "score": 2,
+      "baseScore": 2,
+      "rule": "20.00% of 10 covered files have a computed-target call (3 sites)",
+      "evidence": [
+        "2 of 10 covered product files (20.00%) have computed-target calls: 3 sites",
+        "by construct: computed call 2, eval or Function 1",
+        "top files: src/f0.js (2), src/auth/login.js (1)",
+        "sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call",
+        "covered languages hold 100.00% of 390 source lines"
+      ],
+      "partial": "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
+      "reason": null,
       "deferral": null
     },
     {
@@ -107,7 +113,7 @@
       "baseScore": 5,
       "rule": "lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5)",
       "evidence": [
-        "7 source files: p90 40 lines, 0 over 1000 lines (0.00%)",
+        "10 source files: p90 40 lines, 0 over 1000 lines (0.00%)",
         "largest: src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines), src/f4.js (40 lines)"
       ],
       "partial": null,
@@ -197,7 +203,7 @@
         "module": "src/(files)",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines)",
-        "sourceFiles": 6,
+        "sourceFiles": 9,
         "redFiles": 0
       },
       {
@@ -243,7 +249,25 @@
           "score": 1
         },
         "details": [
-          "main dynamic language: javascript (270 source lines); suggested checker: TypeScript checkJs"
+          "main dynamic language: javascript (390 source lines); suggested checker: TypeScript checkJs"
+        ]
+      },
+      {
+        "id": "traceable-calls",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md",
+          "package.json lint script"
+        ],
+        "change": "List the files with computed-target calls in AGENTS.md as \"find every call target before editing\", and add a lint rule to the lint layer that rejects new eval and computed-name calls (for example ESLint no-eval and no-implied-eval, RuboCop Security/Eval, Bandit B307).",
+        "why": "A call whose target is computed at run time does not show up when an agent searches for the method it renames or changes, so the agent breaks callers it never saw.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "direct-api-calls",
+          "score": 2
+        },
+        "details": [
+          "files with computed-target calls: src/f0.js (2), src/auth/login.js (1)"
         ]
       },
       {
@@ -324,6 +348,24 @@
   },
   "roadmap": [
     {
+      "factor": "direct-api-calls",
+      "class": "blocking",
+      "from": 2,
+      "to": 3,
+      "action": "make the computed-target calls explicit in 1 of 2 files (to 10% of files), starting with src/f0.js (2), src/auth/login.js (1)",
+      "effort": "S",
+      "gain": 1,
+      "priority": 4,
+      "verdictAfter": null,
+      "evidence": [
+        "2 of 10 covered product files (20.00%) have computed-target calls: 3 sites",
+        "by construct: computed call 2, eval or Function 1",
+        "top files: src/f0.js (2), src/auth/login.js (1)",
+        "sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call",
+        "covered languages hold 100.00% of 390 source lines"
+      ]
+    },
+    {
       "factor": "dependency-currency",
       "class": "constraining",
       "from": 1,
@@ -364,17 +406,12 @@
       "priority": 1.5,
       "verdictAfter": null,
       "evidence": [
-        "typed share 0.00 of 270 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 270)",
+        "typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)",
         "type checkers: none"
       ]
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "direct-api-calls",
-      "reason": "no collector signal yet: needs call-site analysis"
-    },
     {
       "kind": "factor",
       "id": "module-boundaries",
@@ -417,7 +454,7 @@
     "codeStructure": {
       "status": "measured",
       "distribution": {
-        "files": 10,
+        "files": 13,
         "totalLines": 0,
         "totalBytes": 0,
         "p50Lines": 0,
@@ -502,6 +539,49 @@
           "testFixture": false
         }
       ]
+    },
+    "dynamicCalls": {
+      "status": "measured",
+      "coveredFiles": 13,
+      "filesWithSites": 2,
+      "sites": 3,
+      "byFamily": [
+        {
+          "family": "javascript",
+          "files": 13,
+          "filesWithSites": 2,
+          "sites": 3
+        }
+      ],
+      "byConstruct": [
+        {
+          "construct": "computed call",
+          "sites": 2
+        },
+        {
+          "construct": "eval or Function",
+          "sites": 1
+        }
+      ],
+      "topFiles": [
+        {
+          "path": "src/f0.js",
+          "sites": 2,
+          "constructs": [
+            "computed call"
+          ]
+        },
+        {
+          "path": "src/auth/login.js",
+          "sites": 1,
+          "constructs": [
+            "eval or Function"
+          ]
+        }
+      ],
+      "skippedByReason": {
+        "minified": 1
+      }
     }
   },
   "method": {

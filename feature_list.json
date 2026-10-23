@@ -305,6 +305,37 @@
           "repair": "Resolve cross-layer issues and rerun full verification."
         }
       ]
+    },
+    {
+      "id": "feat-011",
+      "name": "Direct-api-calls collector",
+      "behavior": "Statically finds call sites whose target is not visible at the call site (reflection, dynamic dispatch by name, eval, method_missing and similar magic) and scores the blocking direct-api-calls factor from their density, citing the call sites, instead of reporting it as not measured.",
+      "verification": "Fixture files cover every detection rule and exclusion in each supported language, the factor rule is tested at each threshold edge, and the five calibration repositories are re-audited with a sample of findings checked against the clones.",
+      "dependencies": [
+        "feat-010"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/dynamic-calls",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
     }
   ]
 }

@@ -4,13 +4,13 @@
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\redmine` at commit `77cad6adb89c` |
 | Audit date | 2026-10-23 |
-| Verdict | **adapt** (provisional: direct-api-calls not measured) |
-| Readiness level | **5 of 5**, set by test-feedback (provisional) |
+| Verdict | **adapt** |
+| Readiness level | **3 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
 
-**adapt** (provisional: direct-api-calls not measured): adopt the harness with adaptations for the weak factors below.
+**adapt**: adopt the harness with adaptations for the weak factors below.
 
 Rule: 1 weak factor (score ≤ 2): type-strictness 1
 
@@ -22,7 +22,7 @@ Triggered by: type-strictness 1.
 |---|---|---|---|
 | test-feedback | blocking | 5 | ratio 0.50 ≥ 0.3 with a runner config and CI |
 | type-strictness | constraining | 1 | weighted typed share 0.00 |
-| direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
+| direct-api-calls | blocking | 3 | 5.61% of 838 covered files have a computed-target call (72 sites) |
 | file-size | constraining | 4 | lower of p90 214 lines (→ 4) and 1.07% of files over 1000 lines (→ 4) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
 | documented-intent | constraining | 3 | docs with contributing, architecture, convention or decision docs |
@@ -53,9 +53,19 @@ Evidence:
 - typed share 0.00 of 74486 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 74486)
 - type checkers: none
 
-### direct-api-calls: Direct API calls
+### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): no collector signal yet: needs call-site analysis.
+Score **3** (blocking). Rule: 5.61% of 838 covered files have a computed-target call (72 sites).
+
+Evidence:
+
+- 47 of 838 covered product files (5.61%) have computed-target calls: 72 sites
+- by construct: send by name 33, constantize by name 15, eval of a string 15, instance_variable by name 5, define_method by name 2, computed call 1, method_missing 1
+- top files: app/models/query.rb (5), lib/redmine/plugin.rb (5), app/controllers/application_controller.rb (4), app/models/user.rb (3), lib/redmine/ciphering.rb (3)
+- sample sites: app/models/query.rb:70 send by name, lib/redmine/plugin.rb:72 define_method by name, app/controllers/application_controller.rb:410 instance_variable by name, app/models/user.rb:299 eval of a string, lib/redmine/ciphering.rb:75 send by name, app/controllers/settings_controller.rb:77 send by name, app/helpers/application_helper.rb:972 send by name, app/helpers/issues_helper.rb:379 send by name, app/models/journal.rb:236 send by name, app/models/setting.rb:172 send by name
+- covered languages hold 100.00% of 74486 source lines
+
+Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected.
 
 ### file-size: File size and context legibility
 
@@ -212,6 +222,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | typed-changes | type-strictness 1 | package.json typecheck script, DECISIONS.md |
 | required | detected-stack | test-feedback 5 | package.json layer scripts |
 | required | red-paths | red zone: 78 paths | AGENTS.md, .claude/settings.json |
+| recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
 
 ### required: typed-changes
@@ -321,6 +332,16 @@ Why: Auth, billing, permission and secret code needs human review of every chang
 - db/migrate/20260319170822_add_index_to_users_login.rb (login): deny Edit(db/migrate/20260319170822_add_index_to_users_login.rb), Write(db/migrate/20260319170822_add_index_to_users_login.rb)
 - db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb (permissions): deny Edit(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb), Write(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb)
 
+### recommended: traceable-calls
+
+Trigger: direct-api-calls 3. Surfaces: `AGENTS.md`, `package.json lint script`.
+
+Change: List the files with computed-target calls in AGENTS.md as "find every call target before editing".
+
+Why: A call whose target is computed at run time does not show up when an agent searches for the method it renames or changes, so the agent breaks callers it never saw.
+
+- files with computed-target calls: app/models/query.rb (5), lib/redmine/plugin.rb (5), app/controllers/application_controller.rb (4), app/models/user.rb (3), lib/redmine/ciphering.rb (3), app/controllers/settings_controller.rb (2), app/helpers/application_helper.rb (2), app/helpers/issues_helper.rb (2), app/models/journal.rb (2), app/models/setting.rb (2)
+
 ### recommended: written-intent
 
 Trigger: documented-intent 3. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
@@ -340,13 +361,13 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | # | Factor | Score | Effort | Priority | Step | Verdict after |
 |---|---|---|---|---|---|---|
 | 1 | type-strictness | 1 → 3 | M | 1.5 | configure Sorbet or Steep for ruby with a baseline (typed share 0.00 to 0.53) | adopt |
-| 2 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
-| 3 | dependency-currency | 4 → 5 | M | 0.5 | upgrade ruby from 3.3 to 3.4 | unchanged |
-| 4 | file-size | 4 → 5 | L | 0.33 | split 1 of 9 files over 1000 lines (to 1% of files) and bring the p90 file length from 214 to 200 lines | unchanged |
+| 2 | direct-api-calls | 3 → 4 | M | 1 | make the computed-target calls explicit in 6 of 47 files (to 4.9% of files), starting with app/models/query.rb (5), lib/redmine/plugin.rb (5), app/controllers/application_controller.rb (4) | unchanged |
+| 3 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
+| 4 | dependency-currency | 4 → 5 | M | 0.5 | upgrade ruby from 3.3 to 3.4 | unchanged |
+| 5 | file-size | 4 → 5 | L | 0.33 | split 1 of 9 files over 1000 lines (to 1% of files) and bring the p90 file length from 214 to 200 lines | unchanged |
 
 ## Not measured
 
-- factor `direct-api-calls`: no collector signal yet: needs call-site analysis
 - factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - tool `scc`: scc is not installed or not on PATH
@@ -412,6 +433,41 @@ Largest files:
 |---|---|---|---|---|---|
 | ruby | >= 3.3.0 | `Gemfile` (ruby directive) | 3.3 | supported | 2027-03-31 |
 
+### Dynamic calls
+
+1257 covered files read, tests included; 56 with computed-target calls, 84 sites. Skipped: generated 3, minified 1, vendored 4.
+
+| Language | Files | With sites | Sites |
+|---|---|---|---|
+| javascript | 127 | 1 | 1 |
+| python | 1 | 0 | 0 |
+| ruby | 1129 | 55 | 83 |
+
+| Construct | Sites |
+|---|---|
+| send by name | 41 |
+| constantize by name | 18 |
+| eval of a string | 16 |
+| instance_variable by name | 5 |
+| define_method by name | 2 |
+| computed call | 1 |
+| method_missing | 1 |
+
+Files with the most sites:
+
+| File | Sites | Constructs |
+|---|---|---|
+| `app/models/query.rb` | 5 | send by name |
+| `lib/redmine/plugin.rb` | 5 | define_method by name, instance_variable by name, eval of a string |
+| `app/controllers/application_controller.rb` | 4 | instance_variable by name, send by name |
+| `app/models/user.rb` | 3 | eval of a string |
+| `lib/redmine/ciphering.rb` | 3 | send by name |
+| `test/unit/custom_field_test.rb` | 3 | send by name, constantize by name |
+| `app/controllers/settings_controller.rb` | 2 | send by name |
+| `app/helpers/application_helper.rb` | 2 | send by name, instance_variable by name |
+| `app/helpers/issues_helper.rb` | 2 | send by name |
+| `app/models/journal.rb` | 2 | send by name |
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -456,3 +512,9 @@ Collector notes:
 - runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
+- files are those tracked at HEAD; content is read from the working tree; nothing is run
+- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- comments are removed and strings replaced before matching, so text inside strings never counts
+- only calls whose target is computed count; a literal target is visible at the call site
+- vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
+- configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected

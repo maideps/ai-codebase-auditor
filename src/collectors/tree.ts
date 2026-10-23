@@ -3,6 +3,7 @@
 
 import { closeSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { isLockFile } from "../file-kinds.js";
 import type { GitRunner } from "./git.js";
 
 export interface TreeEntry {
@@ -27,9 +28,20 @@ export function isVendored(filePath: string): boolean {
   return filePath.split("/").slice(0, -1).some((segment) => VENDORED_SEGMENTS.has(segment));
 }
 
+const GENERATED_PATTERN = /\.min\.(?:js|css)$|\.map$/;
+
+/** True for lock files and build output that no one edits by hand. */
+export function isGenerated(filePath: string): boolean {
+  return isLockFile(filePath) || GENERATED_PATTERN.test(filePath.slice(filePath.lastIndexOf("/") + 1));
+}
+
 export type ReadSkip = "symlink" | "submodule" | "missing" | "binary";
 
 const BINARY_SNIFF_BYTES = 8000;
+// Files up to this size are read once and sniffed in memory; opening every file twice is slow on Windows.
+const READ_ONCE_BYTES = 4 * 1024 * 1024;
+
+const hasNul = (content: Buffer) => content.subarray(0, BINARY_SNIFF_BYTES).includes(0);
 
 // Git's rule: a NUL byte in the first 8000 bytes means binary. Only those
 // bytes are read, so large binaries are never loaded.
@@ -68,6 +80,10 @@ export function readTrackedFile(
   if (stats.isSymbolicLink()) return { skipped: "symlink" };
   if (!stats.isFile()) return { skipped: "missing" };
   if (path.relative(realRepo, realpathSync(full)).startsWith("..")) return { skipped: "symlink" };
+  if (options.skipBinary && stats.size <= READ_ONCE_BYTES) {
+    const content = readFileSync(full);
+    return hasNul(content) ? { skipped: "binary" } : { content };
+  }
   if (options.skipBinary && isBinary(full)) return { skipped: "binary" };
   return { content: readFileSync(full) };
 }

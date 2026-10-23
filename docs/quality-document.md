@@ -14,6 +14,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | collectors/code-structure (`src/collectors/code-structure.ts`, `tree.ts`) | A | A | A | A | A |
 | collectors/tests-docs (`src/collectors/tests-docs.ts`) | A | A | A | A | A |
 | collectors/dependencies (`src/collectors/dependencies.ts`, `dependencies/`) | A | A | A | A | A |
+| collectors/dynamic-calls (`src/collectors/dynamic-calls.ts`, `dynamic-calls/`) | A | A | A | A | B |
 | config/runtime-eol (`src/config/runtime-eol.ts`, `config/runtime-eol.json`) | A | A | A | A | A |
 | scoring (`src/scoring/`, thresholds in `config/factors.json`) | A | A | A | A | A |
 | config/deferrals (`src/config/deferrals.ts`) | A | A | A | A | A |
@@ -33,6 +34,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `collectors/code-structure`: 12 tests cover exact per-file counts (empty, CRLF, no final newline), every exclusion reason including a symlink and a submodule that exist only in the tree, percentiles, buckets, modules, scc used / missing / failing / unparseable through a stand-in, and an unchanged-target check. Performance A: every included file is read fully, at most 205 MB peak for the full audit of moin-1.9 (2,087 files, including a 208,753-line dictionary). The scc path is not yet checked against a real scc install.
 - `collectors/tests-docs`: 11 tests cover nine test conventions across seven languages, five runner configs including manifest-declared ones, named Vitest variants and npm's placeholder, three CI systems, every docs category, rule extraction (list markers, code fences, soft wording), presence-only agent context, a symlinked rules file and an unchanged-target check. Performance A: path matching plus a few small reads.
 - `collectors/dependencies`: 29 parser tests (every supported format and runtime file, issues, unsupported manifests), 39 version tests (spec forms, cycles, coarse and unbounded specs) and 9 collector tests (mixed repository, vendored and unparseable manifests, every assessment status, the EOL-date boundary, an unchanged-target check).
+- `collectors/dynamic-calls`: 15 stripper tests (comments, strings, interpolation, PHP tags and heredocs, Ruby heredocs and percent literals, regex literals, line preservation), 42 pattern tests (every construct counted and its literal form not counted, plus the three Struts false positives), and 5 collector tests (each covered language, every skip reason, evidence, an unchanged-target check, not-measured cases). Performance B: Struts takes 3.5 s alone because each covered file is opened again after code-structure, and file opens are slow on Windows.
 - `config/runtime-eol`: the committed table loads; validation rejects bad versions, dates, unknown runtimes and duplicate cycles.
 - `scoring`: table-driven tests on every threshold edge for six rules (just below, at, just above), each not-measured path, readiness (lowest blocking, constraining ignored, ties, provisional, none scored), deferrals (raise, cap, expiry boundary, unmeasured factor, effect on readiness) and threshold validation.
 - `config/deferrals`: validation of every field, revisit-before-recorded, unknown factors, missing files.
@@ -46,7 +48,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-010 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-011 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -61,6 +63,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-10-23: feat-011 added the dynamic-calls collector and the direct-api-calls score, the traceable-calls requirement and roadmap step, report schemaVersion 4, and single-open file reads (D-015).
 - 2026-10-22: feat-010 added the harness adaptation plan and modernization roadmap (`src/plan/`, `config/harness-requirements.json`, `--harness`, report schemaVersion 3, D-014).
 - 2026-10-22: feat-008 added the report model, Markdown and JSON renderers, `--out` with a target guard, the audit-date time unit and the HEAD commit (D-012).
 

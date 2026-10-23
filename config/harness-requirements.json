@@ -26,6 +26,15 @@
       "why": "Dynamic code without a checker lets an agent's type mistakes through every static layer."
     },
     {
+      "id": "traceable-calls",
+      "factor": "direct-api-calls",
+      "assumption": "An agent finds every caller of the code it changes by reading and searching the code.",
+      "surfaces": ["AGENTS.md", "package.json lint script"],
+      "required": "List the files with computed-target calls in AGENTS.md as \"find every call target before editing\", and add a lint rule to the lint layer that rejects new eval and computed-name calls (for example ESLint no-eval and no-implied-eval, RuboCop Security/Eval, Bandit B307).",
+      "recommended": "List the files with computed-target calls in AGENTS.md as \"find every call target before editing\".",
+      "why": "A call whose target is computed at run time does not show up when an agent searches for the method it renames or changes, so the agent breaks callers it never saw."
+    },
+    {
       "id": "legible-context",
       "factor": "file-size",
       "assumption": "Files and the context needed to change them fit in an agent's working context.",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
-import { collected, dependenciesOf, notMeasured, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
+import { collected, dependenciesOf, dynamicCallsOf, notMeasured, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
 import { RULES, type RuleOutcome } from "./rules.js";
 import type { CollectorResults } from "./types.js";
 
@@ -233,5 +233,81 @@ describe("dependency-currency", () => {
   it("cites the deciding runtime", () => {
     const outcome = run("dependency-currency", runtimes({ runtime: "python", spec: "2.7", source: "setup.py", via: "classifier", cycle: "2.7", status: "end-of-life", eol: "2020-01-01" }));
     expect(outcome.status === "scored" && outcome.evidence).toEqual(["python 2.7 (setup.py, classifier): cycle 2.7 end-of-life since 2020-01-01"]);
+  });
+});
+
+describe("direct-api-calls", () => {
+  // n covered product files, the first `withSites` of them with one computed-target site each.
+  const covered = (n: number, withSites: number, extra: Partial<CollectorResults> = {}) => {
+    const files = Array.from({ length: n }, (_, index) => ({ path: `src/f${String(index).padStart(3, "0")}.py`, lines: 10, sites: index < withSites ? 1 : 0 }));
+    return collected({ structure: structureOf(files), dynamicCalls: dynamicCallsOf(files), ...extra });
+  };
+
+  it.each([
+    ["2% of files", 2, 5],
+    ["3%", 3, 4],
+    ["5%", 5, 4],
+    ["6%", 6, 3],
+    ["10%", 10, 3],
+    ["11%", 11, 2],
+    ["20%", 20, 2],
+    ["21%", 21, 1],
+  ])("%s with computed-target calls → %i", (_label, withSites, expected) => {
+    expect(scoreOf("direct-api-calls", covered(100, withSites))).toBe(expected);
+  });
+
+  it("counts files, not sites: one dispatcher with many sites counts once", () => {
+    const files = [{ path: "src/dispatch.rb", sites: 40 }, ...Array.from({ length: 49 }, (_, index) => ({ path: `src/m${index}.rb` }))];
+    const results = collected({ structure: structureOf(files.map((file) => ({ path: file.path, lines: 10 }))), dynamicCalls: dynamicCallsOf(files) });
+    const outcome = run("direct-api-calls", results);
+    expect(outcome).toMatchObject({ status: "scored", score: 5, rule: "2.00% of 50 covered files have a computed-target call (40 sites)" });
+  });
+
+  it("leaves test files out of both counts", () => {
+    const files = [...Array.from({ length: 20 }, (_, index) => ({ path: `src/f${index}.py` })), { path: "tests/test_mock.py", sites: 5 }];
+    const results = collected({
+      structure: structureOf(files.map((file) => ({ path: file.path, lines: 10 }))),
+      testsDocs: testsDocsOf({ testFiles: ["tests/test_mock.py"] }),
+      dynamicCalls: dynamicCallsOf(files),
+    });
+    expect(run("direct-api-calls", results)).toMatchObject({ status: "scored", score: 5, rule: "0.00% of 20 covered files have a computed-target call (0 sites)" });
+  });
+
+  it("cites the share, the constructs, the top files and sample sites", () => {
+    const files = [
+      { path: "app/a.rb", sites: 3, construct: "send by name" },
+      { path: "app/b.rb", sites: 1, construct: "constantize by name" },
+      ...Array.from({ length: 18 }, (_, index) => ({ path: `app/c${index}.rb` })),
+    ];
+    const outcome = run("direct-api-calls", collected({ structure: structureOf(files.map((file) => ({ path: file.path, lines: 10 }))), dynamicCalls: dynamicCallsOf(files) }));
+    expect(outcome.status === "scored" && outcome.evidence).toEqual([
+      "2 of 20 covered product files (10.00%) have computed-target calls: 4 sites",
+      "by construct: send by name 3, constantize by name 1",
+      "top files: app/a.rb (3), app/b.rb (1)",
+      "sample sites: app/a.rb:1 send by name, app/b.rb:1 constantize by name, app/a.rb:2 send by name, app/a.rb:3 send by name",
+      "covered languages hold 100.00% of 200 source lines",
+    ]);
+    expect(outcome.status === "scored" && outcome.partial).toBe("configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected");
+  });
+
+  it("is not measured when covered languages hold less than half the source lines, naming the main uncovered one", () => {
+    const python = Array.from({ length: 10 }, (_, index) => ({ path: `tools/t${index}.py`, lines: 10 }));
+    const c = Array.from({ length: 20 }, (_, index) => ({ path: `src/m${index}.c`, lines: 10 }));
+    const results = collected({ structure: structureOf([...python, ...c]), dynamicCalls: dynamicCallsOf(python) });
+    expect(run("direct-api-calls", results)).toEqual({ status: "not-measured", reason: "covered languages hold 33.33% of source lines, below 50%; the main language, c (200 lines), has no dynamic-call rules" });
+  });
+
+  it("names uncovered languages as partial coverage when coverage is enough", () => {
+    const python = Array.from({ length: 10 }, (_, index) => ({ path: `app/p${index}.py`, lines: 30 }));
+    const results = collected({ structure: structureOf([...python, { path: "ext/fast.c", lines: 100 }]), dynamicCalls: dynamicCallsOf(python) });
+    const outcome = run("direct-api-calls", results);
+    expect(outcome.status === "scored" && outcome.partial).toBe(
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: c (25.00% of source lines)",
+    );
+  });
+
+  it("is not measured with fewer than 10 covered product files, or without the collector", () => {
+    expect(run("direct-api-calls", covered(9, 0))).toEqual({ status: "not-measured", reason: "only 9 covered product files; at least 10 are needed" });
+    expect(run("direct-api-calls", collected())).toEqual({ status: "not-measured", reason: "dynamic calls not measured (no dynamic-calls fixture)" });
   });
 });

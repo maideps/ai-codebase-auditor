@@ -262,3 +262,26 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
 **Consequences:**
 - Positive: every plan item and step names its factor score or zone, and the case study confirms this for all five repositories. Redmine's roadmap shows that one step (a Ruby checker) turns *adapt* into *adopt*. Another harness can be planned for by swapping one file.
 - Negative: effort ignores code difficulty; the requirements file must be updated when the harness changes; red-term false positives become deny rules a person may need to prune.
+
+### D-015: Direct calls scored from computed-target call sites, by pattern matching per language
+
+**Date:** 2026-10-23
+**Status:** accepted (rules proposed in docs/sprints/feat-011.md and approved in review)
+**Context:** direct-api-calls is a blocking factor: "what a call does is visible at the call site, not hidden behind reflection, magic or dynamic dispatch." Without a collector, every verdict was provisional and readiness rested on test-feedback alone. The project's constraint is no per-language parsers.
+**Decision:**
+- A collector reads the tracked source files in Python, PHP, Ruby, Java, JavaScript and TypeScript. A small lexer per language removes comments and replaces strings. Patterns then find calls whose target is computed: reflection, dispatch by name, `eval`, `method_missing` and similar.
+- A literal target (a string, a symbol, a number or an UPPER_CASE constant) is visible, so it is not counted.
+- The score is the share of covered product files with at least one site, tests left out: ≤ 2% scores 5, then 5%, 10% and 20%.
+- The factor is not measured below 50% line coverage or under 10 covered files.
+- The harness requirement `traceable-calls` and a roadmap step cover the factor. The report goes to `schemaVersion` 4 with `signals.dynamicCalls`.
+- The display name becomes "Direct calls (visible at call site)"; the id is unchanged.
+- Shared reads open each file once when it is 4 MB or smaller.
+**Alternatives considered:**
+- Sites per 1000 lines — Rejected in review: one dispatcher file with many sites is localized magic, not spread risk.
+- Stricter bands (1/3/6/12%) — Rejected in review: they would make moin-1.9 and Redmine weak on the strength of an unparsed heuristic.
+- Go and C# rules without calibration data — Rejected in review.
+- Yellow zones from per-module shares — Rejected in review: the factor stays repository-wide.
+- Parsing each language — Rejected: it breaks the stack-agnostic constraint and adds a parser per language.
+**Consequences:**
+- Positive: four of the five calibration verdicts are no longer provisional, and readiness reflects both blocking factors. Each score cites its top files and 10 sample sites, and all 40 sampled sites in the case study are real.
+- Negative: pattern matching misses or invents sites in unusual syntax. Dispatch wired through configuration (DI containers, XML mappings, Rails callbacks, annotations) is not counted, so framework-heavy code can score better than it reads. C and other languages stay unmeasured. Java files are read twice, once per collector.

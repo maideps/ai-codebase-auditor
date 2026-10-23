@@ -5,7 +5,7 @@
 import type { CodeStructure } from "../collectors/code-structure.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
-import { isLockFile, languageOf, SOURCE_EXTENSIONS, extensionOf } from "../file-kinds.js";
+import { DYNAMIC_CALL_FAMILIES, isLockFile, languageOf, SOURCE_EXTENSIONS, extensionOf } from "../file-kinds.js";
 import type { CollectorResults } from "./types.js";
 
 export type Thresholds = Readonly<Record<string, number>>;
@@ -28,7 +28,6 @@ export interface RuleSpec {
 
 /** Factors that exist in the model but have no collector signal yet. */
 export const SIGNAL_LESS: Readonly<Record<string, string>> = {
-  "direct-api-calls": "no collector signal yet: needs call-site analysis",
   "module-boundaries": "no collector signal yet: needs an import graph or co-change coupling",
   observability: "no collector signal yet: needs a logging and metrics detector",
 };
@@ -245,6 +244,100 @@ const documentedIntent: RuleSpec = {
   },
 };
 
+const DYNAMIC_PARTIAL = "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected";
+const SAMPLE_SITES = 10;
+
+export interface DynamicShare {
+  /** Covered product files read by the collector (tests left out). */
+  files: { path: string; sites: { line: number; construct: string }[] }[];
+  withSites: number;
+  share: number;
+  sites: number;
+}
+
+/** The share of covered product files with at least one computed-target call site. */
+export function dynamicShare(results: CollectorResults): DynamicShare | null {
+  if (results.dynamicCalls.status !== "measured") return null;
+  const testPaths = results.testsDocs.status === "measured" ? new Set(results.testsDocs.value.tests.files.map((file) => file.path)) : new Set<string>();
+  const files = results.dynamicCalls.value.files.filter((file) => !testPaths.has(file.path));
+  const withSites = files.filter((file) => file.sites.length > 0).length;
+  return { files, withSites, share: files.length === 0 ? 0 : withSites / files.length, sites: files.reduce((sum, file) => sum + file.sites.length, 0) };
+}
+
+/** The direct-api-calls score for a share of files with computed-target calls. */
+export function dynamicScoreOf(share: number, thresholds: Thresholds): number {
+  return band(share, [[5, t(thresholds, "maxShareWithSites5")], [4, t(thresholds, "maxShareWithSites4")], [3, t(thresholds, "maxShareWithSites3")], [2, t(thresholds, "maxShareWithSites2")]], "lower");
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+const directCalls: RuleSpec = {
+  keys: ["maxShareWithSites5", "maxShareWithSites4", "maxShareWithSites3", "maxShareWithSites2", "minCoveredLineShare", "minCoveredFiles"],
+  ascending: [["maxShareWithSites5", "maxShareWithSites4", "maxShareWithSites3", "maxShareWithSites2"]],
+  unitInterval: ["maxShareWithSites5", "maxShareWithSites4", "maxShareWithSites3", "maxShareWithSites2", "minCoveredLineShare"],
+  wholeNumbers: ["minCoveredFiles"],
+  score(results, thresholds) {
+    const dynamic = need(results.dynamicCalls, "dynamic calls");
+    if ("missing" in dynamic) return dynamic.missing;
+    const structure = need(results.structure, "code structure");
+    if ("missing" in structure) return structure.missing;
+    const testPaths = results.testsDocs.status === "measured" ? new Set(results.testsDocs.value.tests.files.map((file) => file.path)) : new Set<string>();
+
+    // Coverage: the share of product source lines in languages with detection rules.
+    let coveredLines = 0;
+    const uncovered = new Map<string, number>();
+    for (const file of sourceFiles(structure.value, testPaths)) {
+      const family = languageOf(file.path)?.family ?? "";
+      if (DYNAMIC_CALL_FAMILIES[family]) coveredLines += file.lines;
+      else uncovered.set(family, (uncovered.get(family) ?? 0) + file.lines);
+    }
+    const totalLines = coveredLines + [...uncovered.values()].reduce((sum, lines) => sum + lines, 0);
+    if (totalLines === 0) return { status: "not-measured", reason: "no source lines" };
+    const coverage = coveredLines / totalLines;
+    const byLines = [...uncovered.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+    if (coverage < t(thresholds, "minCoveredLineShare")) {
+      const [family, lines] = byLines[0] ?? ["unknown", 0];
+      return {
+        status: "not-measured",
+        reason: `covered languages hold ${fixed(coverage * 100)}% of source lines, below ${t(thresholds, "minCoveredLineShare") * 100}%; the main language, ${family} (${lines} lines), has no dynamic-call rules`,
+      };
+    }
+
+    const measured = dynamicShare(results);
+    if (!measured) return { status: "not-measured", reason: "dynamic calls not measured" };
+    const { files, withSites, share, sites } = measured;
+    if (files.length < t(thresholds, "minCoveredFiles")) {
+      return { status: "not-measured", reason: `only ${files.length} covered product files; at least ${t(thresholds, "minCoveredFiles")} are needed` };
+    }
+
+    const counts = new Map<string, number>();
+    for (const file of files) for (const site of file.sites) counts.set(site.construct, (counts.get(site.construct) ?? 0) + 1);
+    const ranked = files.filter((file) => file.sites.length > 0).sort((a, b) => b.sites.length - a.sites.length || (a.path < b.path ? -1 : 1));
+    // Samples go round the top files, first sites first, so one file cannot fill the list.
+    const samples: string[] = [];
+    for (let round = 0; samples.length < SAMPLE_SITES && ranked.some((file) => file.sites.length > round); round += 1) {
+      for (const file of ranked) {
+        const site = file.sites[round];
+        if (site && samples.length < SAMPLE_SITES) samples.push(`${file.path}:${site.line} ${site.construct}`);
+      }
+    }
+    const notCovered = byLines.map(([family, lines]) => `${family} (${fixed((lines / totalLines) * 100)}% of source lines)`);
+    return {
+      status: "scored",
+      score: dynamicScoreOf(share, thresholds),
+      rule: `${fixed(share * 100)}% of ${files.length} covered files have a computed-target call (${plural(sites, "site")})`,
+      evidence: [
+        `${withSites} of ${files.length} covered product files (${fixed(share * 100)}%) have computed-target calls: ${plural(sites, "site")}`,
+        ...(counts.size > 0 ? [`by construct: ${[...counts.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([name, n]) => `${name} ${n}`).join(", ")}`] : []),
+        ...(ranked.length > 0 ? [`top files: ${ranked.slice(0, 5).map((file) => `${file.path} (${file.sites.length})`).join(", ")}`] : []),
+        ...(samples.length > 0 ? [`sample sites: ${samples.join(", ")}`] : []),
+        `covered languages hold ${fixed(coverage * 100)}% of ${totalLines} source lines`,
+      ],
+      partial: notCovered.length > 0 ? `${DYNAMIC_PARTIAL}; not covered: ${notCovered.join(", ")}` : DYNAMIC_PARTIAL,
+    };
+  },
+};
+
 const devDeploySimplicity: RuleSpec = {
   keys: [],
   score(results) {
@@ -320,6 +413,7 @@ const dependencyCurrency: RuleSpec = {
 export const RULES: Readonly<Record<string, RuleSpec>> = {
   "test-feedback": testFeedback,
   "type-strictness": typeStrictness,
+  "direct-api-calls": directCalls,
   "file-size": fileSize,
   "documented-intent": documentedIntent,
   "dev-deploy-simplicity": devDeploySimplicity,

@@ -3,6 +3,7 @@
 
 import type { CodeStructure } from "../collectors/code-structure.js";
 import type { Dependencies } from "../collectors/dependencies.js";
+import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
@@ -13,6 +14,7 @@ export interface CollectorResults {
   structure: Measurement<CodeStructure>;
   testsDocs: Measurement<TestsDocs>;
   dependencies: Measurement<Dependencies>;
+  dynamicCalls: Measurement<DynamicCalls>;
 }
 
 export interface DeferralOutcome {

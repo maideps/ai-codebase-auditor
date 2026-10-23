@@ -4,25 +4,25 @@
 |---|---|
 | Target | `/repos/sample` at commit `0123456789ab` |
 | Audit date | 2026-10-22 |
-| Verdict | **adapt** (provisional: direct-api-calls not measured) |
-| Readiness level | **5 of 5**, set by test-feedback (provisional) |
+| Verdict | **adapt** |
+| Readiness level | **2 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
 
-**adapt** (provisional: direct-api-calls not measured): adopt the harness with adaptations for the weak factors below.
+**adapt**: adopt the harness with adaptations for the weak factors below.
 
-Rule: 3 weak factors (score ≤ 2): type-strictness 1, documented-intent 2, dependency-currency 1
+Rule: 4 weak factors (score ≤ 2): type-strictness 1, direct-api-calls 2, documented-intent 2, dependency-currency 1
 
-Triggered by: type-strictness 1, documented-intent 2, dependency-currency 1.
+Triggered by: type-strictness 1, direct-api-calls 2, documented-intent 2, dependency-currency 1.
 
 ## Factor scores
 
 | Factor | Class | Score | Rule |
 |---|---|---|---|
-| test-feedback | blocking | 5 | ratio 0.43 ≥ 0.3 with a runner config and CI |
+| test-feedback | blocking | 5 | ratio 0.30 ≥ 0.3 with a runner config and CI |
 | type-strictness | constraining | 1 | weighted typed share 0.00 |
-| direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
+| direct-api-calls | blocking | 2 | 20.00% of 10 covered files have a computed-target call (3 sites) |
 | file-size | constraining | 5 | lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
 | documented-intent | constraining | 2 | a README without written rules |
@@ -34,11 +34,11 @@ Scores are never averaged; the lowest scored blocking factor sets the readiness 
 
 ### test-feedback: Test presence and feedback speed
 
-Score **5** (blocking). Rule: ratio 0.43 ≥ 0.3 with a runner config and CI.
+Score **5** (blocking). Rule: ratio 0.30 ≥ 0.3 with a runner config and CI.
 
 Evidence:
 
-- 3 test files for 7 source files: ratio 0.43
+- 3 test files for 10 source files: ratio 0.30
 - test runner configs: jest.config.js
 - CI: .github/workflows/ci.yml
 
@@ -50,12 +50,22 @@ Score **1** (constraining). Rule: weighted typed share 0.00.
 
 Evidence:
 
-- typed share 0.00 of 270 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 270)
+- typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)
 - type checkers: none
 
-### direct-api-calls: Direct API calls
+### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): no collector signal yet: needs call-site analysis.
+Score **2** (blocking). Rule: 20.00% of 10 covered files have a computed-target call (3 sites).
+
+Evidence:
+
+- 2 of 10 covered product files (20.00%) have computed-target calls: 3 sites
+- by construct: computed call 2, eval or Function 1
+- top files: src/f0.js (2), src/auth/login.js (1)
+- sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call
+- covered languages hold 100.00% of 390 source lines
+
+Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected.
 
 ### file-size: File size and context legibility
 
@@ -63,7 +73,7 @@ Score **5** (constraining). Rule: lower of p90 40 lines (→ 5) and 0.00% of fil
 
 Evidence:
 
-- 7 source files: p90 40 lines, 0 over 1000 lines (0.00%)
+- 10 source files: p90 40 lines, 0 over 1000 lines (0.00%)
 - largest: src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines), src/f4.js (40 lines)
 
 ### module-boundaries: Module boundary clarity
@@ -113,7 +123,7 @@ Green: agents may edit. Yellow: add characterization tests first. Red: agents ma
 
 | Zone | Module | Source files | Red files | Reason |
 |---|---|---|---|---|
-| green | `src/(files)` | 6 | 0 | test-feedback 5 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines) |
+| green | `src/(files)` | 9 | 0 | test-feedback 5 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines) |
 | red | `src/auth` | 1 | 1 | every source file is on a red path: agents may only propose changes |
 
 Red paths:
@@ -129,6 +139,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | Level | Item | Trigger | Surfaces |
 |---|---|---|---|
 | required | typed-changes | type-strictness 1 | package.json typecheck script, DECISIONS.md |
+| required | traceable-calls | direct-api-calls 2 | AGENTS.md, package.json lint script |
 | required | written-intent | documented-intent 2 | AGENTS.md, docs/ARCHITECTURE.md |
 | required | supported-runtime | dependency-currency 1 | CI, verification layers |
 | required | detected-stack | test-feedback 5 | package.json layer scripts |
@@ -142,7 +153,17 @@ Change: Add a type checker for the main dynamic language in check mode, with a b
 
 Why: Dynamic code without a checker lets an agent's type mistakes through every static layer.
 
-- main dynamic language: javascript (270 source lines); suggested checker: TypeScript checkJs
+- main dynamic language: javascript (390 source lines); suggested checker: TypeScript checkJs
+
+### required: traceable-calls
+
+Trigger: direct-api-calls 2. Surfaces: `AGENTS.md`, `package.json lint script`.
+
+Change: List the files with computed-target calls in AGENTS.md as "find every call target before editing", and add a lint rule to the lint layer that rejects new eval and computed-name calls (for example ESLint no-eval and no-implied-eval, RuboCop Security/Eval, Bandit B307).
+
+Why: A call whose target is computed at run time does not show up when an agent searches for the method it renames or changes, so the agent breaks callers it never saw.
+
+- files with computed-target calls: src/f0.js (2), src/auth/login.js (1)
 
 ### required: written-intent
 
@@ -192,13 +213,13 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 | # | Factor | Score | Effort | Priority | Step | Verdict after |
 |---|---|---|---|---|---|---|
-| 1 | dependency-currency | 1 → 5 | M | 2.5 | upgrade node from 14 to 24 | unchanged |
-| 2 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
-| 3 | type-strictness | 1 → 3 | M | 1.5 | configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60) | unchanged |
+| 1 | direct-api-calls | 2 → 3 | S | 4 | make the computed-target calls explicit in 1 of 2 files (to 10% of files), starting with src/f0.js (2), src/auth/login.js (1) | unchanged |
+| 2 | dependency-currency | 1 → 5 | M | 2.5 | upgrade node from 14 to 24 | unchanged |
+| 3 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
+| 4 | type-strictness | 1 → 3 | M | 1.5 | configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60) | unchanged |
 
 ## Not measured
 
-- factor `direct-api-calls`: no collector signal yet: needs call-site analysis
 - factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `go.mod`: not a supported manifest
@@ -216,7 +237,7 @@ None.
 
 ### Code structure
 
-10 files, 0 lines; per file p50 0, p90 0, p99 0, max 0. Excluded: generated 1. scc: not used (test).
+13 files, 0 lines; per file p50 0, p90 0, p99 0, max 0. Excluded: generated 1. scc: not used (test).
 
 Largest files:
 
@@ -244,6 +265,26 @@ None.
 | Runtime | Spec | Declared in | Cycle | Status | End of life |
 |---|---|---|---|---|---|
 | node | >=14 | `package.json` (engines.node) | 14 | end-of-life | 2023-04-30 |
+
+### Dynamic calls
+
+13 covered files read, tests included; 2 with computed-target calls, 3 sites. Skipped: minified 1.
+
+| Language | Files | With sites | Sites |
+|---|---|---|---|
+| javascript | 13 | 2 | 3 |
+
+| Construct | Sites |
+|---|---|
+| computed call | 2 |
+| eval or Function | 1 |
+
+Files with the most sites:
+
+| File | Sites | Constructs |
+|---|---|---|
+| `src/f0.js` | 2 | computed call |
+| `src/auth/login.js` | 1 | eval or Function |
 
 ## Method
 

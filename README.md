@@ -14,14 +14,14 @@ An excerpt from auditing [Redmine](https://github.com/redmine/redmine), from the
 Scores (1-5; the lowest blocking factor sets the readiness level, never an average):
   blocking      test-feedback          5  ratio 0.50 ≥ 0.3 with a runner config and CI
   constraining  type-strictness        1  weighted typed share 0.00
-  blocking      direct-api-calls       -  not measured: no collector signal yet: needs call-site analysis
+  blocking      direct-api-calls       3  5.61% of 838 covered files have a computed-target call (72 sites)
   constraining  file-size              4  lower of p90 214 lines (→ 4) and 1.07% of files over 1000 lines (→ 4)
   constraining  documented-intent      3  docs with contributing, architecture, convention or decision docs
   constraining  dev-deploy-simplicity  5  4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed
   constraining  dependency-currency    4  a runtime reaches end of life on 2027-03-31, within 12 months
   ...
 
-Verdict: adapt (provisional: direct-api-calls not measured)
+Verdict: adapt
   rule: 1 weak factor (score ≤ 2): type-strictness 1
 
 Risk zones (green: agents may edit; yellow: characterization tests first; red: proposals only):
@@ -32,14 +32,15 @@ Risk zones (green: agents may edit; yellow: characterization tests first; red: p
   ...
 
 Harness adaptation plan (ai-harness-framework 0.5.0): Adopt the harness with these adaptations.
-  required     typed-changes   type-strictness 1
-  required     detected-stack  test-feedback 5
-  required     red-paths       red zone, 78
-  recommended  written-intent  documented-intent 3
+  required     typed-changes    type-strictness 1
+  required     detected-stack   test-feedback 5
+  required     red-paths        red zone, 78
+  recommended  traceable-calls  direct-api-calls 3
+  recommended  written-intent   documented-intent 3
 
 Modernization roadmap (by gain against effort):
   1. type-strictness 1→3 [M] configure Sorbet or Steep for ruby with a baseline (typed share 0.00 to 0.53) (verdict after: adopt)
-  2. documented-intent 3→4 [M] write 10 more rules, across at least 2 files, and add an architecture doc or decision records
+  2. direct-api-calls 3→4 [M] make the computed-target calls explicit in 6 of 47 files (to 4.9% of files), starting with app/models/query.rb (5), ...
   ...
 ```
 
@@ -75,7 +76,7 @@ Clone the repositories you audit outside this one. The tool refuses an `--out` d
 | Factor | Class | Measured from |
 |---|---|---|
 | test-feedback | blocking | test files per source file, runner config, CI |
-| direct-api-calls | blocking | not measured yet |
+| direct-api-calls | blocking | share of files with calls whose target is computed: reflection, dispatch by name, `eval`, `method_missing` (Python, PHP, Ruby, Java, JavaScript, TypeScript) |
 | type-strictness | constraining | share of code under a type checker, TypeScript `strict` |
 | file-size | constraining | p90 file length, share of files over 1000 lines |
 | module-boundaries | constraining | not measured yet |
@@ -120,12 +121,13 @@ The rules were calibrated on five public legacy repositories, each checked again
 | [Struts](https://github.com/apache/struts) (Java) | adopt | nothing weak |
 | [Redmine](https://github.com/redmine/redmine) (Ruby on Rails) | adapt | well tested, but no type checking |
 
-All five verdicts are provisional until direct API calls are measured. The [case study](docs/case-study/README.md) has the full reports, the labels and the known limits.
+DOOM's verdict is provisional: its C code has no dynamic-call rules, so direct-api-calls is not measured there. The [case study](docs/case-study/README.md) has the full reports, the labels and the known limits.
 
 ## Status and Limits
 
 Version 2 is complete: the audit, the reports, the harness adaptation plan and the modernization roadmap.
-- Three factors (direct API calls, module boundaries and observability) have no collector yet, so every verdict is provisional.
+- Two constraining factors, module boundaries and observability, have no collector yet.
+- Direct calls are detected for Python, PHP, Ruby, Java, JavaScript and TypeScript only, by pattern matching rather than parsing. Dispatch wired through configuration (dependency injection, XML mappings, callbacks by symbol) is not counted.
 - Test speed, CI pass rates and branch protection cannot be seen from repository contents.
 - Roadmap effort comes from counts, not from how hard the code is.
 - An LLM never sets a score or a verdict.

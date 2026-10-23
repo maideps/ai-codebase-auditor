@@ -4,17 +4,17 @@
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\phpBB` at commit `27fb7748768e` |
 | Audit date | 2026-10-23 |
-| Verdict | **adopt** (provisional: direct-api-calls not measured) |
-| Readiness level | **5 of 5**, set by test-feedback (provisional) |
+| Verdict | **adopt** |
+| Readiness level | **4 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
 
-**adopt** (provisional: direct-api-calls not measured): the harness can be adopted as is.
+**adopt**: the harness can be adopted as is.
 
 Rule: no scored factor is weak (all ≥ 3)
 
-Triggered by: test-feedback 5.
+Triggered by: test-feedback 5, direct-api-calls 4.
 
 ## Factor scores
 
@@ -22,7 +22,7 @@ Triggered by: test-feedback 5.
 |---|---|---|---|
 | test-feedback | blocking | 5 | ratio 0.42 ≥ 0.3 with a runner config and CI |
 | type-strictness | constraining | 3 | weighted typed share 0.58 |
-| direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
+| direct-api-calls | blocking | 4 | 3.94% of 1319 covered files have a computed-target call (134 sites) |
 | file-size | constraining | 3 | lower of p90 473 lines (→ 3) and 3.87% of files over 1000 lines (→ 3) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
 | documented-intent | constraining | 3 | docs with contributing, architecture, convention or decision docs |
@@ -53,9 +53,19 @@ Evidence:
 - typed share 0.58 of 317925 source lines (strong 0, weak 0, checked dynamic 305116, unchecked dynamic 12809)
 - type checkers: Psalm (psalm.xml)
 
-### direct-api-calls: Direct API calls
+### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): no collector signal yet: needs call-site analysis.
+Score **4** (blocking). Rule: 3.94% of 1319 covered files have a computed-target call (134 sites).
+
+Evidence:
+
+- 52 of 1319 covered product files (3.94%) have computed-target calls: 134 sites
+- by construct: variable variable 37, variable function 32, new $class 24, call_user_func by name 21, eval 9, __call or __get 5, variable method 4, computed call 2
+- top files: phpBB/includes/acp/acp_database.php (14), phpBB/install/convert/convertor.php (13), phpBB/includes/functions_user.php (9), phpBB/includes/ucp/ucp_pm_compose.php (9), phpBB/includes/functions_compress.php (6)
+- sample sites: phpBB/includes/acp/acp_database.php:330 variable function, phpBB/install/convert/convertor.php:77 new $class, phpBB/includes/functions_user.php:51 variable variable, phpBB/includes/ucp/ucp_pm_compose.php:1234 variable variable, phpBB/includes/functions_compress.php:597 variable function, phpBB/includes/functions_module.php:293 variable function, phpBB/includes/functions_privmsgs.php:1399 variable variable, phpBB/phpbb/db/migration/schema_generator.php:171 new $class, phpBB/includes/functions_content.php:84 variable variable, phpBB/includes/functions_convert.php:768 call_user_func by name
+- covered languages hold 99.70% of 317925 source lines
+
+Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: shell (0.30% of source lines).
 
 ### file-size: File size and context legibility
 
@@ -360,13 +370,13 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 | # | Factor | Score | Effort | Priority | Step | Verdict after |
 |---|---|---|---|---|---|---|
-| 1 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
-| 2 | dependency-currency | 4 → 5 | M | 0.5 | upgrade php from 8.2 to 8.3 | unchanged |
-| 3 | file-size | 3 → 4 | L | 0.33 | split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines | unchanged |
+| 1 | direct-api-calls | 4 → 5 | L | 0.67 | make the computed-target calls explicit in 26 of 52 files (to 2% of files), starting with phpBB/includes/acp/acp_database.php (14), phpBB/install/convert/convertor.php (13), phpBB/includes/functions_user.php (9) | unchanged |
+| 2 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
+| 3 | dependency-currency | 4 → 5 | M | 0.5 | upgrade php from 8.2 to 8.3 | unchanged |
+| 4 | file-size | 3 → 4 | L | 0.33 | split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines | unchanged |
 
 ## Not measured
 
-- factor `direct-api-calls`: no collector signal yet: needs call-site analysis
 - factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `phpBB/config/development/container/environment.yml`: not a supported manifest
@@ -471,6 +481,42 @@ Largest files:
 | php | >=5.3 | `tests/functional/fixtures/ext/foo/bar/composer.json` (require.php), test fixture: not counted | 5.3 | end-of-life | 2014-08-14 |
 | php | >=5.3 | `tests/functional/fixtures/ext/foo/foo/composer.json` (require.php), test fixture: not counted | 5.3 | end-of-life | 2014-08-14 |
 
+### Dynamic calls
+
+1891 covered files read, tests included; 73 with computed-target calls, 161 sites. Skipped: generated 6, minified 27, vendored 3.
+
+| Language | Files | With sites | Sites |
+|---|---|---|---|
+| javascript | 23 | 2 | 2 |
+| php | 1867 | 71 | 159 |
+| python | 1 | 0 | 0 |
+
+| Construct | Sites |
+|---|---|
+| variable function | 41 |
+| variable variable | 39 |
+| new $class | 32 |
+| call_user_func by name | 25 |
+| eval | 10 |
+| __call or __get | 6 |
+| variable method | 6 |
+| computed call | 2 |
+
+Files with the most sites:
+
+| File | Sites | Constructs |
+|---|---|---|
+| `phpBB/includes/acp/acp_database.php` | 14 | variable function |
+| `phpBB/install/convert/convertor.php` | 13 | new $class, eval, call_user_func by name |
+| `phpBB/includes/functions_user.php` | 9 | variable variable, call_user_func by name |
+| `phpBB/includes/ucp/ucp_pm_compose.php` | 9 | variable variable |
+| `phpBB/includes/functions_compress.php` | 6 | variable function |
+| `phpBB/includes/functions_module.php` | 5 | variable function, eval, new $class |
+| `phpBB/includes/functions_privmsgs.php` | 5 | variable variable |
+| `phpBB/phpbb/db/migration/schema_generator.php` | 4 | new $class, variable function |
+| `phpBB/includes/functions_content.php` | 3 | variable variable |
+| `phpBB/includes/functions_convert.php` | 3 | call_user_func by name, eval |
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -515,3 +561,9 @@ Collector notes:
 - runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
+- files are those tracked at HEAD; content is read from the working tree; nothing is run
+- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- comments are removed and strings replaced before matching, so text inside strings never counts
+- only calls whose target is computed count; a literal target is visible at the call site
+- vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
+- configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected

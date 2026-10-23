@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
 import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "../config/runtime-eol.js";
 import { scoreFactors } from "../scoring/score.js";
 import type { CollectorResults } from "../scoring/types.js";
-import { collected, dependenciesOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
+import { collected, dependenciesOf, dynamicCallsOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
 import { buildRoadmap, type RoadmapStep } from "./roadmap.js";
 
 const factors = loadFactorConfig(DEFAULT_CONFIG_PATH);
@@ -73,6 +73,22 @@ describe("file-size steps", () => {
     expect(stepFor(roadmap(collected({ structure: structureOf(files) })), "file-size")).toMatchObject({
       from: 2, to: 3, effort: "S", action: "split 1 of 8 files over 1000 lines (to 7% of files)",
     });
+  });
+});
+
+describe("direct-api-calls steps", () => {
+  // 100 covered product files, the first `withSites` with one computed-target site each.
+  const dynamic = (withSites: number) => {
+    const files = Array.from({ length: 100 }, (_, index) => ({ path: `src/f${String(index).padStart(3, "0")}.py`, lines: 10, sites: index < withSites ? 1 : 0 }));
+    return collected({ structure: structureOf(files), dynamicCalls: dynamicCallsOf(files) });
+  };
+
+  it.each([
+    ["a weak share to the score-3 band", 12, 2, 3, "make the computed-target calls explicit in 2 of 12 files (to 10% of files), starting with src/f000.py (1), src/f001.py (1), src/f002.py (1)", "S"],
+    ["a very weak share", 40, 1, 3, "make the computed-target calls explicit in 30 of 40 files (to 10% of files), starting with src/f000.py (1), src/f001.py (1), src/f002.py (1)", "L"],
+    ["a good share to the top band", 4, 4, 5, "make the computed-target calls explicit in 2 of 4 files (to 2% of files), starting with src/f000.py (1), src/f001.py (1), src/f002.py (1)", "S"],
+  ])("sizes %s by the files to change", (_label, withSites, from, to, action, effort) => {
+    expect(stepFor(roadmap(dynamic(withSites)), "direct-api-calls")).toMatchObject({ from, to, action, effort });
   });
 });
 

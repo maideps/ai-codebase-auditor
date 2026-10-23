@@ -4,13 +4,13 @@
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\moin-1.9` at commit `8c6341e92bce` |
 | Audit date | 2026-10-23 |
-| Verdict | **adapt** (provisional: direct-api-calls not measured) |
-| Readiness level | **3 of 5**, set by test-feedback (provisional) |
+| Verdict | **adapt** |
+| Readiness level | **3 of 5**, set by test-feedback |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
 
-**adapt** (provisional: direct-api-calls not measured): adopt the harness with adaptations for the weak factors below.
+**adapt**: adopt the harness with adaptations for the weak factors below.
 
 Rule: 3 weak factors (score ≤ 2): type-strictness 1, documented-intent 2, dependency-currency 1
 
@@ -22,7 +22,7 @@ Triggered by: type-strictness 1, documented-intent 2, dependency-currency 1.
 |---|---|---|---|
 | test-feedback | blocking | 3 | ratio 0.08 ≥ 0.05 with a runner config and CI |
 | type-strictness | constraining | 1 | weighted typed share 0.06 |
-| direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
+| direct-api-calls | blocking | 3 | 7.93% of 1210 covered files have a computed-target call (243 sites) |
 | file-size | constraining | 3 | lower of p90 573 lines (→ 3) and 4.57% of files over 1000 lines (→ 3) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
 | documented-intent | constraining | 2 | a README without written rules |
@@ -53,9 +53,19 @@ Evidence:
 - typed share 0.06 of 323903 source lines (strong 18670, weak 0, checked dynamic 0, unchecked dynamic 305233)
 - type checkers: none
 
-### direct-api-calls: Direct API calls
+### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): no collector signal yet: needs call-site analysis.
+Score **3** (blocking). Rule: 7.93% of 1210 covered files have a computed-target call (243 sites).
+
+Evidence:
+
+- 96 of 1210 covered product files (7.93%) have computed-target calls: 243 sites
+- by construct: getattr by name 175, __getattr__ 26, import by name 19, eval or exec 14, computed call 4, eval or Function 3, Class.forName by name 1, globals() by name 1
+- top files: MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12), MoinMoin/support/werkzeug/datastructures.py (11), MoinMoin/support/passlib/ext/django/utils.py (10)
+- sample sites: MoinMoin/config/multiconfig.py:48 import by name, MoinMoin/user.py:103 getattr by name, MoinMoin/support/passlib/utils/handlers.py:894 getattr by name, MoinMoin/support/werkzeug/datastructures.py:74 getattr by name, MoinMoin/support/passlib/ext/django/utils.py:73 getattr by name, MoinMoin/parser/text_rst.py:169 getattr by name, MoinMoin/support/passlib/utils/compat/__init__.py:285 getattr by name, MoinMoin/support/pygments/lexers/__init__.py:45 import by name, MoinMoin/support/werkzeug/local.py:70 __getattr__, MoinMoin/support/parsedatetime/__init__.py:2257 getattr by name
+- covered languages hold 99.52% of 323903 source lines
+
+Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: perl (0.48% of source lines).
 
 ### file-size: File size and context legibility
 
@@ -171,6 +181,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | red-paths | red zone: 7 paths | AGENTS.md, .claude/settings.json |
 | required | yellow-modules | yellow zone: 9 modules | AGENTS.md |
 | recommended | verifiable-changes | test-feedback 3 | feature_list.json layers, package.json test script, AGENTS.md |
+| recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | legible-context | file-size 3 | AGENTS.md |
 
 ### required: typed-changes
@@ -261,6 +272,16 @@ Why: Without real tests, every required test layer reports SKIP and fails verify
 - test runner configs: MoinMoin/conftest.py
 - CI: .travis.yml
 
+### recommended: traceable-calls
+
+Trigger: direct-api-calls 3. Surfaces: `AGENTS.md`, `package.json lint script`.
+
+Change: List the files with computed-target calls in AGENTS.md as "find every call target before editing".
+
+Why: A call whose target is computed at run time does not show up when an agent searches for the method it renames or changes, so the agent breaks callers it never saw.
+
+- files with computed-target calls: MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12), MoinMoin/support/werkzeug/datastructures.py (11), MoinMoin/support/passlib/ext/django/utils.py (10), MoinMoin/parser/text_rst.py (9), MoinMoin/support/passlib/utils/compat/__init__.py (6), MoinMoin/support/pygments/lexers/__init__.py (6), MoinMoin/support/werkzeug/local.py (6), MoinMoin/support/parsedatetime/__init__.py (5)
+
 ### recommended: legible-context
 
 Trigger: file-size 3. Surfaces: `AGENTS.md`.
@@ -281,11 +302,11 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 2 | dependency-currency | 1 → 5 | L | 1.67 | upgrade python from 2.7 to 3.11 | unchanged |
 | 3 | type-strictness | 1 → 3 | M | 1.5 | configure mypy or Pyright for python with a baseline (typed share 0.06 to 0.50) | unchanged |
 | 4 | test-feedback | 3 → 4 | M | 1 | add 88 test files (to ratio 0.15) | unchanged |
-| 5 | file-size | 3 → 4 | L | 0.33 | split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines | unchanged |
+| 5 | direct-api-calls | 3 → 4 | L | 0.67 | make the computed-target calls explicit in 36 of 96 files (to 5% of files), starting with MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12) | unchanged |
+| 6 | file-size | 3 → 4 | L | 0.33 | split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines | unchanged |
 
 ## Not measured
 
-- factor `direct-api-calls`: no collector signal yet: needs call-site analysis
 - factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `setup.cfg`: not a supported manifest
@@ -351,6 +372,43 @@ Largest files:
 |---|---|---|---|---|---|
 | python | 2.7 | `setup.py` (classifier) | 2.7 | end-of-life | 2020-01-01 |
 
+### Dynamic calls
+
+1306 covered files read, tests included; 104 with computed-target calls, 264 sites. Skipped: minified 8.
+
+| Language | Files | With sites | Sites |
+|---|---|---|---|
+| java | 141 | 1 | 1 |
+| javascript | 209 | 6 | 7 |
+| php | 19 | 0 | 0 |
+| python | 937 | 97 | 256 |
+
+| Construct | Sites |
+|---|---|
+| getattr by name | 193 |
+| __getattr__ | 27 |
+| import by name | 20 |
+| eval or exec | 14 |
+| computed call | 4 |
+| eval or Function | 3 |
+| globals() by name | 2 |
+| Class.forName by name | 1 |
+
+Files with the most sites:
+
+| File | Sites | Constructs |
+|---|---|---|
+| `MoinMoin/config/multiconfig.py` | 15 | import by name, getattr by name, eval or exec |
+| `MoinMoin/user.py` | 15 | getattr by name |
+| `MoinMoin/support/passlib/utils/handlers.py` | 12 | getattr by name, __getattr__ |
+| `MoinMoin/support/werkzeug/datastructures.py` | 11 | getattr by name, __getattr__ |
+| `MoinMoin/support/passlib/ext/django/utils.py` | 10 | getattr by name, import by name |
+| `MoinMoin/parser/text_rst.py` | 9 | getattr by name |
+| `MoinMoin/support/passlib/tests/utils.py` | 8 | getattr by name |
+| `MoinMoin/support/passlib/utils/compat/__init__.py` | 6 | getattr by name, import by name, __getattr__ |
+| `MoinMoin/support/pygments/lexers/__init__.py` | 6 | import by name, getattr by name, eval or exec, __getattr__ |
+| `MoinMoin/support/werkzeug/local.py` | 6 | __getattr__, getattr by name |
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -395,3 +453,9 @@ Collector notes:
 - runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
+- files are those tracked at HEAD; content is read from the working tree; nothing is run
+- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- comments are removed and strings replaced before matching, so text inside strings never counts
+- only calls whose target is computed count; a literal target is visible at the call site
+- vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
+- configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected

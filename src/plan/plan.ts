@@ -5,7 +5,7 @@
 import type { HarnessRequirements } from "../config/harness-requirements.js";
 import type { Decision } from "../decision/types.js";
 import { isLockFile, languageOf } from "../file-kinds.js";
-import { sourceFiles, typedShare } from "../scoring/rules.js";
+import { dynamicShare, sourceFiles, typedShare } from "../scoring/rules.js";
 import type { CollectorResults, FactorScore, Scoring } from "../scoring/types.js";
 
 export type PlanTrigger =
@@ -147,6 +147,15 @@ function detailsFor(requirementId: string, factor: FactorScore, results: Collect
       if (main) return [`main dynamic language: ${main[0]} (${main[1]} source lines); suggested checker: ${CHECKERS[main[0]] ?? "no common checker"}`];
       if (typed.typeScriptLines > 0 && !typed.strictTypeScript) return ["TypeScript is not strict: turn on strict in tsconfig.json"];
       return factor.evidence;
+    }
+    case "traceable-calls": {
+      const measured = dynamicShare(results);
+      if (!measured) return factor.evidence;
+      const ranked = measured.files
+        .filter((file) => file.sites.length > 0)
+        .sort((a, b) => b.sites.length - a.sites.length || (a.path < b.path ? -1 : 1))
+        .slice(0, 10);
+      return ranked.length > 0 ? [`files with computed-target calls: ${ranked.map((file) => `${file.path} (${file.sites.length})`).join(", ")}`] : factor.evidence;
     }
     case "legible-context": {
       if (results.structure.status !== "measured") return factor.evidence;

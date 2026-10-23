@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -38,18 +38,14 @@
         "score": 1
       }
     ],
-    "provisional": true,
-    "unmeasuredBlocking": [
-      "direct-api-calls"
-    ]
+    "provisional": false,
+    "unmeasuredBlocking": []
   },
   "readiness": {
     "level": 3,
     "setBy": "test-feedback",
-    "provisional": true,
-    "unmeasuredBlocking": [
-      "direct-api-calls"
-    ]
+    "provisional": false,
+    "unmeasuredBlocking": []
   },
   "factors": [
     {
@@ -87,15 +83,21 @@
     },
     {
       "id": "direct-api-calls",
-      "name": "Direct API calls",
+      "name": "Direct calls (visible at call site)",
       "class": "blocking",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs call-site analysis",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "7.93% of 1210 covered files have a computed-target call (243 sites)",
+      "evidence": [
+        "96 of 1210 covered product files (7.93%) have computed-target calls: 243 sites",
+        "by construct: getattr by name 175, __getattr__ 26, import by name 19, eval or exec 14, computed call 4, eval or Function 3, Class.forName by name 1, globals() by name 1",
+        "top files: MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12), MoinMoin/support/werkzeug/datastructures.py (11), MoinMoin/support/passlib/ext/django/utils.py (10)",
+        "sample sites: MoinMoin/config/multiconfig.py:48 import by name, MoinMoin/user.py:103 getattr by name, MoinMoin/support/passlib/utils/handlers.py:894 getattr by name, MoinMoin/support/werkzeug/datastructures.py:74 getattr by name, MoinMoin/support/passlib/ext/django/utils.py:73 getattr by name, MoinMoin/parser/text_rst.py:169 getattr by name, MoinMoin/support/passlib/utils/compat/__init__.py:285 getattr by name, MoinMoin/support/pygments/lexers/__init__.py:45 import by name, MoinMoin/support/werkzeug/local.py:70 __getattr__, MoinMoin/support/parsedatetime/__init__.py:2257 getattr by name",
+        "covered languages hold 99.52% of 323903 source lines"
+      ],
+      "partial": "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: perl (0.48% of source lines)",
+      "reason": null,
       "deferral": null
     },
     {
@@ -614,6 +616,24 @@
         ]
       },
       {
+        "id": "traceable-calls",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "package.json lint script"
+        ],
+        "change": "List the files with computed-target calls in AGENTS.md as \"find every call target before editing\".",
+        "why": "A call whose target is computed at run time does not show up when an agent searches for the method it renames or changes, so the agent breaks callers it never saw.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "direct-api-calls",
+          "score": 3
+        },
+        "details": [
+          "files with computed-target calls: MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12), MoinMoin/support/werkzeug/datastructures.py (11), MoinMoin/support/passlib/ext/django/utils.py (10), MoinMoin/parser/text_rst.py (9), MoinMoin/support/passlib/utils/compat/__init__.py (6), MoinMoin/support/pygments/lexers/__init__.py (6), MoinMoin/support/werkzeug/local.py (6), MoinMoin/support/parsedatetime/__init__.py (5)"
+        ]
+      },
+      {
         "id": "legible-context",
         "level": "recommended",
         "surfaces": [
@@ -696,6 +716,24 @@
       ]
     },
     {
+      "factor": "direct-api-calls",
+      "class": "blocking",
+      "from": 3,
+      "to": 4,
+      "action": "make the computed-target calls explicit in 36 of 96 files (to 5% of files), starting with MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12)",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.67,
+      "verdictAfter": null,
+      "evidence": [
+        "96 of 1210 covered product files (7.93%) have computed-target calls: 243 sites",
+        "by construct: getattr by name 175, __getattr__ 26, import by name 19, eval or exec 14, computed call 4, eval or Function 3, Class.forName by name 1, globals() by name 1",
+        "top files: MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12), MoinMoin/support/werkzeug/datastructures.py (11), MoinMoin/support/passlib/ext/django/utils.py (10)",
+        "sample sites: MoinMoin/config/multiconfig.py:48 import by name, MoinMoin/user.py:103 getattr by name, MoinMoin/support/passlib/utils/handlers.py:894 getattr by name, MoinMoin/support/werkzeug/datastructures.py:74 getattr by name, MoinMoin/support/passlib/ext/django/utils.py:73 getattr by name, MoinMoin/parser/text_rst.py:169 getattr by name, MoinMoin/support/passlib/utils/compat/__init__.py:285 getattr by name, MoinMoin/support/pygments/lexers/__init__.py:45 import by name, MoinMoin/support/werkzeug/local.py:70 __getattr__, MoinMoin/support/parsedatetime/__init__.py:2257 getattr by name",
+        "covered languages hold 99.52% of 323903 source lines"
+      ]
+    },
+    {
       "factor": "file-size",
       "class": "constraining",
       "from": 3,
@@ -712,11 +750,6 @@
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "direct-api-calls",
-      "reason": "no collector signal yet: needs call-site analysis"
-    },
     {
       "kind": "factor",
       "id": "module-boundaries",
@@ -1047,6 +1080,158 @@
           "testFixture": false
         }
       ]
+    },
+    "dynamicCalls": {
+      "status": "measured",
+      "coveredFiles": 1306,
+      "filesWithSites": 104,
+      "sites": 264,
+      "byFamily": [
+        {
+          "family": "java",
+          "files": 141,
+          "filesWithSites": 1,
+          "sites": 1
+        },
+        {
+          "family": "javascript",
+          "files": 209,
+          "filesWithSites": 6,
+          "sites": 7
+        },
+        {
+          "family": "php",
+          "files": 19,
+          "filesWithSites": 0,
+          "sites": 0
+        },
+        {
+          "family": "python",
+          "files": 937,
+          "filesWithSites": 97,
+          "sites": 256
+        }
+      ],
+      "byConstruct": [
+        {
+          "construct": "getattr by name",
+          "sites": 193
+        },
+        {
+          "construct": "__getattr__",
+          "sites": 27
+        },
+        {
+          "construct": "import by name",
+          "sites": 20
+        },
+        {
+          "construct": "eval or exec",
+          "sites": 14
+        },
+        {
+          "construct": "computed call",
+          "sites": 4
+        },
+        {
+          "construct": "eval or Function",
+          "sites": 3
+        },
+        {
+          "construct": "globals() by name",
+          "sites": 2
+        },
+        {
+          "construct": "Class.forName by name",
+          "sites": 1
+        }
+      ],
+      "topFiles": [
+        {
+          "path": "MoinMoin/config/multiconfig.py",
+          "sites": 15,
+          "constructs": [
+            "import by name",
+            "getattr by name",
+            "eval or exec"
+          ]
+        },
+        {
+          "path": "MoinMoin/user.py",
+          "sites": 15,
+          "constructs": [
+            "getattr by name"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/passlib/utils/handlers.py",
+          "sites": 12,
+          "constructs": [
+            "getattr by name",
+            "__getattr__"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/werkzeug/datastructures.py",
+          "sites": 11,
+          "constructs": [
+            "getattr by name",
+            "__getattr__"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/passlib/ext/django/utils.py",
+          "sites": 10,
+          "constructs": [
+            "getattr by name",
+            "import by name"
+          ]
+        },
+        {
+          "path": "MoinMoin/parser/text_rst.py",
+          "sites": 9,
+          "constructs": [
+            "getattr by name"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/passlib/tests/utils.py",
+          "sites": 8,
+          "constructs": [
+            "getattr by name"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/passlib/utils/compat/__init__.py",
+          "sites": 6,
+          "constructs": [
+            "getattr by name",
+            "import by name",
+            "__getattr__"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/pygments/lexers/__init__.py",
+          "sites": 6,
+          "constructs": [
+            "import by name",
+            "getattr by name",
+            "eval or exec",
+            "__getattr__"
+          ]
+        },
+        {
+          "path": "MoinMoin/support/werkzeug/local.py",
+          "sites": 6,
+          "constructs": [
+            "__getattr__",
+            "getattr by name"
+          ]
+        }
+      ],
+      "skippedByReason": {
+        "minified": 8
+      }
     }
   },
   "method": {
@@ -1083,7 +1268,13 @@
       "for a version range, the lowest declared version is assessed",
       "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
       "end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date",
-      "Maven dependencies include those declared in dependencyManagement and plugin blocks"
+      "Maven dependencies include those declared in dependencyManagement and plugin blocks",
+      "files are those tracked at HEAD; content is read from the working tree; nothing is run",
+      "covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript",
+      "comments are removed and strings replaced before matching, so text inside strings never counts",
+      "only calls whose target is computed count; a literal target is visible at the call site",
+      "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
     ]
   }
 }

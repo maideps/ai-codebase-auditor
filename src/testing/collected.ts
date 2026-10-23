@@ -3,9 +3,11 @@
 
 import type { CodeStructure } from "../collectors/code-structure.js";
 import type { Dependencies, RuntimeAssessment } from "../collectors/dependencies.js";
+import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
 import type { TestsDocs, TypeChecker } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
+import { DYNAMIC_CALL_FAMILIES, languageOf } from "../file-kinds.js";
 import type { CollectorResults } from "../scoring/types.js";
 
 const evidence = { commands: ["git ls-tree -r -z HEAD"], notes: [] };
@@ -84,6 +86,23 @@ export function dependenciesOf(runtimes: Partial<RuntimeAssessment>[], manifests
   };
 }
 
+/** Covered files with the given number of computed-target sites each (default 0); the family comes from the extension. */
+export function dynamicCallsOf(files: { path: string; lines?: number; sites?: number; construct?: string }[]): Measurement<DynamicCalls> {
+  return {
+    status: "measured",
+    evidence,
+    value: {
+      files: files.map((file) => ({
+        path: file.path,
+        family: DYNAMIC_CALL_FAMILIES[languageOf(file.path)?.family ?? ""] ?? "javascript",
+        lines: file.lines ?? 10,
+        sites: Array.from({ length: file.sites ?? 0 }, (_, index) => ({ line: index + 1, construct: file.construct ?? "computed call", excerpt: "handlers[key]()" })),
+      })),
+      skipped: [],
+    },
+  };
+}
+
 export function historyOf(): Measurement<GitHistory> {
   return {
     status: "measured",
@@ -103,6 +122,7 @@ export function collected(parts: Partial<CollectorResults> = {}): CollectorResul
     structure: structureOf(sourceFiles(10, "ts")),
     testsDocs: testsDocsOf(),
     dependencies: dependenciesOf([]),
+    dynamicCalls: notMeasured("no dynamic-calls fixture"),
     ...parts,
   };
 }

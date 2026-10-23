@@ -7,7 +7,7 @@ import { decide } from "../decision/decide.js";
 import { buildPlan } from "../plan/plan.js";
 import { buildRoadmap } from "../plan/roadmap.js";
 import { scoreFactors } from "../scoring/score.js";
-import { collected, dependenciesOf, notMeasured, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
+import { collected, dependenciesOf, dynamicCallsOf, notMeasured, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
 import { renderJson } from "./json.js";
 import { cell, renderMarkdown } from "./markdown.js";
 import { buildReport, type ReportInput } from "./model.js";
@@ -27,7 +27,7 @@ const now = new Date("2026-10-22T09:00:00Z");
 function sampleInput(): ReportInput {
   const results = collected({
     structure: structureOf(
-      [...sourceFiles(6, "js", 40), { path: "src/auth/login.js", lines: 30 }, ...sourceFiles(3, "js", 5, "test")],
+      [...sourceFiles(9, "js", 40), { path: "src/auth/login.js", lines: 30 }, ...sourceFiles(3, "js", 5, "test")],
       [{ path: "package-lock.json", reason: "generated" }],
     ),
     testsDocs: testsDocsOf({
@@ -38,7 +38,14 @@ function sampleInput(): ReportInput {
       rules: [{ path: "AGENTS.md", count: 2 }],
     }),
     dependencies: dependenciesOf([{ spec: ">=14", lowest: "14", cycle: "14", status: "end-of-life", eol: "2023-04-30" }]),
+    dynamicCalls: dynamicCallsOf([
+      { path: "src/f0.js", lines: 40, sites: 2 },
+      ...sourceFiles(9, "js", 40).slice(1),
+      { path: "src/auth/login.js", lines: 30, sites: 1, construct: "eval or Function" },
+      ...sourceFiles(3, "js", 5, "test"),
+    ]),
   });
+  if (results.dynamicCalls.status === "measured") results.dynamicCalls.value.skipped.push({ path: "src/bundle.js", reason: "minified" });
   if (results.dependencies.status === "measured") results.dependencies.value.notMeasured.push({ path: "go.mod", reason: "not a supported manifest" });
   const scoring = scoreFactors(results, factorConfig, { now });
   const decision = decide(scoring, results, factorConfig, decisionValues);
@@ -65,18 +72,33 @@ describe("report model", () => {
   it("carries the verdict, readiness, every factor and the not-measured items", () => {
     const report = buildReport(sampleInput());
     expect(report.schema).toBe("ai-codebase-auditor/report");
-    expect(report.schemaVersion).toBe(3);
+    expect(report.schemaVersion).toBe(4);
     expect(report.target).toEqual({ path: "/repos/sample", head: "0123456789abcdef0123456789abcdef01234567" });
     expect(report.inputs.eolTable).toEqual({ path: "/tool/config/runtime-eol.json", asOf: "2026-10-21", ageDays: 1 });
     expect(report.verdict.verdict).toBe("adapt");
     expect(report.factors.map((factor) => factor.id)).toEqual(factorConfig.factors.map((factor) => factor.id));
     expect(report.notMeasured).toEqual([
-      { kind: "factor", id: "direct-api-calls", reason: "no collector signal yet: needs call-site analysis" },
       { kind: "factor", id: "module-boundaries", reason: "no collector signal yet: needs an import graph or co-change coupling" },
       { kind: "factor", id: "observability", reason: "no collector signal yet: needs a logging and metrics detector" },
       { kind: "manifest", id: "go.mod", reason: "not a supported manifest" },
       { kind: "tool", id: "scc", reason: "test" },
     ]);
+  });
+
+  it("summarizes the dynamic calls by family, construct and file", () => {
+    expect(buildReport(sampleInput()).signals.dynamicCalls).toEqual({
+      status: "measured",
+      coveredFiles: 13,
+      filesWithSites: 2,
+      sites: 3,
+      byFamily: [{ family: "javascript", files: 13, filesWithSites: 2, sites: 3 }],
+      byConstruct: [{ construct: "computed call", sites: 2 }, { construct: "eval or Function", sites: 1 }],
+      topFiles: [
+        { path: "src/f0.js", sites: 2, constructs: ["computed call"] },
+        { path: "src/auth/login.js", sites: 1, constructs: ["eval or Function"] },
+      ],
+      skippedByReason: { minified: 1 },
+    });
   });
 
   it("lists collectors that could not run as not measured", () => {
@@ -86,6 +108,8 @@ describe("report model", () => {
     expect(report.target.head).toBeNull();
     expect(report.signals.gitHistory).toEqual({ status: "not-measured", reason: "shallow clone: history is incomplete" });
     expect(report.notMeasured).toContainEqual({ kind: "collector", id: "git-history", reason: "shallow clone: history is incomplete" });
+    input.collected.dynamicCalls = notMeasured("repository has no commits");
+    expect(buildReport(input).notMeasured).toContainEqual({ kind: "collector", id: "dynamic-calls", reason: "repository has no commits" });
   });
 });
 

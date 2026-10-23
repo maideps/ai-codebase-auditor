@@ -4,17 +4,17 @@
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\struts` at commit `f2ea51ac3e3c` |
 | Audit date | 2026-10-23 |
-| Verdict | **adopt** (provisional: direct-api-calls not measured) |
-| Readiness level | **5 of 5**, set by test-feedback (provisional) |
+| Verdict | **adopt** |
+| Readiness level | **4 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
 
-**adopt** (provisional: direct-api-calls not measured): the harness can be adopted as is.
+**adopt**: the harness can be adopted as is.
 
 Rule: no scored factor is weak (all ≥ 3)
 
-Triggered by: test-feedback 5.
+Triggered by: test-feedback 5, direct-api-calls 4.
 
 ## Factor scores
 
@@ -22,7 +22,7 @@ Triggered by: test-feedback 5.
 |---|---|---|---|
 | test-feedback | blocking | 5 | ratio 0.60 ≥ 0.3 with a runner config and CI |
 | type-strictness | constraining | 5 | weighted typed share 0.99 |
-| direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
+| direct-api-calls | blocking | 4 | 3.70% of 1515 covered files have a computed-target call (117 sites) |
 | file-size | constraining | 4 | lower of p90 246 lines (→ 4) and 0.40% of files over 1000 lines (→ 5) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
 | documented-intent | constraining | 3 | docs with 34 stated rules |
@@ -53,9 +53,19 @@ Evidence:
 - typed share 0.99 of 181946 source lines (strong 180624, weak 0, checked dynamic 0, unchecked dynamic 1322)
 - type checkers: none
 
-### direct-api-calls: Direct API calls
+### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): no collector signal yet: needs call-site analysis.
+Score **4** (blocking). Rule: 3.70% of 1515 covered files have a computed-target call (117 sites).
+
+Evidence:
+
+- 56 of 1515 covered product files (3.70%) have computed-target calls: 117 sites
+- by construct: Class.forName by name 54, Method.invoke 28, getMethod by name 27, setAccessible 7, Proxy 1
+- top files: core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7), plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java (7), core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java (4)
+- sample sites: core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java:377 Class.forName by name, plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java:346 Method.invoke, plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java:238 Method.invoke, plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java:123 Method.invoke, core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java:153 Class.forName by name, core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java:590 Class.forName by name, core/src/main/java/org/apache/struts2/inject/ContainerImpl.java:188 setAccessible, core/src/main/java/org/apache/struts2/util/ClassLoaderUtil.java:176 Class.forName by name, core/src/main/java/org/apache/struts2/util/fs/JBossFileManager.java:180 Method.invoke, core/src/main/java/org/apache/struts2/ognl/OgnlValueStackFactory.java:118 Class.forName by name
+- covered languages hold 99.92% of 181946 source lines
+
+Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: shell (0.08% of source lines).
 
 ### file-size: File size and context legibility
 
@@ -185,12 +195,12 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 | # | Factor | Score | Effort | Priority | Step | Verdict after |
 |---|---|---|---|---|---|---|
-| 1 | documented-intent | 3 → 4 | M | 0.5 | add an architecture doc or decision records | unchanged |
-| 2 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
+| 1 | direct-api-calls | 4 → 5 | L | 0.67 | make the computed-target calls explicit in 26 of 56 files (to 2% of files), starting with core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7) | unchanged |
+| 2 | documented-intent | 3 → 4 | M | 0.5 | add an architecture doc or decision records | unchanged |
+| 3 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
 
 ## Not measured
 
-- factor `direct-api-calls`: no collector signal yet: needs call-site analysis
 - factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - tool `scc`: scc is not installed or not on PATH
@@ -320,6 +330,38 @@ Largest files:
 |---|---|---|---|---|---|
 | java | 17 | `pom.xml` (maven.compiler.release) | 17 | supported | 2027-10-31 |
 
+### Dynamic calls
+
+2426 covered files read, tests included; 73 with computed-target calls, 181 sites. Skipped: minified 1.
+
+| Language | Files | With sites | Sites |
+|---|---|---|---|
+| java | 2418 | 73 | 181 |
+| javascript | 8 | 0 | 0 |
+
+| Construct | Sites |
+|---|---|
+| Class.forName by name | 61 |
+| getMethod by name | 53 |
+| Method.invoke | 36 |
+| setAccessible | 26 |
+| Proxy | 5 |
+
+Files with the most sites:
+
+| File | Sites | Constructs |
+|---|---|---|
+| `core/src/test/java/org/apache/struts2/ognl/SecurityMemberAccessTest.java` | 25 | getMethod by name, Proxy, Method.invoke |
+| `core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java` | 10 | Class.forName by name |
+| `core/src/test/java/org/apache/struts2/dispatcher/DispatcherCleanupTest.java` | 8 | setAccessible, getMethod by name |
+| `core/src/test/java/org/apache/struts2/dispatcher/multipart/JakartaStreamMultiPartRequestTest.java` | 8 | setAccessible, Method.invoke |
+| `plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java` | 8 | Method.invoke, Class.forName by name, getMethod by name |
+| `plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java` | 7 | Method.invoke |
+| `plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java` | 7 | Method.invoke |
+| `core/src/test/java/org/apache/struts2/util/ConfigParseUtilTest.java` | 5 | Class.forName by name, setAccessible, getMethod by name |
+| `core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java` | 4 | Class.forName by name |
+| `core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java` | 4 | Class.forName by name |
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -364,3 +406,9 @@ Collector notes:
 - runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
+- files are those tracked at HEAD; content is read from the working tree; nothing is run
+- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- comments are removed and strings replaced before matching, so text inside strings never counts
+- only calls whose target is computed count; a literal target is visible at the call site
+- vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
+- configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected

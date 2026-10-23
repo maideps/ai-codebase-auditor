@@ -25,6 +25,8 @@ src/
     tests-docs.ts       test files and runners, CI files, docs, stated rules
     dependencies.ts     manifests, declared runtimes, end-of-life assessment
     dependencies/       parsers.ts (one static parser per manifest), versions.ts (spec → lowest version → cycle), toml.ts
+    dynamic-calls.ts    call sites whose target is computed (reflection, dispatch by name, eval)
+    dynamic-calls/      strip.ts (comments and strings out, per language), patterns.ts (constructs, literal-target checks)
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red paths), decide.ts
   plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)

@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -28,20 +28,20 @@
       {
         "factor": "test-feedback",
         "score": 5
+      },
+      {
+        "factor": "direct-api-calls",
+        "score": 4
       }
     ],
-    "provisional": true,
-    "unmeasuredBlocking": [
-      "direct-api-calls"
-    ]
+    "provisional": false,
+    "unmeasuredBlocking": []
   },
   "readiness": {
-    "level": 5,
-    "setBy": "test-feedback",
-    "provisional": true,
-    "unmeasuredBlocking": [
-      "direct-api-calls"
-    ]
+    "level": 4,
+    "setBy": "direct-api-calls",
+    "provisional": false,
+    "unmeasuredBlocking": []
   },
   "factors": [
     {
@@ -79,15 +79,21 @@
     },
     {
       "id": "direct-api-calls",
-      "name": "Direct API calls",
+      "name": "Direct calls (visible at call site)",
       "class": "blocking",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs call-site analysis",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "3.70% of 1515 covered files have a computed-target call (117 sites)",
+      "evidence": [
+        "56 of 1515 covered product files (3.70%) have computed-target calls: 117 sites",
+        "by construct: Class.forName by name 54, Method.invoke 28, getMethod by name 27, setAccessible 7, Proxy 1",
+        "top files: core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7), plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java (7), core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java (4)",
+        "sample sites: core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java:377 Class.forName by name, plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java:346 Method.invoke, plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java:238 Method.invoke, plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java:123 Method.invoke, core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java:153 Class.forName by name, core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java:590 Class.forName by name, core/src/main/java/org/apache/struts2/inject/ContainerImpl.java:188 setAccessible, core/src/main/java/org/apache/struts2/util/ClassLoaderUtil.java:176 Class.forName by name, core/src/main/java/org/apache/struts2/util/fs/JBossFileManager.java:180 Method.invoke, core/src/main/java/org/apache/struts2/ognl/OgnlValueStackFactory.java:118 Class.forName by name",
+        "covered languages hold 99.92% of 181946 source lines"
+      ],
+      "partial": "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: shell (0.08% of source lines)",
+      "reason": null,
       "deferral": null
     },
     {
@@ -358,6 +364,24 @@
   },
   "roadmap": [
     {
+      "factor": "direct-api-calls",
+      "class": "blocking",
+      "from": 4,
+      "to": 5,
+      "action": "make the computed-target calls explicit in 26 of 56 files (to 2% of files), starting with core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7)",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.67,
+      "verdictAfter": null,
+      "evidence": [
+        "56 of 1515 covered product files (3.70%) have computed-target calls: 117 sites",
+        "by construct: Class.forName by name 54, Method.invoke 28, getMethod by name 27, setAccessible 7, Proxy 1",
+        "top files: core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7), plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java (7), core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java (4)",
+        "sample sites: core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java:377 Class.forName by name, plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java:346 Method.invoke, plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java:238 Method.invoke, plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java:123 Method.invoke, core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java:153 Class.forName by name, core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java:590 Class.forName by name, core/src/main/java/org/apache/struts2/inject/ContainerImpl.java:188 setAccessible, core/src/main/java/org/apache/struts2/util/ClassLoaderUtil.java:176 Class.forName by name, core/src/main/java/org/apache/struts2/util/fs/JBossFileManager.java:180 Method.invoke, core/src/main/java/org/apache/struts2/ognl/OgnlValueStackFactory.java:118 Class.forName by name",
+        "covered languages hold 99.92% of 181946 source lines"
+      ]
+    },
+    {
       "factor": "documented-intent",
       "class": "constraining",
       "from": 3,
@@ -390,11 +414,6 @@
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "direct-api-calls",
-      "reason": "no collector signal yet: needs call-site analysis"
-    },
     {
       "kind": "factor",
       "id": "module-boundaries",
@@ -1311,6 +1330,131 @@
           "testFixture": false
         }
       ]
+    },
+    "dynamicCalls": {
+      "status": "measured",
+      "coveredFiles": 2426,
+      "filesWithSites": 73,
+      "sites": 181,
+      "byFamily": [
+        {
+          "family": "java",
+          "files": 2418,
+          "filesWithSites": 73,
+          "sites": 181
+        },
+        {
+          "family": "javascript",
+          "files": 8,
+          "filesWithSites": 0,
+          "sites": 0
+        }
+      ],
+      "byConstruct": [
+        {
+          "construct": "Class.forName by name",
+          "sites": 61
+        },
+        {
+          "construct": "getMethod by name",
+          "sites": 53
+        },
+        {
+          "construct": "Method.invoke",
+          "sites": 36
+        },
+        {
+          "construct": "setAccessible",
+          "sites": 26
+        },
+        {
+          "construct": "Proxy",
+          "sites": 5
+        }
+      ],
+      "topFiles": [
+        {
+          "path": "core/src/test/java/org/apache/struts2/ognl/SecurityMemberAccessTest.java",
+          "sites": 25,
+          "constructs": [
+            "getMethod by name",
+            "Proxy",
+            "Method.invoke"
+          ]
+        },
+        {
+          "path": "core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java",
+          "sites": 10,
+          "constructs": [
+            "Class.forName by name"
+          ]
+        },
+        {
+          "path": "core/src/test/java/org/apache/struts2/dispatcher/DispatcherCleanupTest.java",
+          "sites": 8,
+          "constructs": [
+            "setAccessible",
+            "getMethod by name"
+          ]
+        },
+        {
+          "path": "core/src/test/java/org/apache/struts2/dispatcher/multipart/JakartaStreamMultiPartRequestTest.java",
+          "sites": 8,
+          "constructs": [
+            "setAccessible",
+            "Method.invoke"
+          ]
+        },
+        {
+          "path": "plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java",
+          "sites": 8,
+          "constructs": [
+            "Method.invoke",
+            "Class.forName by name",
+            "getMethod by name"
+          ]
+        },
+        {
+          "path": "plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java",
+          "sites": 7,
+          "constructs": [
+            "Method.invoke"
+          ]
+        },
+        {
+          "path": "plugins/rest/src/main/java/org/apache/struts2/rest/handler/JuneauXmlHandler.java",
+          "sites": 7,
+          "constructs": [
+            "Method.invoke"
+          ]
+        },
+        {
+          "path": "core/src/test/java/org/apache/struts2/util/ConfigParseUtilTest.java",
+          "sites": 5,
+          "constructs": [
+            "Class.forName by name",
+            "setAccessible",
+            "getMethod by name"
+          ]
+        },
+        {
+          "path": "core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java",
+          "sites": 4,
+          "constructs": [
+            "Class.forName by name"
+          ]
+        },
+        {
+          "path": "core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java",
+          "sites": 4,
+          "constructs": [
+            "Class.forName by name"
+          ]
+        }
+      ],
+      "skippedByReason": {
+        "minified": 1
+      }
     }
   },
   "method": {
@@ -1347,7 +1491,13 @@
       "for a version range, the lowest declared version is assessed",
       "runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime",
       "end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date",
-      "Maven dependencies include those declared in dependencyManagement and plugin blocks"
+      "Maven dependencies include those declared in dependencyManagement and plugin blocks",
+      "files are those tracked at HEAD; content is read from the working tree; nothing is run",
+      "covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript",
+      "comments are removed and strings replaced before matching, so text inside strings never counts",
+      "only calls whose target is computed count; a literal target is visible at the call site",
+      "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
     ]
   }
 }

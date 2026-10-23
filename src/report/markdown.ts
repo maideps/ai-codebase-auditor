@@ -145,7 +145,7 @@ function notMeasuredSection(report: AuditReport): string[] {
 }
 
 function signalsSection(report: AuditReport): string[] {
-  const { gitHistory, codeStructure, testsDocs, dependencies } = report.signals;
+  const { gitHistory, codeStructure, testsDocs, dependencies, dynamicCalls } = report.signals;
   const lines = ["## Signals", "", "### Git history", ""];
   if (gitHistory.status === "measured") {
     const t = gitHistory.totals;
@@ -198,6 +198,22 @@ function signalsSection(report: AuditReport): string[] {
       ),
     );
   } else lines.push(`Not measured: ${dependencies.reason}.`);
+
+  lines.push("", "### Dynamic calls", "");
+  if (dynamicCalls.status === "measured") {
+    const skipped = Object.entries(dynamicCalls.skippedByReason).map(([reason, n]) => `${reason} ${n}`);
+    lines.push(
+      `${count(dynamicCalls.coveredFiles, "covered file")} read, tests included; ${dynamicCalls.filesWithSites} with computed-target calls, ${count(dynamicCalls.sites, "site")}. Skipped: ${list(skipped)}.`,
+      "",
+      ...table(["Language", "Files", "With sites", "Sites"], dynamicCalls.byFamily.map((f) => [f.family, String(f.files), String(f.filesWithSites), String(f.sites)])),
+      "",
+      ...table(["Construct", "Sites"], dynamicCalls.byConstruct.map((c) => [c.construct, String(c.sites)])),
+      "",
+      "Files with the most sites:",
+      "",
+      ...table(["File", "Sites", "Constructs"], dynamicCalls.topFiles.map((file) => [code(file.path), String(file.sites), file.constructs.join(", ")])),
+    );
+  } else lines.push(`Not measured: ${dynamicCalls.reason}.`);
   return lines;
 }
 

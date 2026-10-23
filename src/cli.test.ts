@@ -45,6 +45,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain("Readiness level: not determined (no blocking factor could be scored)");
     expect(result.stdout).toMatch(/Verdict: none\n {2}rule: no verdict: test-feedback is not measured \(code structure not measured \(git failed: .+\)\)/);
     expect(result.stdout).toMatch(/ {2}no zones: code structure not measured \(git failed: .+\)/);
+    expect(result.stdout).toMatch(/Dynamic calls: not measured \(git failed: .+\)/);
     expect(result.stdout).toContain("Harness adaptation plan (ai-harness-framework 0.5.0): No plan: there is no verdict to plan for.\n  no items\n");
   });
 
@@ -149,7 +150,7 @@ describe("runCli: audit", () => {
     expect(result.stdout).toContain(`Config: ${config}`);
     expect(result.stdout).toContain("Factors: 1 (1 blocking, 0 constraining)");
     // The default harness requirements name factors this config leaves out: listed, not an error.
-    expect(result.stdout).toContain("  not assessed: verifiable-changes, typed-changes, legible-context, written-intent, reproducible-runs, supported-runtime");
+    expect(result.stdout).toContain("  not assessed: verifiable-changes, typed-changes, traceable-calls, legible-context, written-intent, reproducible-runs, supported-runtime");
   });
 
   it("requires a repository path", () => {
@@ -206,7 +207,10 @@ describe("runCli: scores", () => {
     // a.js, b.js and jest.config.js are source files: 1 test file for 3.
     expect(result.stdout).toMatch(/blocking\s+test-feedback\s+5\s+ratio 0\.33/);
     expect(result.stdout).toMatch(/constraining\s+type-strictness\s+1\s+weighted typed share 0\.00/);
-    expect(result.stdout).toMatch(/blocking\s+direct-api-calls\s+-\s+not measured: no collector signal yet/);
+    expect(result.stdout).toMatch(/blocking\s+direct-api-calls\s+-\s+not measured: only 3 covered product files; at least 10 are needed/);
+    expect(result.stdout).toContain(
+      "Dynamic calls (covered languages read statically, tests included; nothing is run):\n  covered files: 4 (javascript 4), 0 with computed-target calls, 0 sites\n  constructs: none\n  skipped: none\n",
+    );
     expect(result.stdout).toContain("Readiness level: 5 of 5, set by test-feedback (provisional: direct-api-calls not measured)");
     // Tests score 5, but nothing is typed and the only doc is a README: adapt, with modules green.
     expect(result.stdout).toContain("Verdict: adapt (provisional: direct-api-calls not measured)");
@@ -223,7 +227,7 @@ describe("runCli: scores", () => {
     // No root package.json or pyproject.toml: the harness would detect no stack.
     expect(result.stdout).toMatch(/ {2}required +detected-stack +test-feedback 5\n/);
     expect(result.stdout).toMatch(/ {2}recommended +reproducible-runs +dev-deploy-simplicity 3\n/);
-    expect(result.stdout).toContain("  not assessed: supported-runtime");
+    expect(result.stdout).toContain("  not assessed: traceable-calls, supported-runtime");
     expect(result.stdout).toContain("Modernization roadmap (by gain against effort):\n  1. documented-intent 2→3 [S] write at least 3 project rules");
     expect(result.stdout).toContain("  2. type-strictness 1→3 [M] configure TypeScript checkJs for javascript with a baseline");
   });

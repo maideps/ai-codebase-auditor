@@ -2,7 +2,7 @@
 
 **Status:** final, reviewed 2026-10-22. The proposals from the first run were approved and applied (D-013). The reports in each folder are the regenerated ones; machine-readable labels are in [labels.json](labels.json).
 
-Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 3: regenerated for feat-010 with the plan and roadmap; scores and verdicts did not change). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
+Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 4: regenerated for feat-011 with the direct-api-calls score; see the section on it below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
 
 ## Repositories
 
@@ -29,7 +29,7 @@ Corrections to the facts assumed in `docs/HANDOFF.md`:
 | Struts | adapt, revised to adopt (provisional) | adopt | **adopt (provisional)**: nothing weak | 3, 5 (test-feedback) | yes, after revision |
 | Redmine | adopt, revised to adapt | adapt | **adapt**: type-strictness 1 | 1, 5 (test-feedback) | yes, after revision |
 
-Every verdict is provisional, because direct-api-calls is not measured.
+These verdicts were provisional at calibration, because direct-api-calls was not measured. Since feat-011, only DOOM's is.
 
 **Sanity test:** DOOM and Redmine must land at opposite ends.
 - **First run: failed.** Both had readiness 1.
@@ -154,9 +154,25 @@ Compared with the contract's estimate, three things differ:
 
 Audit times with the plan and roadmap: 1.0 to 6.8 s, peak memory up to 196 MB.
 
+## Direct Calls (feat-011)
+
+The reports were regenerated with the dynamic-calls collector and the direct-api-calls score (D-015). No verdict changed. Four verdicts are no longer provisional, and readiness now reflects both blocking factors.
+
+| Repository | Covered product files with computed-target calls | Score | Readiness (before → after) | Verdict |
+|---|---|---|---|---|
+| DOOM | C is not covered | not measured | 1 → 1 | prepare first, still provisional |
+| moin-1.9 | 96 of 1,210 (7.93%): `getattr` by name, plugin `__import__`, `eval` of config | 3 | 3 → 3 | adapt |
+| phpBB | 52 of 1,319 (3.94%): `$var`, `new $class`, `eval` in the converter | 4 | 5 → 4 | adopt |
+| Struts | 56 of 1,515 (3.70%): `loadClass`, `Method.invoke` in the DI container and plugins | 4 | 5 → 4 | adopt |
+| Redmine | 47 of 838 (5.61%): `send` by name, `constantize` on params, `class_eval` | 3 | 5 → 3 | adapt |
+
+**Checking the findings.** The 10 sample sites each report cites were read in the clones: 40 in all, since DOOM has none. The first run had 3 false positives, all in Struts: a named constant (`Class.forName(VFS_JBOSS5)`), a method declaration (`public static Class loadClass(...)`) and a call to the class's own method (`this.invoke(...)`). Each became a test and a rule fix. After that, all 40 are real computed-target calls. Struts went from 3.83% to 3.70%, still score 4.
+
+**Performance.** Opening every file twice (a binary sniff, then a full read) cost most of the collector's time on Windows. Files up to 4 MB are now read once and sniffed in memory, which also speeds up code-structure. Full audits took 0.9 to 8.4 s, with peak memory up to 248 MB (moin-1.9). Struts is the slowest: 2,426 covered files read a second time.
+
 ## Known Limits Kept After Review
 
 1. **Bundled libraries under non-standard directory names** count as product code (moin-1.9 `MoinMoin/support/`). A fix would honor `linguist-vendored` or take a team-supplied exclude list.
 2. **Red-term false positives** from UI and tooling names (`Password*` form-field classes, "doctum-checkout"). Path terms favor recall, and red only means agents propose instead of editing.
 3. **Doc classification by name:** "convention" in a feature name matches, and design specs in a `specs/` directory are skipped as test paths.
-4. **Unmeasured signals:** module boundaries, direct API calls, observability, test feedback speed, CI pass state and build scripts are not measured. Every verdict stays provisional until direct-api-calls has a collector.
+4. **Unmeasured signals:** module boundaries, observability, test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.

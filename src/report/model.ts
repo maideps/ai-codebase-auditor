@@ -4,6 +4,7 @@
 
 import type { CodeStructure } from "../collectors/code-structure.js";
 import type { Dependencies, RuntimeAssessment } from "../collectors/dependencies.js";
+import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
@@ -13,7 +14,7 @@ import type { RoadmapStep } from "../plan/roadmap.js";
 import type { CollectorResults, FactorScore, Readiness, Scoring } from "../scoring/types.js";
 
 export const REPORT_SCHEMA = "ai-codebase-auditor/report";
-export const REPORT_SCHEMA_VERSION = 3;
+export const REPORT_SCHEMA_VERSION = 4;
 
 export interface ReportInput {
   tool: { name: string; version: string };
@@ -90,6 +91,17 @@ export interface AuditReport {
       manifests: { path: string; ecosystem: string; dependencies: number; issues: string[] }[];
       runtimes: RuntimeAssessment[];
     }>;
+    /** As the collector read them, tests included; the direct-api-calls score leaves tests out. */
+    dynamicCalls: Signal<{
+      coveredFiles: number;
+      filesWithSites: number;
+      sites: number;
+      byFamily: { family: string; files: number; filesWithSites: number; sites: number }[];
+      byConstruct: { construct: string; sites: number }[];
+      /** Up to ten files with the most sites. */
+      topFiles: { path: string; sites: number; constructs: string[] }[];
+      skippedByReason: Record<string, number>;
+    }>;
   };
   method: { commands: string[]; notes: string[] };
 }
@@ -109,7 +121,7 @@ function notMeasuredItems(input: ReportInput): NotMeasuredItem[] {
     .map((factor) => ({ kind: "factor", id: factor.id, reason: factor.reason ?? "not measured" }));
   const collectors: [string, Measurement<unknown>][] = [
     ["git-history", collected.history], ["code-structure", collected.structure],
-    ["tests-docs", collected.testsDocs], ["dependencies", collected.dependencies],
+    ["tests-docs", collected.testsDocs], ["dependencies", collected.dependencies], ["dynamic-calls", collected.dynamicCalls],
   ];
   for (const [id, measurement] of collectors) {
     if (measurement.status === "not-measured") items.push({ kind: "collector", id, reason: measurement.reason });
@@ -132,9 +144,39 @@ function notMeasuredItems(input: ReportInput): NotMeasuredItem[] {
 
 const unique = (values: readonly string[]) => [...new Set(values)];
 
+function summarizeDynamicCalls(dynamic: DynamicCalls) {
+  const byFamily = new Map<string, { files: number; filesWithSites: number; sites: number }>();
+  const byConstruct = new Map<string, number>();
+  for (const file of dynamic.files) {
+    const family = byFamily.get(file.family) ?? { files: 0, filesWithSites: 0, sites: 0 };
+    family.files += 1;
+    family.filesWithSites += file.sites.length > 0 ? 1 : 0;
+    family.sites += file.sites.length;
+    byFamily.set(file.family, family);
+    for (const site of file.sites) byConstruct.set(site.construct, (byConstruct.get(site.construct) ?? 0) + 1);
+  }
+  const skippedByReason: Record<string, number> = {};
+  for (const reason of [...new Set(dynamic.skipped.map((file) => file.reason))].sort(byText)) {
+    skippedByReason[reason] = dynamic.skipped.filter((file) => file.reason === reason).length;
+  }
+  const withSites = dynamic.files.filter((file) => file.sites.length > 0);
+  return {
+    coveredFiles: dynamic.files.length,
+    filesWithSites: withSites.length,
+    sites: dynamic.files.reduce((sum, file) => sum + file.sites.length, 0),
+    byFamily: [...byFamily.entries()].sort(([a], [b]) => byText(a, b)).map(([family, counts]) => ({ family, ...counts })),
+    byConstruct: [...byConstruct.entries()].sort((a, b) => b[1] - a[1] || byText(a[0], b[0])).map(([construct, sites]) => ({ construct, sites })),
+    topFiles: [...withSites]
+      .sort((a, b) => b.sites.length - a.sites.length || byText(a.path, b.path))
+      .slice(0, 10)
+      .map((file) => ({ path: file.path, sites: file.sites.length, constructs: unique(file.sites.map((site) => site.construct)) })),
+    skippedByReason,
+  };
+}
+
 export function buildReport(input: ReportInput): AuditReport {
   const { collected, scoring, decision } = input;
-  const evidences = [collected.history, collected.structure, collected.testsDocs, collected.dependencies].map((m) => m.evidence);
+  const evidences = [collected.history, collected.structure, collected.testsDocs, collected.dependencies, collected.dynamicCalls].map((m) => m.evidence);
   return {
     schema: REPORT_SCHEMA,
     schemaVersion: REPORT_SCHEMA_VERSION,
@@ -198,6 +240,7 @@ export function buildReport(input: ReportInput): AuditReport {
         })),
         runtimes: dependencies.runtimes,
       })),
+      dynamicCalls: signal(collected.dynamicCalls, summarizeDynamicCalls),
     },
     method: { commands: unique(evidences.flatMap((evidence) => evidence.commands)), notes: unique(evidences.flatMap((evidence) => evidence.notes)) },
   };

@@ -22,7 +22,7 @@ Triggered by: test-feedback 1, module-boundaries not measured.
 |---|---|---|---|
 | test-feedback | blocking | 1 | no test files |
 | type-strictness | constraining | 4 | weighted typed share 0.75 |
-| direct-api-calls | blocking | – | not measured: no collector signal yet: needs call-site analysis |
+| direct-api-calls | blocking | – | not measured: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules |
 | file-size | constraining | 2 | lower of p90 988 lines (→ 2) and 8.90% of files over 1000 lines (→ 2) |
 | module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
 | documented-intent | constraining | 2 | a README without written rules |
@@ -53,9 +53,9 @@ Evidence:
 - typed share 0.75 of 59110 source lines (strong 0, weak 59110, checked dynamic 0, unchecked dynamic 0)
 - type checkers: none
 
-### direct-api-calls: Direct API calls
+### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): no collector signal yet: needs call-site analysis.
+Not measured (blocking): covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules.
 
 ### file-size: File size and context legibility
 
@@ -200,6 +200,7 @@ Why: Agents may only edit autonomously where their changes can be verified.
 
 Not assessed (factor not measured):
 
+- traceable-calls (direct-api-calls): covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
 - supported-runtime (dependency-currency): no declared runtime with a known end-of-life status outside test fixtures
 
 ## Modernization roadmap
@@ -215,7 +216,7 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ## Not measured
 
-- factor `direct-api-calls`: no collector signal yet: needs call-site analysis
+- factor `direct-api-calls`: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
 - factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - factor `dependency-currency`: no declared runtime with a known end-of-life status outside test fixtures
@@ -277,6 +278,18 @@ None.
 
 None.
 
+### Dynamic calls
+
+0 covered files read, tests included; 0 with computed-target calls, 0 sites. Skipped: none.
+
+None.
+
+None.
+
+Files with the most sites:
+
+None.
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -321,3 +334,9 @@ Collector notes:
 - runtimes declared under test or fixture directories are marked testFixture and do not count as the product's runtime
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
+- files are those tracked at HEAD; content is read from the working tree; nothing is run
+- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- comments are removed and strings replaced before matching, so text inside strings never counts
+- only calls whose target is computed count; a literal target is visible at the call site
+- vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
+- configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected

@@ -30,9 +30,17 @@
     },
     {
       "id": "direct-api-calls",
-      "name": "Direct API calls",
+      "name": "Direct calls (visible at call site)",
       "class": "blocking",
-      "description": "What a call does is visible at the call site, not hidden behind reflection, magic or dynamic dispatch."
+      "description": "What a call does is visible at the call site, not hidden behind reflection, magic or dynamic dispatch.",
+      "thresholds": {
+        "maxShareWithSites5": 0.02,
+        "maxShareWithSites4": 0.05,
+        "maxShareWithSites3": 0.1,
+        "maxShareWithSites2": 0.2,
+        "minCoveredLineShare": 0.5,
+        "minCoveredFiles": 10
+      }
     },
     {
       "id": "file-size",

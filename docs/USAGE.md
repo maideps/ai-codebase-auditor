@@ -14,7 +14,7 @@ node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Ma
 node dist/cli.js --help
 ```
 
-`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the four collectors. Relative paths resolve against the current directory. It then prints the scores, the readiness level, the verdict with risk zones, the harness adaptation plan and the first roadmap steps.
+`audit` checks that `<repo-path>` is the root of a git working tree (a `.git` directory, or a `.git` file for a linked worktree) and validates the factor configuration, then prints the target, the factor list, and a summary from each of the five collectors. Relative paths resolve against the current directory. It then prints the scores, the readiness level, the verdict with risk zones, the harness adaptation plan and the first roadmap steps.
 
 ### Git history
 
@@ -71,6 +71,20 @@ Manifests of other ecosystems (`go.mod`, `Cargo.toml`, `Pipfile`, `*.csproj`, `*
 
 Runtimes declared under test or fixture directories are listed with `testFixture: true`, but do not count as the product's runtime for scoring. Each declared runtime is assessed against `config/runtime-eol.json`: the lowest version its spec allows (`>=3.7,<4` → 3.7; `^7.4 || ^8.0` → 7.4) maps to a cycle (major for Node.js and Java, with Java `1.8` as 8; major.minor for Python, PHP and Ruby), and the cycle is **end-of-life** on or after its date in the table, **supported** before it, or **unknown** with a reason (no lower bound, too coarse, cycle not in the table).
 
+### Dynamic calls
+
+The dynamic-calls collector reads the tracked source files in Python, PHP, Ruby, Java, JavaScript and TypeScript, and lists the call sites whose target is computed at run time. Nothing is run. Comments are removed and strings replaced first, so text inside strings never counts. A call with a literal target (`getattr(obj, 'name')`, `send(:save)`, `Class.forName("x.Y")`) or an UPPER_CASE constant is visible at the call site and is not counted.
+
+| Language | Counted |
+|---|---|
+| Python | `getattr`/`setattr`/`delattr` by name, `__getattr__`, `eval`/`exec`, `__import__`/`import_module` by name, `globals()[name]` |
+| PHP | `call_user_func` by name, `$obj->$method()`, `$function()`, `new $class`, `$variable`, `__call`/`__get`, `eval` |
+| Ruby | `send`/`public_send` by name, `method_missing`, `define_method` by name, `class_eval` of a string, `eval`, `constantize`/`const_get` by name, `instance_variable_get` by name |
+| Java | `Class.forName`/`loadClass` by name, `getMethod`/`getField` by name, `Method.invoke` (in files importing `java.lang.reflect`), `setAccessible(true)`, `Proxy.newProxyInstance` |
+| JavaScript, TypeScript | `eval`, `new Function`, `obj[expr]()`, `Reflect.apply`/`construct` |
+
+Vendored and generated paths are skipped, and so are minified files (a line over 1000 characters). Dispatch wired through configuration is not detected: dependency-injection containers, XML action mappings, Rails callbacks by symbol and annotations. The rules are in [sprints/feat-011.md](sprints/feat-011.md).
+
 #### Refreshing the end-of-life table
 
 `config/runtime-eol.json` is a dated snapshot of [endoflife.date](https://endoflife.date) (Node.js, Python, PHP, Ruby; Java from Eclipse Temurin, with Oracle JDK dates for cycles Temurin never shipped). The audit warns when the table is more than a year old. To refresh it, fetch `https://endoflife.date/api/<product>.json` for `nodejs`, `python`, `php`, `ruby`, `eclipse-temurin` and `oracle-jdk`, keep each cycle's `cycle` and `eol` date, set `asOf` to the fetch date, and commit the table on its own so the change is reviewable.
@@ -85,7 +99,7 @@ Exit codes: `0` success; `2` usage or input error (unknown command or option, mi
 
 After the collectors, `audit` prints one line per factor: its class, its score (or `-` when not measured, with the reason), and the rule that produced it, with `partial:` lines for what the score does not cover. Then the readiness level: the lowest score among scored blocking factors, never an average. While a blocking factor is not measured, the level is marked **provisional** and the factor is named. The rules and thresholds are in [docs/sprints/feat-006.md](sprints/feat-006.md) and `config/factors.json`.
 
-Not measured today, for lack of a collector signal: direct-api-calls (blocking), module-boundaries and observability. So every readiness level is provisional until a call-site collector exists. Today test-feedback is the only scored blocking factor, so it sets the readiness level; type-strictness and the other constraining factors decide between *adopt* and *adapt*.
+Both blocking factors are scored: test-feedback and direct-api-calls. direct-api-calls is the share of covered product files with at least one computed-target call: 2% or less scores 5, then 5%, 10% and 20% for 4, 3 and 2. It is not measured when the covered languages hold less than half the product source lines (a C codebase, say), or when fewer than 10 covered product files exist; the readiness level is then provisional. module-boundaries and observability have no collector signal yet.
 
 ### Deferrals
 
@@ -136,6 +150,7 @@ Each requirement ties a harness assumption to one factor:
 |---|---|---|
 | verifiable-changes | test-feedback | characterization tests per module before a feature edits it; the test layer must run real tests (harness D-029) |
 | typed-changes | type-strictness | a checker for the main dynamic language with a baseline, recorded as a dated deferral |
+| traceable-calls | direct-api-calls | list the files with computed-target calls in `AGENTS.md`; at ≤ 2, also a lint rule against new `eval` and computed-name calls |
 | legible-context | file-size | work per module; list the files over 1000 lines in `AGENTS.md` |
 | written-intent | documented-intent | non-standard practices as `AGENTS.md` rules; `docs/ARCHITECTURE.md` filled by hand |
 | reproducible-runs | dev-deploy-simplicity | the missing CI, runtime pin, test runner or lock file |
@@ -170,10 +185,10 @@ Both files come from one report model, so they hold the same content:
 - risk zones and red paths;
 - the harness adaptation plan and the modernization roadmap;
 - everything not measured, in one list;
-- signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes);
+- signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls);
 - the method: inputs, every read-only command run, collector notes.
 
-Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 3`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014).
+Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 4`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015).
 
 Reports are deterministic. Every date-based rule (the 12-month window, end of life, deferral expiry) uses the audit date in UTC. Keys and lists are in a fixed order, and line endings are LF. Two runs on the same day, repository and configs give identical bytes. The report records the audited commit (`target.head`), so it traces to exact code.
 

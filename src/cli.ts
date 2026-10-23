@@ -2,7 +2,7 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target, factor config, end-of-life table and optional
-// deferrals, runs the four collectors, scores every factor, decides the
+// deferrals, runs the five collectors, scores every factor, decides the
 // verdict and risk zones, plans the harness adaptation and the modernization
 // roadmap, and with --out writes the Markdown and JSON report.
 
@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { collectCodeStructure, type CodeStructure } from "./collectors/code-structure.js";
 import { collectDependencies, type Dependencies, type RuntimeAssessment } from "./collectors/dependencies.js";
+import { collectDynamicCalls, type DynamicCalls } from "./collectors/dynamic-calls.js";
 import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
 import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
@@ -147,6 +148,20 @@ function formatDependencies(dependencies: Measurement<Dependencies>): string[] {
   ];
 }
 
+function formatDynamicCalls(dynamicCalls: Measurement<DynamicCalls>): string[] {
+  if (dynamicCalls.status === "not-measured") return [`Dynamic calls: not measured (${dynamicCalls.reason})`];
+  const { files, skipped } = dynamicCalls.value;
+  const withSites = files.filter((file) => file.sites.length > 0);
+  const sites = files.flatMap((file) => file.sites);
+  const byCount = (counts: string) => counts.split(", ").sort((a, b) => Number(b.slice(b.lastIndexOf(" "))) - Number(a.slice(a.lastIndexOf(" ")))).join(", ");
+  return [
+    "Dynamic calls (covered languages read statically, tests included; nothing is run):",
+    `  covered files: ${files.length}${files.length > 0 ? ` (${byCount(countBy(files, (f) => f.family))})` : ""}, ${withSites.length} with computed-target calls, ${sites.length} sites`,
+    `  constructs: ${sites.length > 0 ? byCount(countBy(sites, (site) => site.construct)) : "none"}`,
+    `  skipped: ${skipped.length > 0 ? countBy(skipped, (f) => f.reason) : "none"}`,
+  ];
+}
+
 function formatScores(scoring: Scoring): string[] {
   const idWidth = Math.max(...scoring.factors.map((factor) => factor.id.length)) + 2;
   const rows = scoring.factors.flatMap((factor) => {
@@ -236,6 +251,8 @@ function formatSummary(
     "",
     ...formatDependencies(collected.dependencies),
     "",
+    ...formatDynamicCalls(collected.dynamicCalls),
+    "",
     ...formatScores(scoring),
     "",
     ...formatDecision(decision),
@@ -301,6 +318,7 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     structure: collectCodeStructure(target.value.path),
     testsDocs: collectTestsDocs(target.value.path),
     dependencies: collectDependencies(target.value.path, { table: eolTable.value, now }),
+    dynamicCalls: collectDynamicCalls(target.value.path),
   };
   const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value });
   const decision = decide(scoring, collected, config.value, decisionConfig.value);

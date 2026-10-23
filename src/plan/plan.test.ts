@@ -3,7 +3,7 @@ import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig } from "../config/deci
 import { DEFAULT_HARNESS_REQUIREMENTS_PATH, loadHarnessRequirements } from "../config/harness-requirements.js";
 import { decideVerdict } from "../decision/verdict.js";
 import type { Decision, Zones } from "../decision/types.js";
-import { collected, dependenciesOf, sourceFiles, structureOf } from "../testing/collected.js";
+import { collected, dependenciesOf, dynamicCallsOf, sourceFiles, structureOf } from "../testing/collected.js";
 import { scoringOf } from "../testing/scoring.js";
 import type { CollectorResults, Scoring } from "../scoring/types.js";
 import { buildPlan, detectHarnessStack, type Plan } from "./plan.js";
@@ -15,7 +15,7 @@ const requirements = requirementsLoaded.value;
 const decisionConfig = decisionLoaded.value;
 
 const noZones: Zones = { modules: [], redPaths: [], unzoned: [], note: null };
-const allGood = { "test-feedback": 5, "type-strictness": 5, "file-size": 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
+const allGood = { "test-feedback": 5, "type-strictness": 5, "direct-api-calls": 5, "file-size": 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
 
 function plan(scores: Record<string, number | null>, options: { zones?: Zones; results?: CollectorResults } = {}): Plan {
   const scoring: Scoring = scoringOf(scores);
@@ -31,6 +31,7 @@ describe("buildPlan requirement levels", () => {
   it.each([
     ["verifiable-changes", "test-feedback"],
     ["typed-changes", "type-strictness"],
+    ["traceable-calls", "direct-api-calls"],
     ["legible-context", "file-size"],
     ["written-intent", "documented-intent"],
     ["reproducible-runs", "dev-deploy-simplicity"],
@@ -112,6 +113,16 @@ describe("buildPlan details", () => {
     expect(plan({ ...allGood, "type-strictness": 1 }, { results }).items.find((i) => i.id === "typed-changes")?.details).toContain(
       "main dynamic language: ruby (450 source lines); suggested checker: Sorbet or Steep",
     );
+  });
+
+  it("lists the files with computed-target calls for traceable-calls, most sites first", () => {
+    const results = collected({
+      structure: structureOf([...sourceFiles(10, "rb"), { path: "Gemfile", lines: 3 }]),
+      dynamicCalls: dynamicCallsOf([{ path: "src/f1.rb", sites: 1 }, { path: "src/f2.rb", sites: 3 }, ...sourceFiles(8, "rb").map((file) => ({ path: file.path.replace("/f", "/g") }))]),
+    });
+    expect(plan({ ...allGood, "direct-api-calls": 2 }, { results }).items.find((i) => i.id === "traceable-calls")?.details).toEqual([
+      "files with computed-target calls: src/f2.rb (3), src/f1.rb (1)",
+    ]);
   });
 
   it("lists the oversized files for legible-context", () => {

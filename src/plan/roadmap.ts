@@ -7,7 +7,7 @@ import type { FactorConfig } from "../config/factors.js";
 import type { RuntimeEolTable } from "../config/runtime-eol.js";
 import { decideVerdict } from "../decision/verdict.js";
 import type { VerdictKind } from "../decision/types.js";
-import { shift, sourceFiles, typedShare, typeScoreOf, type Thresholds } from "../scoring/rules.js";
+import { dynamicShare, shift, sourceFiles, typedShare, typeScoreOf, type Thresholds } from "../scoring/rules.js";
 import type { CollectorResults, FactorScore, Scoring } from "../scoring/types.js";
 import { missingDevSignals, type DevSignal } from "./plan.js";
 
@@ -109,6 +109,27 @@ function typeStep(results: CollectorResults, from: number, t: Thresholds): Candi
   return best && best.to > from ? { ...best, effort: "M" } : null;
 }
 
+function directCallsStep(results: CollectorResults, from: number, t: Thresholds, weakMax: number): Candidate {
+  const measured = dynamicShare(results);
+  if (!measured || measured.files.length === 0) return null;
+  const to = from <= weakMax ? weakMax + 1 : from + 1;
+  const maxShare = t[`maxShareWithSites${to}`];
+  if (maxShare === undefined) return null;
+  const allowed = Math.floor(Number((maxShare * measured.files.length).toFixed(9)));
+  const change = measured.withSites - allowed;
+  if (change <= 0) return null;
+  const top = measured.files
+    .filter((file) => file.sites.length > 0)
+    .sort((a, b) => b.sites.length - a.sites.length || (a.path < b.path ? -1 : 1))
+    .slice(0, 3)
+    .map((file) => `${file.path} (${file.sites.length})`);
+  return {
+    to,
+    action: `make the computed-target calls explicit in ${change} of ${measured.withSites} files (to ${percent(allowed / measured.files.length)} of files), starting with ${top.join(", ")}`,
+    effort: bySize(change, 5, 20),
+  };
+}
+
 function fileSizeStep(results: CollectorResults, from: number, t: Thresholds, weakMax: number): Candidate {
   if (results.structure.status !== "measured") return null;
   const files = sourceFiles(results.structure.value, testPathsOf(results));
@@ -202,6 +223,7 @@ export function buildRoadmap(input: RoadmapInput): RoadmapStep[] {
     const candidate: Candidate =
       factor.id === "test-feedback" ? testFeedbackStep(results, from, thresholds, weakMax)
       : factor.id === "type-strictness" ? typeStep(results, from, thresholds)
+      : factor.id === "direct-api-calls" ? directCallsStep(results, from, thresholds, weakMax)
       : factor.id === "file-size" ? fileSizeStep(results, from, thresholds, weakMax)
       : factor.id === "documented-intent" ? documentedIntentStep(results, from, thresholds)
       : factor.id === "dev-deploy-simplicity" ? devDeployStep(results, from)

@@ -29,6 +29,13 @@ export const LANGUAGE_BY_EXTENSION: Readonly<Record<string, Language>> = {
 
 export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set(Object.keys(LANGUAGE_BY_EXTENSION));
 
+/** Language families with dynamic-call detection rules; TypeScript uses the JavaScript rules. */
+export type DynamicFamily = "python" | "php" | "ruby" | "java" | "javascript";
+
+export const DYNAMIC_CALL_FAMILIES: Readonly<Record<string, DynamicFamily>> = {
+  python: "python", php: "php", ruby: "ruby", java: "java", javascript: "javascript", typescript: "javascript",
+};
+
 export const LOCK_FILE_NAMES: ReadonlySet<string> = new Set([
   "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock",
   "Gemfile.lock", "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum",
