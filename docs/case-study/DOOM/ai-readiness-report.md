@@ -24,7 +24,7 @@ Triggered by: test-feedback 1, module-boundaries not measured.
 | type-strictness | constraining | 4 | weighted typed share 0.75 |
 | direct-api-calls | blocking | – | not measured: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules |
 | file-size | constraining | 2 | lower of p90 988 lines (→ 2) and 8.90% of files over 1000 lines (→ 2) |
-| module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
+| module-boundaries | constraining | – | not measured: only 2 commits change product source in a current module; at least 50 are needed |
 | documented-intent | constraining | 2 | a README without written rules |
 | observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
 | dev-deploy-simplicity | constraining | 1 | 0 of 4 signals: none |
@@ -68,7 +68,7 @@ Evidence:
 
 ### module-boundaries: Module boundary clarity
 
-Not measured (constraining): no collector signal yet: needs an import graph or co-change coupling.
+Not measured (constraining): only 2 commits change product source in a current module; at least 50 are needed.
 
 ### documented-intent: Documented intent
 
@@ -201,6 +201,7 @@ Why: Agents may only edit autonomously where their changes can be verified.
 Not assessed (factor not measured):
 
 - traceable-calls (direct-api-calls): covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
+- scoped-lanes (module-boundaries): only 2 commits change product source in a current module; at least 50 are needed
 - supported-runtime (dependency-currency): no declared runtime with a known end-of-life status outside test fixtures
 
 ## Modernization roadmap
@@ -217,7 +218,7 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 ## Not measured
 
 - factor `direct-api-calls`: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
-- factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
+- factor `module-boundaries`: only 2 commits change product source in a current module; at least 50 are needed
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - factor `dependency-currency`: no declared runtime with a known end-of-life status outside test fixtures
 - tool `scc`: scc is not installed or not on PATH
@@ -290,6 +291,10 @@ Files with the most sites:
 
 None.
 
+### Co-change
+
+4 non-merge commits read; 3 change source files, 2012-01-31 to 2012-01-31. The module-boundaries factor above maps them onto today's modules.
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -307,6 +312,7 @@ Read-only commands run against the target:
 - `git log --no-merges --no-renames --name-only -z HEAD`
 - `git ls-tree -r -z HEAD`
 - `scc --by-file --format json .`
+- `git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD`
 
 Collector notes:
 
@@ -340,3 +346,6 @@ Collector notes:
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
 - configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected
+- the most recent non-merge commits are read from git log; renames show as a delete and an add
+- only source files count; vendored and generated paths are left out
+- nothing is checked out, run or written

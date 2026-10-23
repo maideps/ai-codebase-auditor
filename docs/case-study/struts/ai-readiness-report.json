@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -116,13 +116,18 @@
       "id": "module-boundaries",
       "name": "Module boundary clarity",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "11.00% of the latest 500 commits change more than one module",
+      "evidence": [
+        "55 of 500 commits (11.00%) change product source in two or more of 4 modules, 2023-10-15 to 2026-10-22",
+        "skipped as mass edits (over 50 product source files): 6",
+        "coupled pairs (at least 5 commits together): apps + core/src/main (11 together, 52% of apps's 21 commits), core/src/main + plugins (49 together, 35% of plugins's 139 commits), apps + plugins (5 together, 24% of apps's 21 commits)",
+        "sample commits for apps + core/src/main: ca740ed, e24d2f2, 939576c"
+      ],
+      "partial": "coupling through imports, shared data or configuration is not measured, only changes made together",
+      "reason": null,
       "deferral": null
     },
     {
@@ -411,14 +416,26 @@
         "1518 source files: p90 246 lines, 6 over 1000 lines (0.40%)",
         "largest: core/src/main/java/org/apache/struts2/components/UIBean.java (1552 lines), core/src/main/java/org/apache/struts2/config/entities/ConstantConfig.java (1445 lines), core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (1404 lines), core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java (1260 lines), plugins/convention/src/main/java/org/apache/struts2/convention/PackageBasedActionConfigBuilder.java (1255 lines)"
       ]
+    },
+    {
+      "factor": "module-boundaries",
+      "class": "constraining",
+      "from": 4,
+      "to": 5,
+      "action": "reduce cross-module changes from 11% to 10% of commits, starting with the most coupled pairs apps + core/src/main (11 commits together) and core/src/main + plugins (49 commits together)",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "55 of 500 commits (11.00%) change product source in two or more of 4 modules, 2023-10-15 to 2026-10-22",
+        "skipped as mass edits (over 50 product source files): 6",
+        "coupled pairs (at least 5 commits together): apps + core/src/main (11 together, 52% of apps's 21 commits), core/src/main + plugins (49 together, 35% of plugins's 139 commits), apps + plugins (5 together, 24% of apps's 21 commits)",
+        "sample commits for apps + core/src/main: ca740ed, e24d2f2, 939576c"
+      ]
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "module-boundaries",
-      "reason": "no collector signal yet: needs an import graph or co-change coupling"
-    },
     {
       "kind": "factor",
       "id": "observability",
@@ -1455,6 +1472,14 @@
       "skippedByReason": {
         "minified": 1
       }
+    },
+    "coChange": {
+      "status": "measured",
+      "read": 5000,
+      "truncated": true,
+      "commitsWithSource": 3115,
+      "oldest": "2009-09-28",
+      "newest": "2026-10-22"
     }
   },
   "method": {
@@ -1465,7 +1490,8 @@
       "git ls-tree -r -z --name-only HEAD",
       "git log --no-merges --no-renames --name-only -z HEAD",
       "git ls-tree -r -z HEAD",
-      "scc --by-file --format json ."
+      "scc --by-file --format json .",
+      "git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD"
     ],
     "notes": [
       "merge commits are excluded",
@@ -1497,7 +1523,10 @@
       "comments are removed and strings replaced before matching, so text inside strings never counts",
       "only calls whose target is computed count; a literal target is visible at the call site",
       "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
-      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
+      "the most recent non-merge commits are read from git log; renames show as a delete and an add",
+      "only source files count; vendored and generated paths are left out",
+      "nothing is checked out, run or written"
     ]
   }
 }

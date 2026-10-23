@@ -24,7 +24,7 @@ Triggered by: test-feedback 5, direct-api-calls 4.
 | type-strictness | constraining | 5 | weighted typed share 0.99 |
 | direct-api-calls | blocking | 4 | 3.70% of 1515 covered files have a computed-target call (117 sites) |
 | file-size | constraining | 4 | lower of p90 246 lines (→ 4) and 0.40% of files over 1000 lines (→ 5) |
-| module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
+| module-boundaries | constraining | 4 | 11.00% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 3 | docs with 34 stated rules |
 | observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
 | dev-deploy-simplicity | constraining | 4 | 3 of 4 signals: CI configured, test runner configured, runtime version declared |
@@ -78,7 +78,16 @@ Evidence:
 
 ### module-boundaries: Module boundary clarity
 
-Not measured (constraining): no collector signal yet: needs an import graph or co-change coupling.
+Score **4** (constraining). Rule: 11.00% of the latest 500 commits change more than one module.
+
+Evidence:
+
+- 55 of 500 commits (11.00%) change product source in two or more of 4 modules, 2023-10-15 to 2026-10-22
+- skipped as mass edits (over 50 product source files): 6
+- coupled pairs (at least 5 commits together): apps + core/src/main (11 together, 52% of apps's 21 commits), core/src/main + plugins (49 together, 35% of plugins's 139 commits), apps + plugins (5 together, 24% of apps's 21 commits)
+- sample commits for apps + core/src/main: ca740ed, e24d2f2, 939576c
+
+Partial: coupling through imports, shared data or configuration is not measured, only changes made together.
 
 ### documented-intent: Documented intent
 
@@ -198,10 +207,10 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 1 | direct-api-calls | 4 → 5 | L | 0.67 | make the computed-target calls explicit in 26 of 56 files (to 2% of files), starting with core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7) | unchanged |
 | 2 | documented-intent | 3 → 4 | M | 0.5 | add an architecture doc or decision records | unchanged |
 | 3 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
+| 4 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 11% to 10% of commits, starting with the most coupled pairs apps + core/src/main (11 commits together) and core/src/main + plugins (49 commits together) | unchanged |
 
 ## Not measured
 
-- factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - tool `scc`: scc is not installed or not on PATH
 
@@ -362,6 +371,10 @@ Files with the most sites:
 | `core/src/main/java/org/apache/struts2/config/providers/XmlDocConfigurationProvider.java` | 4 | Class.forName by name |
 | `core/src/main/java/org/apache/struts2/dispatcher/Dispatcher.java` | 4 | Class.forName by name |
 
+### Co-change
+
+5000 non-merge commits read (cut off at the read limit); 3115 change source files, 2009-09-28 to 2026-10-22. The module-boundaries factor above maps them onto today's modules.
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -379,6 +392,7 @@ Read-only commands run against the target:
 - `git log --no-merges --no-renames --name-only -z HEAD`
 - `git ls-tree -r -z HEAD`
 - `scc --by-file --format json .`
+- `git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD`
 
 Collector notes:
 
@@ -412,3 +426,6 @@ Collector notes:
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
 - configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected
+- the most recent non-merge commits are read from git log; renames show as a delete and an add
+- only source files count; vendored and generated paths are left out
+- nothing is checked out, run or written

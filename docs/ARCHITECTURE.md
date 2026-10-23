@@ -9,6 +9,7 @@ src/
   cli.ts              entry point: argument parsing, exit codes, wiring
   result.ts           Result<T>: a value, or every validation error found
   file-kinds.ts       source extensions, language typing, lock-file names (pure data)
+  modules.ts          module grouping shared by the risk zones and the module-boundaries score (pure)
   target.ts           resolves and checks the audited repository root (static)
   config/factors.ts   loads and validates config/factors.json
   config/runtime-eol.ts loads and validates config/runtime-eol.json
@@ -27,6 +28,7 @@ src/
     dependencies/       parsers.ts (one static parser per manifest), versions.ts (spec → lowest version → cycle), toml.ts
     dynamic-calls.ts    call sites whose target is computed (reflection, dispatch by name, eval)
     dynamic-calls/      strip.ts (comments and strings out, per language), patterns.ts (constructs, literal-target checks)
+    co-change.ts        source files changed together in recent commits (one read-only git log)
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red paths), decide.ts
   plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)

@@ -4,7 +4,8 @@
 
 import type { Deferral } from "../config/deferrals.js";
 import type { Factor, FactorConfig } from "../config/factors.js";
-import { RULES, SIGNAL_LESS } from "./rules.js";
+import type { ModuleSettings } from "../modules.js";
+import { RULES, SIGNAL_LESS, type RuleContext } from "./rules.js";
 import type { CollectorResults, DeferralOutcome, FactorScore, Readiness, Scoring } from "./types.js";
 
 /** A deferral can lift a score by one level, but never above this. */
@@ -14,6 +15,8 @@ export interface ScoringOptions {
   /** The audit date that deferrals and end-of-life dates are compared with. */
   now?: Date;
   deferrals?: readonly Deferral[];
+  /** How modules are split, from config/decision.json; module-boundaries is not measured without it. */
+  modules?: ModuleSettings;
 }
 
 /** Errors for thresholds a factor's rule needs but the config gets wrong. */
@@ -59,11 +62,11 @@ function applyDeferral(deferrals: readonly Deferral[], factor: Factor, baseScore
   return { score: baseScore + 1, outcome: outcome(true, `raised from ${baseScore} to ${baseScore + 1}`) };
 }
 
-function scoreFactor(results: CollectorResults, factor: Factor, today: string, deferrals: readonly Deferral[]): FactorScore {
+function scoreFactor(results: CollectorResults, factor: Factor, today: string, deferrals: readonly Deferral[], context: RuleContext): FactorScore {
   const base = { id: factor.id, name: factor.name, class: factor.class };
   const rule = RULES[factor.id];
   const outcome = rule
-    ? rule.score(results, factor.thresholds ?? {}, today)
+    ? rule.score(results, factor.thresholds ?? {}, today, context)
     : { status: "not-measured" as const, reason: SIGNAL_LESS[factor.id] ?? `no scoring rule for factor ${factor.id}` };
   if (outcome.status === "not-measured") {
     return {
@@ -94,6 +97,6 @@ function readinessOf(factors: readonly FactorScore[]): Readiness {
 
 export function scoreFactors(results: CollectorResults, config: FactorConfig, options: ScoringOptions = {}): Scoring {
   const today = (options.now ?? new Date()).toISOString().slice(0, 10);
-  const factors = config.factors.map((factor) => scoreFactor(results, factor, today, options.deferrals ?? []));
+  const factors = config.factors.map((factor) => scoreFactor(results, factor, today, options.deferrals ?? [], options.modules ? { modules: options.modules } : {}));
   return { factors, readiness: readinessOf(factors) };
 }

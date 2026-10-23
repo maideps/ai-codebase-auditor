@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -124,13 +124,18 @@
       "id": "module-boundaries",
       "name": "Module boundary clarity",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "status": "scored",
+      "score": 5,
+      "baseScore": 5,
+      "rule": "10.00% of the latest 60 commits change more than one module",
+      "evidence": [
+        "6 of 60 commits (10.00%) change product source in two or more of 2 modules, 2025-11-03 to 2026-01-01",
+        "skipped as mass edits (over 50 product source files): 0",
+        "coupled pairs (at least 5 commits together): src/(files) + src/auth (6 together, 100% of src/auth's 6 commits)",
+        "sample commits for src/(files) + src/auth: 0000000, 0000001, 0000002"
+      ],
+      "partial": "coupling through imports, shared data or configuration is not measured, only changes made together",
+      "reason": null,
       "deferral": null
     },
     {
@@ -414,11 +419,6 @@
   "notMeasured": [
     {
       "kind": "factor",
-      "id": "module-boundaries",
-      "reason": "no collector signal yet: needs an import graph or co-change coupling"
-    },
-    {
-      "kind": "factor",
       "id": "observability",
       "reason": "no collector signal yet: needs a logging and metrics detector"
     },
@@ -582,6 +582,14 @@
       "skippedByReason": {
         "minified": 1
       }
+    },
+    "coChange": {
+      "status": "measured",
+      "read": 60,
+      "truncated": false,
+      "commitsWithSource": 60,
+      "oldest": "2025-11-03",
+      "newest": "2026-01-01"
     }
   },
   "method": {

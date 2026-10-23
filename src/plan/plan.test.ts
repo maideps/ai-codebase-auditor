@@ -15,10 +15,10 @@ const requirements = requirementsLoaded.value;
 const decisionConfig = decisionLoaded.value;
 
 const noZones: Zones = { modules: [], redPaths: [], unzoned: [], note: null };
-const allGood = { "test-feedback": 5, "type-strictness": 5, "direct-api-calls": 5, "file-size": 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
+const allGood = { "test-feedback": 5, "type-strictness": 5, "direct-api-calls": 5, "file-size": 5, "module-boundaries": 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
 
-function plan(scores: Record<string, number | null>, options: { zones?: Zones; results?: CollectorResults } = {}): Plan {
-  const scoring: Scoring = scoringOf(scores);
+function plan(scores: Record<string, number | null>, options: { zones?: Zones; results?: CollectorResults; evidence?: Record<string, string[]> } = {}): Plan {
+  const scoring: Scoring = scoringOf(scores, options.evidence);
   const decision: Decision = { verdict: decideVerdict(scoring, decisionConfig), zones: options.zones ?? noZones };
   // A TypeScript repository with a package.json, so the stack check stays quiet unless a test sets up a mismatch.
   const results = options.results ?? collected({ structure: structureOf([...sourceFiles(5, "ts"), { path: "package.json", lines: 3 }]) });
@@ -33,6 +33,7 @@ describe("buildPlan requirement levels", () => {
     ["typed-changes", "type-strictness"],
     ["traceable-calls", "direct-api-calls"],
     ["legible-context", "file-size"],
+    ["scoped-lanes", "module-boundaries"],
     ["written-intent", "documented-intent"],
     ["reproducible-runs", "dev-deploy-simplicity"],
     ["supported-runtime", "dependency-currency"],
@@ -66,7 +67,8 @@ describe("buildPlan framing by verdict", () => {
   };
 
   it("prepare first keeps only required items, test-feedback first, with the zone guardrails", () => {
-    const p = plan({ ...allGood, "test-feedback": 1, "documented-intent": 2, "file-size": 3 }, { zones });
+    // Weak tests give prepare first only while module boundaries are not established; here they are not measured.
+    const p = plan({ ...allGood, "test-feedback": 1, "documented-intent": 2, "file-size": 3, "module-boundaries": null }, { zones });
     expect(p.framing).toBe("Do not adopt the harness for feature work yet: complete the required items first, starting with test-feedback.");
     // Zone guardrails are required too: agents still write the characterization tests.
     expect(ids(p)).toEqual(["required:verifiable-changes", "required:written-intent", "required:red-paths", "required:yellow-modules"]);
@@ -122,6 +124,13 @@ describe("buildPlan details", () => {
     });
     expect(plan({ ...allGood, "direct-api-calls": 2 }, { results }).items.find((i) => i.id === "traceable-calls")?.details).toEqual([
       "files with computed-target calls: src/f2.rb (3), src/f1.rb (1)",
+    ]);
+  });
+
+  it("lists the coupled module pairs for scoped-lanes", () => {
+    const evidence = { "module-boundaries": ["31 of 100 commits (31.00%) change product source in two or more of 3 modules", "coupled pairs (at least 5 commits together): app + lib (9 together, 75% of lib's 12 commits)"] };
+    expect(plan({ ...allGood, "module-boundaries": 2 }, { evidence }).items.find((i) => i.id === "scoped-lanes")?.details).toEqual([
+      "coupled pairs (at least 5 commits together): app + lib (9 together, 75% of lib's 12 commits)",
     ]);
   });
 

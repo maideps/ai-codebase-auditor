@@ -7,7 +7,7 @@ import type { FactorConfig } from "../config/factors.js";
 import type { RuntimeEolTable } from "../config/runtime-eol.js";
 import { decideVerdict } from "../decision/verdict.js";
 import type { VerdictKind } from "../decision/types.js";
-import { dynamicShare, shift, sourceFiles, typedShare, typeScoreOf, type Thresholds } from "../scoring/rules.js";
+import { coChangeMeasure, dynamicShare, shift, sourceFiles, typedShare, typeScoreOf, type Thresholds } from "../scoring/rules.js";
 import type { CollectorResults, FactorScore, Scoring } from "../scoring/types.js";
 import { missingDevSignals, type DevSignal } from "./plan.js";
 
@@ -130,6 +130,19 @@ function directCallsStep(results: CollectorResults, from: number, t: Thresholds,
   };
 }
 
+function moduleBoundariesStep(results: CollectorResults, from: number, t: Thresholds, input: RoadmapInput): Candidate {
+  const measured = coChangeMeasure(results, input.decisionConfig, t);
+  if (!measured || measured.counted.length === 0) return null;
+  const weakMax = input.decisionConfig.weakMax;
+  const to = from <= weakMax ? weakMax + 1 : from + 1;
+  const maxShare = t[`maxCrossShare${to}`];
+  if (maxShare === undefined) return null;
+  const pairs = measured.pairs.slice(0, 2).map((pair) => `${pair.a} + ${pair.b} (${pair.together} commits together)`);
+  const start = pairs.length > 0 ? `, starting with the most coupled pair${pairs.length > 1 ? "s" : ""} ${joinAnd(pairs)}` : "";
+  // Restructuring modules is always large work.
+  return { to, action: `reduce cross-module changes from ${percent(measured.share)} to ${percent(maxShare)} of commits${start}`, effort: "L" };
+}
+
 function fileSizeStep(results: CollectorResults, from: number, t: Thresholds, weakMax: number): Candidate {
   if (results.structure.status !== "measured") return null;
   const files = sourceFiles(results.structure.value, testPathsOf(results));
@@ -225,6 +238,7 @@ export function buildRoadmap(input: RoadmapInput): RoadmapStep[] {
       : factor.id === "type-strictness" ? typeStep(results, from, thresholds)
       : factor.id === "direct-api-calls" ? directCallsStep(results, from, thresholds, weakMax)
       : factor.id === "file-size" ? fileSizeStep(results, from, thresholds, weakMax)
+      : factor.id === "module-boundaries" ? moduleBoundariesStep(results, from, thresholds, input)
       : factor.id === "documented-intent" ? documentedIntentStep(results, from, thresholds)
       : factor.id === "dev-deploy-simplicity" ? devDeployStep(results, from)
       : factor.id === "dependency-currency" ? dependencyStep(results, input, thresholds)

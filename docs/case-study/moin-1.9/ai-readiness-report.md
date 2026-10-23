@@ -24,7 +24,7 @@ Triggered by: type-strictness 1, documented-intent 2, dependency-currency 1.
 | type-strictness | constraining | 1 | weighted typed share 0.06 |
 | direct-api-calls | blocking | 3 | 7.93% of 1210 covered files have a computed-target call (243 sites) |
 | file-size | constraining | 3 | lower of p90 573 lines (→ 3) and 4.57% of files over 1000 lines (→ 3) |
-| module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
+| module-boundaries | constraining | 3 | 21.60% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 2 | a README without written rules |
 | observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
 | dev-deploy-simplicity | constraining | 4 | 3 of 4 signals: CI configured, test runner configured, runtime version declared |
@@ -78,7 +78,16 @@ Evidence:
 
 ### module-boundaries: Module boundary clarity
 
-Not measured (constraining): no collector signal yet: needs an import graph or co-change coupling.
+Score **3** (constraining). Rule: 21.60% of the latest 500 commits change more than one module.
+
+Evidence:
+
+- 108 of 500 commits (21.60%) change product source in two or more of 32 modules, 2010-01-17 to 2026-07-28
+- skipped as mass edits (over 50 product source files): 27
+- coupled pairs (at least 5 commits together): MoinMoin/(files) + MoinMoin/security (5 together, 56% of MoinMoin/security's 9 commits), (root) + MoinMoin/(files) (8 together, 40% of (root)'s 20 commits), MoinMoin/(files) + MoinMoin/userprefs (8 together, 30% of MoinMoin/userprefs's 27 commits), MoinMoin/(files) + MoinMoin/script (15 together, 29% of MoinMoin/script's 52 commits), MoinMoin/action + MoinMoin/userprefs (7 together, 26% of MoinMoin/userprefs's 27 commits)
+- sample commits for MoinMoin/(files) + MoinMoin/security: 672e54a, a6f48ed, 397debf
+
+Partial: coupling through imports, shared data or configuration is not measured, only changes made together.
 
 ### documented-intent: Documented intent
 
@@ -183,6 +192,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | recommended | verifiable-changes | test-feedback 3 | feature_list.json layers, package.json test script, AGENTS.md |
 | recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | legible-context | file-size 3 | AGENTS.md |
+| recommended | scoped-lanes | module-boundaries 3 | AGENTS.md, feature lanes (lane-new) |
 
 ### required: typed-changes
 
@@ -292,6 +302,16 @@ Why: Large files push the relevant code out of an agent's context and invite con
 
 - files over 1000 lines: MoinMoin/support/pygments/lexers/_lasso_builtins.py (5327), MoinMoin/support/pygments/lexers/_php_builtins.py (4756), MoinMoin/support/werkzeug/datastructures.py (3120), MoinMoin/support/pygments/lexers/_scilab_builtins.py (3094), MoinMoin/support/parsedatetime/__init__.py (2789), MoinMoin/support/passlib/utils/handlers.py (2712), MoinMoin/support/pygments/lexers/lisp.py (2694), MoinMoin/wikiutil.py (2667), MoinMoin/support/passlib/context.py (2632), MoinMoin/support/pygments/lexers/_openedge_builtins.py (2547)
 
+### recommended: scoped-lanes
+
+Trigger: module-boundaries 3. Surfaces: `AGENTS.md`, `feature lanes (lane-new)`.
+
+Change: List the strongly coupled module pairs in AGENTS.md, so a feature touching one plans for the other.
+
+Why: When changes usually spill across modules, an agent scoped to one module leaves the other half of the change undone, and parallel agents on neighbouring modules collide.
+
+- coupled pairs (at least 5 commits together): MoinMoin/(files) + MoinMoin/security (5 together, 56% of MoinMoin/security's 9 commits), (root) + MoinMoin/(files) (8 together, 40% of (root)'s 20 commits), MoinMoin/(files) + MoinMoin/userprefs (8 together, 30% of MoinMoin/userprefs's 27 commits), MoinMoin/(files) + MoinMoin/script (15 together, 29% of MoinMoin/script's 52 commits), MoinMoin/action + MoinMoin/userprefs (7 together, 26% of MoinMoin/userprefs's 27 commits)
+
 ## Modernization roadmap
 
 Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for blocking factors ÷ effort (S 1, M 2, L 3).
@@ -304,10 +324,10 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 4 | test-feedback | 3 → 4 | M | 1 | add 88 test files (to ratio 0.15) | unchanged |
 | 5 | direct-api-calls | 3 → 4 | L | 0.67 | make the computed-target calls explicit in 36 of 96 files (to 5% of files), starting with MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12) | unchanged |
 | 6 | file-size | 3 → 4 | L | 0.33 | split 20 of 56 files over 1000 lines (to 2.9% of files) and bring the p90 file length from 573 to 400 lines | unchanged |
+| 7 | module-boundaries | 3 → 4 | L | 0.33 | reduce cross-module changes from 21.6% to 20% of commits, starting with the most coupled pairs MoinMoin/(files) + MoinMoin/security (5 commits together) and (root) + MoinMoin/(files) (8 commits together) | unchanged |
 
 ## Not measured
 
-- factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `setup.cfg`: not a supported manifest
 - tool `scc`: scc is not installed or not on PATH
@@ -409,6 +429,10 @@ Files with the most sites:
 | `MoinMoin/support/pygments/lexers/__init__.py` | 6 | import by name, getattr by name, eval or exec, __getattr__ |
 | `MoinMoin/support/werkzeug/local.py` | 6 | __getattr__, getattr by name |
 
+### Co-change
+
+5000 non-merge commits read (cut off at the read limit); 4372 change source files, 2006-07-07 to 2026-07-28. The module-boundaries factor above maps them onto today's modules.
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -426,6 +450,7 @@ Read-only commands run against the target:
 - `git log --no-merges --no-renames --name-only -z HEAD`
 - `git ls-tree -r -z HEAD`
 - `scc --by-file --format json .`
+- `git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD`
 
 Collector notes:
 
@@ -459,3 +484,6 @@ Collector notes:
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
 - configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected
+- the most recent non-merge commits are read from git log; renames show as a delete and an add
+- only source files count; vendored and generated paths are left out
+- nothing is checked out, run or written

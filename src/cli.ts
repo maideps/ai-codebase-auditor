@@ -2,7 +2,7 @@
 
 // Command-line entry point: argument parsing, exit codes and wiring. The audit
 // command validates its target, factor config, end-of-life table and optional
-// deferrals, runs the five collectors, scores every factor, decides the
+// deferrals, runs the six collectors, scores every factor, decides the
 // verdict and risk zones, plans the harness adaptation and the modernization
 // roadmap, and with --out writes the Markdown and JSON report.
 
@@ -13,6 +13,7 @@ import { parseArgs } from "node:util";
 import { collectCodeStructure, type CodeStructure } from "./collectors/code-structure.js";
 import { collectDependencies, type Dependencies, type RuntimeAssessment } from "./collectors/dependencies.js";
 import { collectDynamicCalls, type DynamicCalls } from "./collectors/dynamic-calls.js";
+import { collectCoChange, type CoChange } from "./collectors/co-change.js";
 import { collectGitHistory, type GitHistory } from "./collectors/git-history.js";
 import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
@@ -162,6 +163,16 @@ function formatDynamicCalls(dynamicCalls: Measurement<DynamicCalls>): string[] {
   ];
 }
 
+function formatCoChange(coChange: Measurement<CoChange>): string[] {
+  if (coChange.status === "not-measured") return [`Co-change: not measured (${coChange.reason})`];
+  const { commits, read, truncated } = coChange.value;
+  const span = commits.length > 0 ? `, ${commits[commits.length - 1]?.time.slice(0, 10) ?? "?"} to ${commits[0]?.time.slice(0, 10) ?? "?"}` : "";
+  return [
+    "Co-change (git log of recent non-merge commits; nothing is run):",
+    `  commits read: ${read}${truncated ? " (cut off at the read limit)" : ""}; with source files: ${commits.length}${span}`,
+  ];
+}
+
 function formatScores(scoring: Scoring): string[] {
   const idWidth = Math.max(...scoring.factors.map((factor) => factor.id.length)) + 2;
   const rows = scoring.factors.flatMap((factor) => {
@@ -253,6 +264,8 @@ function formatSummary(
     "",
     ...formatDynamicCalls(collected.dynamicCalls),
     "",
+    ...formatCoChange(collected.coChange),
+    "",
     ...formatScores(scoring),
     "",
     ...formatDecision(decision),
@@ -319,8 +332,9 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     testsDocs: collectTestsDocs(target.value.path),
     dependencies: collectDependencies(target.value.path, { table: eolTable.value, now }),
     dynamicCalls: collectDynamicCalls(target.value.path),
+    coChange: collectCoChange(target.value.path),
   };
-  const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value });
+  const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value, modules: decisionConfig.value });
   const decision = decide(scoring, collected, config.value, decisionConfig.value);
   const plan = buildPlan({ scoring, decision, results: collected, requirements: requirements.value, weakMax: decisionConfig.value.weakMax });
   const roadmap = buildRoadmap({ scoring, results: collected, factors: config.value, decisionConfig: decisionConfig.value, eolTable: eolTable.value, auditDate });

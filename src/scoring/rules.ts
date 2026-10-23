@@ -5,7 +5,8 @@
 import type { CodeStructure } from "../collectors/code-structure.js";
 import type { TestsDocs } from "../collectors/tests-docs.js";
 import type { Measurement } from "../collectors/types.js";
-import { DYNAMIC_CALL_FAMILIES, isLockFile, languageOf, SOURCE_EXTENSIONS, extensionOf } from "../file-kinds.js";
+import { DYNAMIC_CALL_FAMILIES, isLockFile, isUnderTestPath, languageOf, SOURCE_EXTENSIONS, extensionOf } from "../file-kinds.js";
+import { groupModules, moduleContaining, type ModuleSettings } from "../modules.js";
 import type { CollectorResults } from "./types.js";
 
 export type Thresholds = Readonly<Record<string, number>>;
@@ -13,6 +14,12 @@ export type Thresholds = Readonly<Record<string, number>>;
 export type RuleOutcome =
   | { status: "scored"; score: number; rule: string; evidence: string[]; partial?: string }
   | { status: "not-measured"; reason: string };
+
+/** Settings a rule may need from outside its own thresholds. */
+export interface RuleContext {
+  /** How modules are split, shared with the risk zones (config/decision.json). */
+  modules?: ModuleSettings;
+}
 
 export interface RuleSpec {
   /** Every threshold key the rule reads. */
@@ -23,12 +30,11 @@ export interface RuleSpec {
   unitInterval?: readonly string[];
   /** Keys that must be whole numbers. */
   wholeNumbers?: readonly string[];
-  score(results: CollectorResults, thresholds: Thresholds, today: string): RuleOutcome;
+  score(results: CollectorResults, thresholds: Thresholds, today: string, context: RuleContext): RuleOutcome;
 }
 
 /** Factors that exist in the model but have no collector signal yet. */
 export const SIGNAL_LESS: Readonly<Record<string, string>> = {
-  "module-boundaries": "no collector signal yet: needs an import graph or co-change coupling",
   observability: "no collector signal yet: needs a logging and metrics detector",
 };
 
@@ -338,6 +344,122 @@ const directCalls: RuleSpec = {
   },
 };
 
+export interface CoChangePair {
+  a: string;
+  b: string;
+  together: number;
+  /** Commits together ÷ the commits of the module with fewer commits. */
+  strength: number;
+  /** The module with fewer commits, and its commit count. */
+  smaller: string;
+  smallerCommits: number;
+  /** Hashes of the commits together, newest first. */
+  hashes: string[];
+}
+
+export interface CoChangeMeasure {
+  modules: string[];
+  /** Counted commits in the window, newest first, with the modules each changed. */
+  counted: { hash: string; time: string; modules: string[] }[];
+  massEdits: number;
+  crossCommits: number;
+  share: number;
+  /** Pairs with at least minPairCommits commits together, strongest first. */
+  pairs: CoChangePair[];
+}
+
+/**
+ * Commits mapped onto today's modules: product source only (tests, test paths
+ * and files outside every current module left out), mass edits skipped, the
+ * latest windowCommits counted.
+ */
+export function coChangeMeasure(results: CollectorResults, settings: ModuleSettings, thresholds: Thresholds): CoChangeMeasure | null {
+  if (results.coChange.status !== "measured" || results.structure.status !== "measured") return null;
+  const testPaths = results.testsDocs.status === "measured" ? new Set(results.testsDocs.value.tests.files.map((file) => file.path)) : new Set<string>();
+  const modules = [...groupModules(sourceFiles(results.structure.value, testPaths).map((file) => file.path), settings).keys()].sort();
+  const counted: CoChangeMeasure["counted"] = [];
+  let massEdits = 0;
+  for (const commit of results.coChange.value.commits) {
+    if (counted.length >= t(thresholds, "windowCommits")) break;
+    const product = commit.files.filter((file) => !testPaths.has(file) && !isUnderTestPath(file));
+    const mapped = product.map((file) => moduleContaining(file, modules)).filter((name): name is string => name !== null);
+    if (mapped.length === 0) continue;
+    if (mapped.length > t(thresholds, "maxFilesPerCommit")) {
+      massEdits += 1;
+      continue;
+    }
+    counted.push({ hash: commit.hash, time: commit.time, modules: [...new Set(mapped)].sort() });
+  }
+  const perModule = new Map<string, number>();
+  const together = new Map<string, string[]>();
+  for (const commit of counted) {
+    for (const name of commit.modules) perModule.set(name, (perModule.get(name) ?? 0) + 1);
+    for (let i = 0; i < commit.modules.length; i += 1) {
+      for (let j = i + 1; j < commit.modules.length; j += 1) {
+        const key = `${commit.modules[i] ?? ""}\n${commit.modules[j] ?? ""}`;
+        together.set(key, [...(together.get(key) ?? []), commit.hash]);
+      }
+    }
+  }
+  const pairs = [...together.entries()]
+    .filter(([, hashes]) => hashes.length >= t(thresholds, "minPairCommits"))
+    .map(([key, hashes]) => {
+      const [a = "", b = ""] = key.split("\n");
+      const [smaller, smallerCommits] = (perModule.get(a) ?? 0) <= (perModule.get(b) ?? 0) ? [a, perModule.get(a) ?? 0] : [b, perModule.get(b) ?? 0];
+      return { a, b, together: hashes.length, strength: hashes.length / Math.max(1, smallerCommits), smaller, smallerCommits, hashes };
+    })
+    .sort((x, y) => y.strength - x.strength || y.together - x.together || (x.a + x.b < y.a + y.b ? -1 : 1));
+  const crossCommits = counted.filter((commit) => commit.modules.length >= 2).length;
+  return { modules, counted, massEdits, crossCommits, share: counted.length === 0 ? 0 : crossCommits / counted.length, pairs };
+}
+
+/** The module-boundaries score for a share of cross-module commits. */
+export function boundaryScoreOf(share: number, thresholds: Thresholds): number {
+  return band(share, [[5, t(thresholds, "maxCrossShare5")], [4, t(thresholds, "maxCrossShare4")], [3, t(thresholds, "maxCrossShare3")], [2, t(thresholds, "maxCrossShare2")]], "lower");
+}
+
+const percentWhole = (share: number) => `${Math.round(share * 100)}%`;
+const COUPLING_PARTIAL = "coupling through imports, shared data or configuration is not measured, only changes made together";
+
+const moduleBoundaries: RuleSpec = {
+  keys: ["maxCrossShare5", "maxCrossShare4", "maxCrossShare3", "maxCrossShare2", "windowCommits", "minCommits", "maxFilesPerCommit", "minPairCommits"],
+  ascending: [["maxCrossShare5", "maxCrossShare4", "maxCrossShare3", "maxCrossShare2"], ["minCommits", "windowCommits"]],
+  unitInterval: ["maxCrossShare5", "maxCrossShare4", "maxCrossShare3", "maxCrossShare2"],
+  wholeNumbers: ["windowCommits", "minCommits", "maxFilesPerCommit", "minPairCommits"],
+  score(results, thresholds, _today, context) {
+    const coChange = need(results.coChange, "co-change");
+    if ("missing" in coChange) return coChange.missing;
+    const structure = need(results.structure, "code structure");
+    if ("missing" in structure) return structure.missing;
+    if (!context.modules) return { status: "not-measured", reason: "module settings were not given" };
+    const measured = coChangeMeasure(results, context.modules, thresholds);
+    if (!measured) return { status: "not-measured", reason: "co-change not measured" };
+    const { modules, counted, massEdits, crossCommits, share, pairs } = measured;
+    if (modules.length < 2) return { status: "not-measured", reason: `only one module (${modules[0] ?? "none"}): no boundaries to cross` };
+    if (counted.length < t(thresholds, "minCommits")) {
+      return { status: "not-measured", reason: `only ${plural(counted.length, "commit")} ${counted.length === 1 ? "changes" : "change"} product source in a current module; at least ${t(thresholds, "minCommits")} are needed` };
+    }
+    const from = counted[counted.length - 1]?.time.slice(0, 10) ?? "?";
+    const to = counted[0]?.time.slice(0, 10) ?? "?";
+    const top = pairs.slice(0, 5);
+    const strongest = top[0];
+    return {
+      status: "scored",
+      score: boundaryScoreOf(share, thresholds),
+      rule: `${fixed(share * 100)}% of the latest ${counted.length} commits change more than one module`,
+      evidence: [
+        `${crossCommits} of ${counted.length} commits (${fixed(share * 100)}%) change product source in two or more of ${modules.length} modules, ${from} to ${to}`,
+        `skipped as mass edits (over ${t(thresholds, "maxFilesPerCommit")} product source files): ${massEdits}`,
+        `coupled pairs (at least ${t(thresholds, "minPairCommits")} commits together): ${
+          top.length > 0 ? top.map((pair) => `${pair.a} + ${pair.b} (${pair.together} together, ${percentWhole(pair.strength)} of ${pair.smaller}'s ${pair.smallerCommits} commits)`).join(", ") : "none"
+        }`,
+        ...(strongest ? [`sample commits for ${strongest.a} + ${strongest.b}: ${strongest.hashes.slice(0, 3).map((hash) => hash.slice(0, 7)).join(", ")}`] : []),
+      ],
+      partial: COUPLING_PARTIAL,
+    };
+  },
+};
+
 const devDeploySimplicity: RuleSpec = {
   keys: [],
   score(results) {
@@ -415,6 +537,7 @@ export const RULES: Readonly<Record<string, RuleSpec>> = {
   "type-strictness": typeStrictness,
   "direct-api-calls": directCalls,
   "file-size": fileSize,
+  "module-boundaries": moduleBoundaries,
   "documented-intent": documentedIntent,
   "dev-deploy-simplicity": devDeploySimplicity,
   "dependency-currency": dependencyCurrency,

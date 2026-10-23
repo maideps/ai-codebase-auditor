@@ -285,3 +285,28 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
 **Consequences:**
 - Positive: four of the five calibration verdicts are no longer provisional, and readiness reflects both blocking factors. Each score cites its top files and 10 sample sites, and all 40 sampled sites in the case study are real.
 - Negative: pattern matching misses or invents sites in unusual syntax. Dispatch wired through configuration (DI containers, XML mappings, Rails callbacks, annotations) is not counted, so framework-heavy code can score better than it reads. C and other languages stay unmeasured. Java files are read twice, once per collector.
+
+### D-016: Module boundaries scored from co-change across today's modules
+
+**Date:** 2026-10-23
+**Status:** accepted (rules proposed in docs/sprints/feat-012.md and approved in review)
+**Context:** module-boundaries ("a change can be scoped to one area") had no signal. The verdict rule counted it as not established, so weak tests alone gave *prepare first*. A stack-agnostic signal was needed, and the git history is one every repository has.
+**Decision:**
+- A co-change collector reads the most recent 5000 non-merge commits from one read-only `git log` and keeps each commit's source files.
+- The score maps those files onto today's modules. These are the same modules as the risk zones; the grouping moved to `src/modules.ts`, and scoring receives `splitShare` and `maxDepth` from `config/decision.json` through a rule context.
+- Only product source counts. Tests, test paths, docs and files outside current modules are left out, and commits over 50 product source files are skipped as mass edits.
+- The measure is the share of the latest 500 counted commits that change two or more modules: ≤ 10% scores 5, then 20%, 30% and 40%. It is not measured under 50 counted commits, with one module, or on a shallow clone.
+- The evidence names the most coupled pairs (commits together ÷ the smaller module's commits, at least 5 together) and sample commits.
+- The harness requirement `scoped-lanes` and an L-effort roadmap step cover the factor. The report goes to `schemaVersion` 5 with `signals.coChange`.
+**Alternatives considered:**
+- The strongest pair's strength as the score — Rejected in review: it rests on few commits.
+- Stricter bands (5/10/20/30%) — Rejected in review.
+- A 24-month window — Rejected in review: dormant repositories such as moin-1.9, with 12 commits in 24 months, would go unmeasured.
+- Yellow zones for coupled pairs — Rejected in review: the factor stays repository-wide.
+- An import graph — Rejected for now: it needs a parser per language.
+**Consequences:**
+- Positive: the prepare-first rule now tests boundaries instead of assuming them missing. Every repository with history gets a score, C included. All 12 sampled commits change both modules of their pair.
+- Negative:
+  - modules are directories, so real modules that do not follow directories are scored on the wrong units;
+  - co-change by design (migrations with models, example apps with features) counts as coupling;
+  - the log is read twice, once by git-history and once here, which raises peak memory on moin-1.9 to 308 MB.

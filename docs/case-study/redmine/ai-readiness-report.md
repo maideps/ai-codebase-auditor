@@ -24,7 +24,7 @@ Triggered by: type-strictness 1.
 | type-strictness | constraining | 1 | weighted typed share 0.00 |
 | direct-api-calls | blocking | 3 | 5.61% of 838 covered files have a computed-target call (72 sites) |
 | file-size | constraining | 4 | lower of p90 214 lines (→ 4) and 1.07% of files over 1000 lines (→ 4) |
-| module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
+| module-boundaries | constraining | 4 | 15.40% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 3 | docs with contributing, architecture, convention or decision docs |
 | observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
 | dev-deploy-simplicity | constraining | 5 | 4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed |
@@ -78,7 +78,16 @@ Evidence:
 
 ### module-boundaries: Module boundary clarity
 
-Not measured (constraining): no collector signal yet: needs an import graph or co-change coupling.
+Score **4** (constraining). Rule: 15.40% of the latest 500 commits change more than one module.
+
+Evidence:
+
+- 77 of 500 commits (15.40%) change product source in two or more of 6 modules, 2025-03-26 to 2026-10-22
+- skipped as mass edits (over 50 product source files): 0
+- coupled pairs (at least 5 commits together): app + db (10 together, 50% of db's 20 commits), app + config (20 together, 49% of config's 41 commits), app + lib (61 together, 36% of lib's 170 commits), config + db (7 together, 35% of db's 20 commits), db + lib (7 together, 35% of db's 20 commits)
+- sample commits for app + db: 6c2e1c3, b948e0b, be05562
+
+Partial: coupling through imports, shared data or configuration is not measured, only changes made together.
 
 ### documented-intent: Documented intent
 
@@ -365,10 +374,10 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 3 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
 | 4 | dependency-currency | 4 → 5 | M | 0.5 | upgrade ruby from 3.3 to 3.4 | unchanged |
 | 5 | file-size | 4 → 5 | L | 0.33 | split 1 of 9 files over 1000 lines (to 1% of files) and bring the p90 file length from 214 to 200 lines | unchanged |
+| 6 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 15.4% to 10% of commits, starting with the most coupled pairs app + db (10 commits together) and app + config (20 commits together) | unchanged |
 
 ## Not measured
 
-- factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - tool `scc`: scc is not installed or not on PATH
 
@@ -468,6 +477,10 @@ Files with the most sites:
 | `app/helpers/issues_helper.rb` | 2 | send by name |
 | `app/models/journal.rb` | 2 | send by name |
 
+### Co-change
+
+5000 non-merge commits read (cut off at the read limit); 3389 change source files, 2019-10-17 to 2026-10-22. The module-boundaries factor above maps them onto today's modules.
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -485,6 +498,7 @@ Read-only commands run against the target:
 - `git log --no-merges --no-renames --name-only -z HEAD`
 - `git ls-tree -r -z HEAD`
 - `scc --by-file --format json .`
+- `git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD`
 
 Collector notes:
 
@@ -518,3 +532,6 @@ Collector notes:
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
 - configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected
+- the most recent non-merge commits are read from git log; renames show as a delete and an add
+- only source files count; vendored and generated paths are left out
+- nothing is checked out, run or written

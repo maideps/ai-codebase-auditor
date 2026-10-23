@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -120,13 +120,18 @@
       "id": "module-boundaries",
       "name": "Module boundary clarity",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "21.60% of the latest 500 commits change more than one module",
+      "evidence": [
+        "108 of 500 commits (21.60%) change product source in two or more of 32 modules, 2010-01-17 to 2026-07-28",
+        "skipped as mass edits (over 50 product source files): 27",
+        "coupled pairs (at least 5 commits together): MoinMoin/(files) + MoinMoin/security (5 together, 56% of MoinMoin/security's 9 commits), (root) + MoinMoin/(files) (8 together, 40% of (root)'s 20 commits), MoinMoin/(files) + MoinMoin/userprefs (8 together, 30% of MoinMoin/userprefs's 27 commits), MoinMoin/(files) + MoinMoin/script (15 together, 29% of MoinMoin/script's 52 commits), MoinMoin/action + MoinMoin/userprefs (7 together, 26% of MoinMoin/userprefs's 27 commits)",
+        "sample commits for MoinMoin/(files) + MoinMoin/security: 672e54a, a6f48ed, 397debf"
+      ],
+      "partial": "coupling through imports, shared data or configuration is not measured, only changes made together",
+      "reason": null,
       "deferral": null
     },
     {
@@ -649,6 +654,24 @@
         "details": [
           "files over 1000 lines: MoinMoin/support/pygments/lexers/_lasso_builtins.py (5327), MoinMoin/support/pygments/lexers/_php_builtins.py (4756), MoinMoin/support/werkzeug/datastructures.py (3120), MoinMoin/support/pygments/lexers/_scilab_builtins.py (3094), MoinMoin/support/parsedatetime/__init__.py (2789), MoinMoin/support/passlib/utils/handlers.py (2712), MoinMoin/support/pygments/lexers/lisp.py (2694), MoinMoin/wikiutil.py (2667), MoinMoin/support/passlib/context.py (2632), MoinMoin/support/pygments/lexers/_openedge_builtins.py (2547)"
         ]
+      },
+      {
+        "id": "scoped-lanes",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "feature lanes (lane-new)"
+        ],
+        "change": "List the strongly coupled module pairs in AGENTS.md, so a feature touching one plans for the other.",
+        "why": "When changes usually spill across modules, an agent scoped to one module leaves the other half of the change undone, and parallel agents on neighbouring modules collide.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "module-boundaries",
+          "score": 3
+        },
+        "details": [
+          "coupled pairs (at least 5 commits together): MoinMoin/(files) + MoinMoin/security (5 together, 56% of MoinMoin/security's 9 commits), (root) + MoinMoin/(files) (8 together, 40% of (root)'s 20 commits), MoinMoin/(files) + MoinMoin/userprefs (8 together, 30% of MoinMoin/userprefs's 27 commits), MoinMoin/(files) + MoinMoin/script (15 together, 29% of MoinMoin/script's 52 commits), MoinMoin/action + MoinMoin/userprefs (7 together, 26% of MoinMoin/userprefs's 27 commits)"
+        ]
       }
     ],
     "notAssessed": []
@@ -747,14 +770,26 @@
         "1226 source files: p90 573 lines, 56 over 1000 lines (4.57%)",
         "largest: MoinMoin/support/pygments/lexers/_lasso_builtins.py (5327 lines), MoinMoin/support/pygments/lexers/_php_builtins.py (4756 lines), MoinMoin/support/werkzeug/datastructures.py (3120 lines), MoinMoin/support/pygments/lexers/_scilab_builtins.py (3094 lines), MoinMoin/support/parsedatetime/__init__.py (2789 lines)"
       ]
+    },
+    {
+      "factor": "module-boundaries",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "reduce cross-module changes from 21.6% to 20% of commits, starting with the most coupled pairs MoinMoin/(files) + MoinMoin/security (5 commits together) and (root) + MoinMoin/(files) (8 commits together)",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "108 of 500 commits (21.60%) change product source in two or more of 32 modules, 2010-01-17 to 2026-07-28",
+        "skipped as mass edits (over 50 product source files): 27",
+        "coupled pairs (at least 5 commits together): MoinMoin/(files) + MoinMoin/security (5 together, 56% of MoinMoin/security's 9 commits), (root) + MoinMoin/(files) (8 together, 40% of (root)'s 20 commits), MoinMoin/(files) + MoinMoin/userprefs (8 together, 30% of MoinMoin/userprefs's 27 commits), MoinMoin/(files) + MoinMoin/script (15 together, 29% of MoinMoin/script's 52 commits), MoinMoin/action + MoinMoin/userprefs (7 together, 26% of MoinMoin/userprefs's 27 commits)",
+        "sample commits for MoinMoin/(files) + MoinMoin/security: 672e54a, a6f48ed, 397debf"
+      ]
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "module-boundaries",
-      "reason": "no collector signal yet: needs an import graph or co-change coupling"
-    },
     {
       "kind": "factor",
       "id": "observability",
@@ -1232,6 +1267,14 @@
       "skippedByReason": {
         "minified": 8
       }
+    },
+    "coChange": {
+      "status": "measured",
+      "read": 5000,
+      "truncated": true,
+      "commitsWithSource": 4372,
+      "oldest": "2006-07-07",
+      "newest": "2026-07-28"
     }
   },
   "method": {
@@ -1242,7 +1285,8 @@
       "git ls-tree -r -z --name-only HEAD",
       "git log --no-merges --no-renames --name-only -z HEAD",
       "git ls-tree -r -z HEAD",
-      "scc --by-file --format json ."
+      "scc --by-file --format json .",
+      "git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD"
     ],
     "notes": [
       "merge commits are excluded",
@@ -1274,7 +1318,10 @@
       "comments are removed and strings replaced before matching, so text inside strings never counts",
       "only calls whose target is computed count; a literal target is visible at the call site",
       "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
-      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
+      "the most recent non-merge commits are read from git log; renames show as a delete and an add",
+      "only source files count; vendored and generated paths are left out",
+      "nothing is checked out, run or written"
     ]
   }
 }

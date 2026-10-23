@@ -4,7 +4,7 @@ import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
 import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "../config/runtime-eol.js";
 import { scoreFactors } from "../scoring/score.js";
 import type { CollectorResults } from "../scoring/types.js";
-import { collected, dependenciesOf, dynamicCallsOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
+import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
 import { buildRoadmap, type RoadmapStep } from "./roadmap.js";
 
 const factors = loadFactorConfig(DEFAULT_CONFIG_PATH);
@@ -17,7 +17,7 @@ const eolTable = eol.value;
 const auditDate = "2026-10-22";
 
 function roadmap(results: CollectorResults): RoadmapStep[] {
-  const scoring = scoreFactors(results, factorConfig, { now: new Date(`${auditDate}T23:59:59.999Z`) });
+  const scoring = scoreFactors(results, factorConfig, { now: new Date(`${auditDate}T23:59:59.999Z`), modules: decisionConfig });
   return buildRoadmap({ scoring, results, factors: factorConfig, decisionConfig, eolTable, auditDate });
 }
 const stepFor = (steps: RoadmapStep[], factor: string) => steps.find((step) => step.factor === factor);
@@ -89,6 +89,32 @@ describe("direct-api-calls steps", () => {
     ["a good share to the top band", 4, 4, 5, "make the computed-target calls explicit in 2 of 4 files (to 2% of files), starting with src/f000.py (1), src/f001.py (1), src/f002.py (1)", "S"],
   ])("sizes %s by the files to change", (_label, withSites, from, to, action, effort) => {
     expect(stepFor(roadmap(dynamic(withSites)), "direct-api-calls")).toMatchObject({ from, to, action, effort });
+  });
+});
+
+describe("module-boundaries steps", () => {
+  const layout = structureOf([...sourceFiles(3, "rb", 10, "app"), ...sourceFiles(3, "rb", 10, "lib"), ...sourceFiles(3, "rb", 10, "web")]);
+  // `appLib` commits change app and lib, `libWeb` change lib and web, the rest of 100 change app alone.
+  const history = (appLib: number, libWeb: number) => [
+    ...Array.from({ length: appLib }, () => ["app/f0.rb", "lib/f0.rb"]),
+    ...Array.from({ length: libWeb }, () => ["lib/f1.rb", "web/f1.rb"]),
+    ...Array.from({ length: 100 - appLib - libWeb }, () => ["app/f1.rb"]),
+  ];
+
+  it("names the most coupled pairs and the share to reach, always at L effort", () => {
+    const results = collected({ structure: layout, coChange: coChangeOf(history(25, 10)) });
+    expect(stepFor(roadmap(results), "module-boundaries")).toMatchObject({
+      from: 2, to: 3, effort: "L",
+      action: "reduce cross-module changes from 35% to 30% of commits, starting with the most coupled pairs lib + web (10 commits together) and app + lib (25 commits together)",
+    });
+  });
+
+  it("names no pair when none has the minimum commits together", () => {
+    const pairs = [["app/f0.rb", "lib/f0.rb"], ["lib/f0.rb", "web/f0.rb"], ["app/f0.rb", "web/f0.rb"]];
+    const commits = [...pairs.flatMap((pair) => Array.from({ length: 4 }, () => pair)), ...Array.from({ length: 88 }, () => ["app/f1.rb"])];
+    expect(stepFor(roadmap(collected({ structure: layout, coChange: coChangeOf(commits) })), "module-boundaries")).toMatchObject({
+      from: 4, to: 5, effort: "L", action: "reduce cross-module changes from 12% to 10% of commits",
+    });
   });
 });
 

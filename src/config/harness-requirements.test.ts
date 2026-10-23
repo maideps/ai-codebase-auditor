@@ -24,7 +24,7 @@ function errorsOf(raw: unknown): string[] {
 }
 
 describe("default harness requirements", () => {
-  it("loads seven requirements against a named harness version", () => {
+  it("loads eight requirements against a named harness version", () => {
     const result = loadHarnessRequirements(DEFAULT_HARNESS_REQUIREMENTS_PATH);
     if (!result.ok) throw new Error(result.errors.join("\n"));
     expect(result.value.harness).toMatchObject({ name: "ai-harness-framework", version: "0.5.0", commit: "7fb142a" });
@@ -33,6 +33,7 @@ describe("default harness requirements", () => {
       ["typed-changes", "type-strictness"],
       ["traceable-calls", "direct-api-calls"],
       ["legible-context", "file-size"],
+      ["scoped-lanes", "module-boundaries"],
       ["written-intent", "documented-intent"],
       ["reproducible-runs", "dev-deploy-simplicity"],
       ["supported-runtime", "dependency-currency"],

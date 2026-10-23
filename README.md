@@ -79,7 +79,7 @@ Clone the repositories you audit outside this one. The tool refuses an `--out` d
 | direct-api-calls | blocking | share of files with calls whose target is computed: reflection, dispatch by name, `eval`, `method_missing` (Python, PHP, Ruby, Java, JavaScript, TypeScript) |
 | type-strictness | constraining | share of code under a type checker, TypeScript `strict` |
 | file-size | constraining | p90 file length, share of files over 1000 lines |
-| module-boundaries | constraining | not measured yet |
+| module-boundaries | constraining | share of the latest 500 commits that change more than one module (from git history, any language) |
 | documented-intent | constraining | contributing, architecture, convention and decision docs, stated rules |
 | observability | constraining | not measured yet |
 | dev-deploy-simplicity | constraining | CI, test runner, pinned runtime, lock file |
@@ -126,7 +126,8 @@ DOOM's verdict is provisional: its C code has no dynamic-call rules, so direct-a
 ## Status and Limits
 
 Version 2 is complete: the audit, the reports, the harness adaptation plan and the modernization roadmap.
-- Two constraining factors, module boundaries and observability, have no collector yet.
+- Observability has no collector yet.
+- Module boundaries come from how files changed together, so layouts where co-change is by design count as coupling, such as Rails migrations with their models.
 - Direct calls are detected for Python, PHP, Ruby, Java, JavaScript and TypeScript only, by pattern matching rather than parsing. Dispatch wired through configuration (dependency injection, XML mappings, callbacks by symbol) is not counted.
 - Test speed, CI pass rates and branch protection cannot be seen from repository contents.
 - Roadmap effort comes from counts, not from how hard the code is.

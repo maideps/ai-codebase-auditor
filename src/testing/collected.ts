@@ -2,6 +2,7 @@
 // the signals they care about. Excluded from the build.
 
 import type { CodeStructure } from "../collectors/code-structure.js";
+import type { CoChange } from "../collectors/co-change.js";
 import type { Dependencies, RuntimeAssessment } from "../collectors/dependencies.js";
 import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
@@ -103,6 +104,23 @@ export function dynamicCallsOf(files: { path: string; lines?: number; sites?: nu
   };
 }
 
+/** Commits, newest first, each a list of source files; hashes and dates are generated. */
+export function coChangeOf(commits: string[][]): Measurement<CoChange> {
+  return {
+    status: "measured",
+    evidence,
+    value: {
+      commits: commits.map((files, index) => ({
+        hash: index.toString(16).padStart(7, "0") + "0".repeat(33),
+        time: new Date(Date.UTC(2026, 0, 1) - index * 86_400_000).toISOString(),
+        files: [...files].sort(),
+      })),
+      read: commits.length,
+      truncated: false,
+    },
+  };
+}
+
 export function historyOf(): Measurement<GitHistory> {
   return {
     status: "measured",
@@ -123,6 +141,7 @@ export function collected(parts: Partial<CollectorResults> = {}): CollectorResul
     testsDocs: testsDocsOf(),
     dependencies: dependenciesOf([]),
     dynamicCalls: notMeasured("no dynamic-calls fixture"),
+    coChange: notMeasured("no co-change fixture"),
     ...parts,
   };
 }

@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -116,13 +116,18 @@
       "id": "module-boundaries",
       "name": "Module boundary clarity",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "status": "scored",
+      "score": 3,
+      "baseScore": 3,
+      "rule": "20.80% of the latest 500 commits change more than one module",
+      "evidence": [
+        "104 of 500 commits (20.80%) change product source in two or more of 70 modules, 2025-04-28 to 2026-10-22",
+        "skipped as mass edits (over 50 product source files): 2",
+        "coupled pairs (at least 5 commits together): phpBB/phpbb/auth + phpBB/phpbb/ucp (9 together, 75% of phpBB/phpbb/auth's 12 commits), phpBB/includes + phpBB/install (13 together, 65% of phpBB/install's 20 commits), phpBB/(files) + phpBB/phpbb/members (6 together, 55% of phpBB/phpbb/members's 11 commits), phpBB/includes + phpBB/phpbb/auth (5 together, 42% of phpBB/phpbb/auth's 12 commits), phpBB/language + phpBB/phpbb/install (9 together, 35% of phpBB/phpbb/install's 26 commits)",
+        "sample commits for phpBB/phpbb/auth + phpBB/phpbb/ucp: 7790b96, 564f9d6, 05477a7"
+      ],
+      "partial": "coupling through imports, shared data or configuration is not measured, only changes made together",
+      "reason": null,
       "deferral": null
     },
     {
@@ -1036,6 +1041,24 @@
         ]
       },
       {
+        "id": "scoped-lanes",
+        "level": "recommended",
+        "surfaces": [
+          "AGENTS.md",
+          "feature lanes (lane-new)"
+        ],
+        "change": "List the strongly coupled module pairs in AGENTS.md, so a feature touching one plans for the other.",
+        "why": "When changes usually spill across modules, an agent scoped to one module leaves the other half of the change undone, and parallel agents on neighbouring modules collide.",
+        "trigger": {
+          "kind": "factor",
+          "factor": "module-boundaries",
+          "score": 3
+        },
+        "details": [
+          "coupled pairs (at least 5 commits together): phpBB/phpbb/auth + phpBB/phpbb/ucp (9 together, 75% of phpBB/phpbb/auth's 12 commits), phpBB/includes + phpBB/install (13 together, 65% of phpBB/install's 20 commits), phpBB/(files) + phpBB/phpbb/members (6 together, 55% of phpBB/phpbb/members's 11 commits), phpBB/includes + phpBB/phpbb/auth (5 together, 42% of phpBB/phpbb/auth's 12 commits), phpBB/language + phpBB/phpbb/install (9 together, 35% of phpBB/phpbb/install's 26 commits)"
+        ]
+      },
+      {
         "id": "written-intent",
         "level": "recommended",
         "surfaces": [
@@ -1124,14 +1147,26 @@
         "1370 source files: p90 473 lines, 53 over 1000 lines (3.87%)",
         "largest: phpBB/includes/utf/data/recode_cjk.php (45177 lines), phpBB/includes/functions.php (4270 lines), phpBB/assets/javascript/cropper.js (3625 lines), phpBB/includes/functions_admin.php (3236 lines), phpBB/includes/functions_user.php (3150 lines)"
       ]
+    },
+    {
+      "factor": "module-boundaries",
+      "class": "constraining",
+      "from": 3,
+      "to": 4,
+      "action": "reduce cross-module changes from 20.8% to 20% of commits, starting with the most coupled pairs phpBB/phpbb/auth + phpBB/phpbb/ucp (9 commits together) and phpBB/includes + phpBB/install (13 commits together)",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "104 of 500 commits (20.80%) change product source in two or more of 70 modules, 2025-04-28 to 2026-10-22",
+        "skipped as mass edits (over 50 product source files): 2",
+        "coupled pairs (at least 5 commits together): phpBB/phpbb/auth + phpBB/phpbb/ucp (9 together, 75% of phpBB/phpbb/auth's 12 commits), phpBB/includes + phpBB/install (13 together, 65% of phpBB/install's 20 commits), phpBB/(files) + phpBB/phpbb/members (6 together, 55% of phpBB/phpbb/members's 11 commits), phpBB/includes + phpBB/phpbb/auth (5 together, 42% of phpBB/phpbb/auth's 12 commits), phpBB/language + phpBB/phpbb/install (9 together, 35% of phpBB/phpbb/install's 26 commits)",
+        "sample commits for phpBB/phpbb/auth + phpBB/phpbb/ucp: 7790b96, 564f9d6, 05477a7"
+      ]
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "module-boundaries",
-      "reason": "no collector signal yet: needs an import graph or co-change coupling"
-    },
     {
       "kind": "factor",
       "id": "observability",
@@ -1886,6 +1921,14 @@
         "minified": 27,
         "vendored": 3
       }
+    },
+    "coChange": {
+      "status": "measured",
+      "read": 5000,
+      "truncated": true,
+      "commitsWithSource": 3898,
+      "oldest": "2017-12-25",
+      "newest": "2026-10-22"
     }
   },
   "method": {
@@ -1896,7 +1939,8 @@
       "git ls-tree -r -z --name-only HEAD",
       "git log --no-merges --no-renames --name-only -z HEAD",
       "git ls-tree -r -z HEAD",
-      "scc --by-file --format json ."
+      "scc --by-file --format json .",
+      "git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD"
     ],
     "notes": [
       "merge commits are excluded",
@@ -1928,7 +1972,10 @@
       "comments are removed and strings replaced before matching, so text inside strings never counts",
       "only calls whose target is computed count; a literal target is visible at the call site",
       "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
-      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
+      "the most recent non-merge commits are read from git log; renames show as a delete and an add",
+      "only source files count; vendored and generated paths are left out",
+      "nothing is checked out, run or written"
     ]
   }
 }

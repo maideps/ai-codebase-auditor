@@ -2,7 +2,7 @@
 
 **Status:** final, reviewed 2026-10-22. The proposals from the first run were approved and applied (D-013). The reports in each folder are the regenerated ones; machine-readable labels are in [labels.json](labels.json).
 
-Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 4: regenerated for feat-011 with the direct-api-calls score; see the section on it below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
+Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 5: regenerated for feat-012 with the module-boundaries score; see the sections on direct calls and module boundaries below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
 
 ## Repositories
 
@@ -170,9 +170,31 @@ The reports were regenerated with the dynamic-calls collector and the direct-api
 
 **Performance.** Opening every file twice (a binary sniff, then a full read) cost most of the collector's time on Windows. Files up to 4 MB are now read once and sniffed in memory, which also speeds up code-structure. Full audits took 0.9 to 8.4 s, with peak memory up to 248 MB (moin-1.9). Struts is the slowest: 2,426 covered files read a second time.
 
+## Module Boundaries (feat-012)
+
+The reports were regenerated with the co-change collector and the module-boundaries score (D-016). No verdict or readiness level changed: the factor is constraining, and none of the five is weak.
+
+| Repository | Counted commits (window) | Cross-module share | Score | Strongest pair |
+|---|---|---|---|---|
+| DOOM | 2 | – | not measured: fewer than 50 commits | – |
+| moin-1.9 | 500 (2010-01 to 2026-07) | 21.60% | 3 | `MoinMoin/(files)` + `MoinMoin/security`: 5 together, 56% |
+| phpBB | 500 (2025-04 to 2026-10) | 20.80% | 3 | `phpBB/phpbb/auth` + `phpBB/phpbb/ucp`: 9 together, 75% |
+| Struts | 500 (2023-10 to 2026-10) | 11.00% | 4 | `apps` + `core/src/main`: 11 together, 52% |
+| Redmine | 500 (2025-03 to 2026-10) | 15.40% | 4 | `app` + `db`: 10 together, 50% |
+
+DOOM stays *prepare first*: four commits say nothing about its structure, so its weak tests and unmeasured boundaries still meet the rule.
+
+**Checking the findings.** The 3 sample commits of each strongest pair were read in the clones; all 12 change both modules:
+- phpBB's auth + ucp commits are OAuth work spanning the auth provider and the UCP controller. That coupling crosses a red path.
+- moin-1.9's commits change `security/textcha.py` with `user.py` and `wikiutil.py`.
+- Struts's and Redmine's strongest pairs are coupled by design: a feature with its showcase example, and a model with its migration. The share counts those too (known limit 5 below).
+
+**Performance.** Full audits took 1.2 to 8.9 s. Peak memory went up to 308 MB on moin-1.9, which now holds two reads of its log.
+
 ## Known Limits Kept After Review
 
 1. **Bundled libraries under non-standard directory names** count as product code (moin-1.9 `MoinMoin/support/`). A fix would honor `linguist-vendored` or take a team-supplied exclude list.
 2. **Red-term false positives** from UI and tooling names (`Password*` form-field classes, "doctum-checkout"). Path terms favor recall, and red only means agents propose instead of editing.
 3. **Doc classification by name:** "convention" in a feature name matches, and design specs in a `specs/` directory are skipped as test paths.
-4. **Unmeasured signals:** module boundaries, observability, test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.
+4. **Unmeasured signals:** observability, test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.
+5. **Co-change by design counts as coupling:** Rails migrations change with their models, and example apps change with the features they show. A team can raise the thresholds, or keep such pairs in one module.

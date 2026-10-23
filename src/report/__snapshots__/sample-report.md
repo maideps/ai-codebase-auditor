@@ -24,7 +24,7 @@ Triggered by: type-strictness 1, direct-api-calls 2, documented-intent 2, depend
 | type-strictness | constraining | 1 | weighted typed share 0.00 |
 | direct-api-calls | blocking | 2 | 20.00% of 10 covered files have a computed-target call (3 sites) |
 | file-size | constraining | 5 | lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5) |
-| module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
+| module-boundaries | constraining | 5 | 10.00% of the latest 60 commits change more than one module |
 | documented-intent | constraining | 2 | a README without written rules |
 | observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
 | dev-deploy-simplicity | constraining | 5 | 4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed |
@@ -78,7 +78,16 @@ Evidence:
 
 ### module-boundaries: Module boundary clarity
 
-Not measured (constraining): no collector signal yet: needs an import graph or co-change coupling.
+Score **5** (constraining). Rule: 10.00% of the latest 60 commits change more than one module.
+
+Evidence:
+
+- 6 of 60 commits (10.00%) change product source in two or more of 2 modules, 2025-11-03 to 2026-01-01
+- skipped as mass edits (over 50 product source files): 0
+- coupled pairs (at least 5 commits together): src/(files) + src/auth (6 together, 100% of src/auth's 6 commits)
+- sample commits for src/(files) + src/auth: 0000000, 0000001, 0000002
+
+Partial: coupling through imports, shared data or configuration is not measured, only changes made together.
 
 ### documented-intent: Documented intent
 
@@ -220,7 +229,6 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ## Not measured
 
-- factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `go.mod`: not a supported manifest
 - tool `scc`: test
@@ -285,6 +293,10 @@ Files with the most sites:
 |---|---|---|
 | `src/f0.js` | 2 | computed call |
 | `src/auth/login.js` | 1 | eval or Function |
+
+### Co-change
+
+60 non-merge commits read; 60 change source files, 2025-11-03 to 2026-01-01. The module-boundaries factor above maps them onto today's modules.
 
 ## Method
 

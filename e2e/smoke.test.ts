@@ -90,6 +90,7 @@ describe("audit", () => {
     expect(result.stdout).toContain("  test files: 1 (*.test.* / *.spec.* 1)");
     expect(result.stdout).toContain("  CI: Travis CI 1");
     expect(result.stdout).toContain("Dynamic calls (covered languages read statically, tests included; nothing is run):");
+    expect(result.stdout).toContain("Co-change (git log of recent non-merge commits; nothing is run):\n  commits read: 2; with source files: 2, 2023-05-01 to 2024-06-01\n");
     expect(result.stdout).toContain("    node >=14 (package.json, engines.node): end-of-life since 2023-04-30");
     expect(result.stdout).toMatch(/Readiness level: [1-5] of 5, set by [a-z-]+ \(provisional: direct-api-calls not measured\)/);
     expect(result.stdout).toMatch(/Verdict: (adopt|adapt|prepare first) \(provisional: direct-api-calls not measured\)/);
@@ -116,7 +117,7 @@ describe("audit", () => {
       plan: { framing: string; items: { trigger: { kind: string } }[] };
       roadmap: { factor: string }[];
     };
-    expect(report.schemaVersion).toBe(4);
+    expect(report.schemaVersion).toBe(5);
     expect(report.plan.framing.length).toBeGreaterThan(0);
     for (const item of report.plan.items) expect(["factor", "zone"]).toContain(item.trigger.kind);
     expect(Array.isArray(report.roadmap)).toBe(true);

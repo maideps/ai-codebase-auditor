@@ -145,7 +145,7 @@ function notMeasuredSection(report: AuditReport): string[] {
 }
 
 function signalsSection(report: AuditReport): string[] {
-  const { gitHistory, codeStructure, testsDocs, dependencies, dynamicCalls } = report.signals;
+  const { gitHistory, codeStructure, testsDocs, dependencies, dynamicCalls, coChange } = report.signals;
   const lines = ["## Signals", "", "### Git history", ""];
   if (gitHistory.status === "measured") {
     const t = gitHistory.totals;
@@ -214,6 +214,13 @@ function signalsSection(report: AuditReport): string[] {
       ...table(["File", "Sites", "Constructs"], dynamicCalls.topFiles.map((file) => [code(file.path), String(file.sites), file.constructs.join(", ")])),
     );
   } else lines.push(`Not measured: ${dynamicCalls.reason}.`);
+
+  lines.push("", "### Co-change", "");
+  if (coChange.status === "measured") {
+    lines.push(
+      `${count(coChange.read, "non-merge commit")} read${coChange.truncated ? " (cut off at the read limit)" : ""}; ${coChange.commitsWithSource} change source files, ${coChange.oldest ?? "none"} to ${coChange.newest ?? "none"}. The module-boundaries factor above maps them onto today's modules.`,
+    );
+  } else lines.push(`Not measured: ${coChange.reason}.`);
   return lines;
 }
 

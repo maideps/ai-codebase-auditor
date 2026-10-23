@@ -336,6 +336,37 @@
           "repair": "Resolve cross-layer issues and rerun full verification."
         }
       ]
+    },
+    {
+      "id": "feat-012",
+      "name": "Module-boundaries collector",
+      "behavior": "From the git history, measures how often commits change files in more than one module (co-change coupling across module boundaries) and scores the module-boundaries factor with the coupled module pairs and sample commits as evidence, instead of reporting it as not measured.",
+      "verification": "Fixture repositories with known commit histories cover every coupling rule and exclusion, the factor rule is tested at each threshold edge, and the five calibration repositories are re-audited with the strongest coupled pairs checked against their commits.",
+      "dependencies": [
+        "feat-011"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/co-change",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
-import { collected, dependenciesOf, dynamicCallsOf, notMeasured, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
-import { RULES, type RuleOutcome } from "./rules.js";
+import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, notMeasured, sourceFiles, structureOf, testsDocsOf, type TestsDocsSpec } from "../testing/collected.js";
+import { RULES, type RuleContext, type RuleOutcome } from "./rules.js";
 import type { CollectorResults } from "./types.js";
 
 const config = loadFactorConfig(DEFAULT_CONFIG_PATH);
@@ -9,10 +9,12 @@ if (!config.ok) throw new Error(config.errors.join("\n"));
 const thresholdsOf = (id: string) => config.value.factors.find((factor) => factor.id === id)?.thresholds ?? {};
 const today = "2026-10-21";
 
-function run(id: string, results: CollectorResults): RuleOutcome {
+const modules = { splitShare: 0.5, maxDepth: 3 };
+
+function run(id: string, results: CollectorResults, context: RuleContext = { modules }): RuleOutcome {
   const rule = RULES[id];
   if (!rule) throw new Error(`no rule ${id}`);
-  return rule.score(results, thresholdsOf(id), today);
+  return rule.score(results, thresholdsOf(id), today, context);
 }
 const scoreOf = (id: string, results: CollectorResults) => {
   const outcome = run(id, results);
@@ -309,5 +311,72 @@ describe("direct-api-calls", () => {
   it("is not measured with fewer than 10 covered product files, or without the collector", () => {
     expect(run("direct-api-calls", covered(9, 0))).toEqual({ status: "not-measured", reason: "only 9 covered product files; at least 10 are needed" });
     expect(run("direct-api-calls", collected())).toEqual({ status: "not-measured", reason: "dynamic calls not measured (no dynamic-calls fixture)" });
+  });
+});
+
+describe("module-boundaries", () => {
+  // Three modules with source files: app, lib and web.
+  const layout = structureOf([...sourceFiles(3, "rb", 10, "app"), ...sourceFiles(3, "rb", 10, "lib"), ...sourceFiles(3, "rb", 10, "web")]);
+  // `cross` of `total` commits change app and lib; the rest change app alone. Newest first.
+  const history = (total: number, cross: number) =>
+    Array.from({ length: total }, (_, index) => (index < cross ? ["app/f0.rb", "lib/f0.rb"] : ["app/f1.rb"]));
+  const results = (commits: string[][], extra: Partial<CollectorResults> = {}) => collected({ structure: layout, coChange: coChangeOf(commits), ...extra });
+
+  it.each([
+    ["10% of commits cross modules", 10, 5],
+    ["11%", 11, 4],
+    ["20%", 20, 4],
+    ["21%", 21, 3],
+    ["30%", 30, 3],
+    ["31%", 31, 2],
+    ["40%", 40, 2],
+    ["41%", 41, 1],
+  ])("%s (%i of 100) → %i", (_label, cross, expected) => {
+    expect(scoreOf("module-boundaries", results(history(100, cross)))).toBe(expected);
+  });
+
+  it("uses only the latest 500 counted commits", () => {
+    // 500 recent in-module commits, then 300 older cross-module ones outside the window.
+    const commits = [...history(500, 0), ...history(300, 300)];
+    expect(run("module-boundaries", results(commits))).toMatchObject({ status: "scored", score: 5, rule: "0.00% of the latest 500 commits change more than one module" });
+  });
+
+  it("leaves out tests, test paths, files outside current modules and mass edits", () => {
+    const commits = [
+      ["app/f0.rb", "test/app_test.rb"], // a test beside the code is normal work
+      ["app/f0.rb", "spec/old/deleted_spec.rb"], // a deleted test, recognized by its test path
+      ["app/f0.rb", "gone/old.rb"], // a directory that no longer exists
+      ["docs/only.rb"], // no current module: not counted
+      Array.from({ length: 51 }, (_, index) => `lib/gen${index}.rb`).concat(["app/f0.rb"]), // a mass edit
+      ...history(49, 0),
+    ];
+    const outcome = run("module-boundaries", results(commits, { testsDocs: testsDocsOf({ testFiles: ["test/app_test.rb"] }) }));
+    expect(outcome).toMatchObject({ status: "scored", score: 5 });
+    expect(outcome.status === "scored" && outcome.evidence).toContain("skipped as mass edits (over 50 product source files): 1");
+  });
+
+  it("cites the share, the window, the coupled pairs and sample commits", () => {
+    const commits = [
+      ...Array.from({ length: 6 }, () => ["app/f0.rb", "lib/f0.rb"]),
+      ...Array.from({ length: 2 }, () => ["lib/f1.rb", "web/f1.rb"]),
+      ...history(42, 0),
+    ];
+    const outcome = run("module-boundaries", results(commits));
+    expect(outcome).toMatchObject({ status: "scored", score: 4, rule: "16.00% of the latest 50 commits change more than one module" });
+    expect(outcome.status === "scored" && outcome.evidence).toEqual([
+      "8 of 50 commits (16.00%) change product source in two or more of 3 modules, 2025-11-13 to 2026-01-01",
+      "skipped as mass edits (over 50 product source files): 0",
+      "coupled pairs (at least 5 commits together): app + lib (6 together, 75% of lib's 8 commits)",
+      "sample commits for app + lib: 0000000, 0000001, 0000002",
+    ]);
+    expect(outcome.status === "scored" && outcome.partial).toBe("coupling through imports, shared data or configuration is not measured, only changes made together");
+  });
+
+  it("is not measured with fewer than 50 counted commits, one module, no module settings, or without the collector", () => {
+    expect(run("module-boundaries", results(history(49, 0)))).toEqual({ status: "not-measured", reason: "only 49 commits change product source in a current module; at least 50 are needed" });
+    const oneModule = collected({ structure: structureOf(sourceFiles(3, "rb", 10, "app")), coChange: coChangeOf(history(60, 0)) });
+    expect(run("module-boundaries", oneModule)).toEqual({ status: "not-measured", reason: "only one module (app): no boundaries to cross" });
+    expect(run("module-boundaries", results(history(60, 0)), {})).toEqual({ status: "not-measured", reason: "module settings were not given" });
+    expect(run("module-boundaries", collected({ structure: layout }))).toEqual({ status: "not-measured", reason: "co-change not measured (no co-change fixture)" });
   });
 });

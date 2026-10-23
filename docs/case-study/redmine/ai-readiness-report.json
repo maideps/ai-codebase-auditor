@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -112,13 +112,18 @@
       "id": "module-boundaries",
       "name": "Module boundary clarity",
       "class": "constraining",
-      "status": "not-measured",
-      "score": null,
-      "baseScore": null,
-      "rule": null,
-      "evidence": [],
-      "partial": null,
-      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "status": "scored",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "15.40% of the latest 500 commits change more than one module",
+      "evidence": [
+        "77 of 500 commits (15.40%) change product source in two or more of 6 modules, 2025-03-26 to 2026-10-22",
+        "skipped as mass edits (over 50 product source files): 0",
+        "coupled pairs (at least 5 commits together): app + db (10 together, 50% of db's 20 commits), app + config (20 together, 49% of config's 41 commits), app + lib (61 together, 36% of lib's 170 commits), config + db (7 together, 35% of db's 20 commits), db + lib (7 together, 35% of db's 20 commits)",
+        "sample commits for app + db: 6c2e1c3, b948e0b, be05562"
+      ],
+      "partial": "coupling through imports, shared data or configuration is not measured, only changes made together",
+      "reason": null,
       "deferral": null
     },
     {
@@ -893,14 +898,26 @@
         "839 source files: p90 214 lines, 9 over 1000 lines (1.07%)",
         "largest: app/models/issue.rb (2173 lines), app/helpers/application_helper.rb (1994 lines), app/models/query.rb (1708 lines), app/assets/javascripts/application-legacy.js (1570 lines), app/models/project.rb (1370 lines)"
       ]
+    },
+    {
+      "factor": "module-boundaries",
+      "class": "constraining",
+      "from": 4,
+      "to": 5,
+      "action": "reduce cross-module changes from 15.4% to 10% of commits, starting with the most coupled pairs app + db (10 commits together) and app + config (20 commits together)",
+      "effort": "L",
+      "gain": 1,
+      "priority": 0.33,
+      "verdictAfter": null,
+      "evidence": [
+        "77 of 500 commits (15.40%) change product source in two or more of 6 modules, 2025-03-26 to 2026-10-22",
+        "skipped as mass edits (over 50 product source files): 0",
+        "coupled pairs (at least 5 commits together): app + db (10 together, 50% of db's 20 commits), app + config (20 together, 49% of config's 41 commits), app + lib (61 together, 36% of lib's 170 commits), config + db (7 together, 35% of db's 20 commits), db + lib (7 together, 35% of db's 20 commits)",
+        "sample commits for app + db: 6c2e1c3, b948e0b, be05562"
+      ]
     }
   ],
   "notMeasured": [
-    {
-      "kind": "factor",
-      "id": "module-boundaries",
-      "reason": "no collector signal yet: needs an import graph or co-change coupling"
-    },
     {
       "kind": "factor",
       "id": "observability",
@@ -1421,6 +1438,14 @@
         "minified": 1,
         "vendored": 4
       }
+    },
+    "coChange": {
+      "status": "measured",
+      "read": 5000,
+      "truncated": true,
+      "commitsWithSource": 3389,
+      "oldest": "2019-10-17",
+      "newest": "2026-10-22"
     }
   },
   "method": {
@@ -1431,7 +1456,8 @@
       "git ls-tree -r -z --name-only HEAD",
       "git log --no-merges --no-renames --name-only -z HEAD",
       "git ls-tree -r -z HEAD",
-      "scc --by-file --format json ."
+      "scc --by-file --format json .",
+      "git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD"
     ],
     "notes": [
       "merge commits are excluded",
@@ -1463,7 +1489,10 @@
       "comments are removed and strings replaced before matching, so text inside strings never counts",
       "only calls whose target is computed count; a literal target is visible at the call site",
       "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
-      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
+      "the most recent non-merge commits are read from git log; renames show as a delete and an add",
+      "only source files count; vendored and generated paths are left out",
+      "nothing is checked out, run or written"
     ]
   }
 }

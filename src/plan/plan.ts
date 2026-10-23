@@ -157,6 +157,10 @@ function detailsFor(requirementId: string, factor: FactorScore, results: Collect
         .slice(0, 10);
       return ranked.length > 0 ? [`files with computed-target calls: ${ranked.map((file) => `${file.path} (${file.sites.length})`).join(", ")}`] : factor.evidence;
     }
+    case "scoped-lanes": {
+      const pairs = factor.evidence.filter((line) => line.startsWith("coupled pairs"));
+      return pairs.length > 0 ? pairs : factor.evidence;
+    }
     case "legible-context": {
       if (results.structure.status !== "measured") return factor.evidence;
       const testPaths = new Set(results.testsDocs.status === "measured" ? results.testsDocs.value.tests.files.map((file) => file.path) : []);

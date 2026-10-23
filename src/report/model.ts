@@ -3,6 +3,7 @@
 // Summaries only: per-file lists stay out, except hotspots and largest files.
 
 import type { CodeStructure } from "../collectors/code-structure.js";
+import type { CoChange } from "../collectors/co-change.js";
 import type { Dependencies, RuntimeAssessment } from "../collectors/dependencies.js";
 import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
@@ -14,7 +15,7 @@ import type { RoadmapStep } from "../plan/roadmap.js";
 import type { CollectorResults, FactorScore, Readiness, Scoring } from "../scoring/types.js";
 
 export const REPORT_SCHEMA = "ai-codebase-auditor/report";
-export const REPORT_SCHEMA_VERSION = 4;
+export const REPORT_SCHEMA_VERSION = 5;
 
 export interface ReportInput {
   tool: { name: string; version: string };
@@ -102,6 +103,14 @@ export interface AuditReport {
       topFiles: { path: string; sites: number; constructs: string[] }[];
       skippedByReason: Record<string, number>;
     }>;
+    /** The history as the collector read it; the module-boundaries score maps it onto modules. */
+    coChange: Signal<{
+      read: number;
+      truncated: boolean;
+      commitsWithSource: number;
+      oldest: string | null;
+      newest: string | null;
+    }>;
   };
   method: { commands: string[]; notes: string[] };
 }
@@ -122,6 +131,7 @@ function notMeasuredItems(input: ReportInput): NotMeasuredItem[] {
   const collectors: [string, Measurement<unknown>][] = [
     ["git-history", collected.history], ["code-structure", collected.structure],
     ["tests-docs", collected.testsDocs], ["dependencies", collected.dependencies], ["dynamic-calls", collected.dynamicCalls],
+    ["co-change", collected.coChange],
   ];
   for (const [id, measurement] of collectors) {
     if (measurement.status === "not-measured") items.push({ kind: "collector", id, reason: measurement.reason });
@@ -176,7 +186,7 @@ function summarizeDynamicCalls(dynamic: DynamicCalls) {
 
 export function buildReport(input: ReportInput): AuditReport {
   const { collected, scoring, decision } = input;
-  const evidences = [collected.history, collected.structure, collected.testsDocs, collected.dependencies, collected.dynamicCalls].map((m) => m.evidence);
+  const evidences = [collected.history, collected.structure, collected.testsDocs, collected.dependencies, collected.dynamicCalls, collected.coChange].map((m) => m.evidence);
   return {
     schema: REPORT_SCHEMA,
     schemaVersion: REPORT_SCHEMA_VERSION,
@@ -241,6 +251,13 @@ export function buildReport(input: ReportInput): AuditReport {
         runtimes: dependencies.runtimes,
       })),
       dynamicCalls: signal(collected.dynamicCalls, summarizeDynamicCalls),
+      coChange: signal(collected.coChange, (coChange: CoChange) => ({
+        read: coChange.read,
+        truncated: coChange.truncated,
+        commitsWithSource: coChange.commits.length,
+        oldest: coChange.commits[coChange.commits.length - 1]?.time.slice(0, 10) ?? null,
+        newest: coChange.commits[0]?.time.slice(0, 10) ?? null,
+      })),
     },
     method: { commands: unique(evidences.flatMap((evidence) => evidence.commands)), notes: unique(evidences.flatMap((evidence) => evidence.notes)) },
   };

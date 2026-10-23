@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -120,7 +120,7 @@
       "rule": null,
       "evidence": [],
       "partial": null,
-      "reason": "no collector signal yet: needs an import graph or co-change coupling",
+      "reason": "only 2 commits change product source in a current module; at least 50 are needed",
       "deferral": null
     },
     {
@@ -352,6 +352,11 @@
         "reason": "covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules"
       },
       {
+        "requirement": "scoped-lanes",
+        "factor": "module-boundaries",
+        "reason": "only 2 commits change product source in a current module; at least 50 are needed"
+      },
+      {
         "requirement": "supported-runtime",
         "factor": "dependency-currency",
         "reason": "no declared runtime with a known end-of-life status outside test fixtures"
@@ -433,7 +438,7 @@
     {
       "kind": "factor",
       "id": "module-boundaries",
-      "reason": "no collector signal yet: needs an import graph or co-change coupling"
+      "reason": "only 2 commits change product source in a current module; at least 50 are needed"
     },
     {
       "kind": "factor",
@@ -697,6 +702,14 @@
       "byConstruct": [],
       "topFiles": [],
       "skippedByReason": {}
+    },
+    "coChange": {
+      "status": "measured",
+      "read": 4,
+      "truncated": false,
+      "commitsWithSource": 3,
+      "oldest": "2012-01-31",
+      "newest": "2012-01-31"
     }
   },
   "method": {
@@ -707,7 +720,8 @@
       "git ls-tree -r -z --name-only HEAD",
       "git log --no-merges --no-renames --name-only -z HEAD",
       "git ls-tree -r -z HEAD",
-      "scc --by-file --format json ."
+      "scc --by-file --format json .",
+      "git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD"
     ],
     "notes": [
       "merge commits are excluded",
@@ -739,7 +753,10 @@
       "comments are removed and strings replaced before matching, so text inside strings never counts",
       "only calls whose target is computed count; a literal target is visible at the call site",
       "vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)",
-      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected"
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
+      "the most recent non-merge commits are read from git log; renames show as a delete and an add",
+      "only source files count; vendored and generated paths are left out",
+      "nothing is checked out, run or written"
     ]
   }
 }

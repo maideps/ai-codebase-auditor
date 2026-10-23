@@ -24,7 +24,7 @@ Triggered by: test-feedback 5, direct-api-calls 4.
 | type-strictness | constraining | 3 | weighted typed share 0.58 |
 | direct-api-calls | blocking | 4 | 3.94% of 1319 covered files have a computed-target call (134 sites) |
 | file-size | constraining | 3 | lower of p90 473 lines (→ 3) and 3.87% of files over 1000 lines (→ 3) |
-| module-boundaries | constraining | – | not measured: no collector signal yet: needs an import graph or co-change coupling |
+| module-boundaries | constraining | 3 | 20.80% of the latest 500 commits change more than one module |
 | documented-intent | constraining | 3 | docs with contributing, architecture, convention or decision docs |
 | observability | constraining | – | not measured: no collector signal yet: needs a logging and metrics detector |
 | dev-deploy-simplicity | constraining | 5 | 4 of 4 signals: CI configured, test runner configured, runtime version declared, lock file committed |
@@ -78,7 +78,16 @@ Evidence:
 
 ### module-boundaries: Module boundary clarity
 
-Not measured (constraining): no collector signal yet: needs an import graph or co-change coupling.
+Score **3** (constraining). Rule: 20.80% of the latest 500 commits change more than one module.
+
+Evidence:
+
+- 104 of 500 commits (20.80%) change product source in two or more of 70 modules, 2025-04-28 to 2026-10-22
+- skipped as mass edits (over 50 product source files): 2
+- coupled pairs (at least 5 commits together): phpBB/phpbb/auth + phpBB/phpbb/ucp (9 together, 75% of phpBB/phpbb/auth's 12 commits), phpBB/includes + phpBB/install (13 together, 65% of phpBB/install's 20 commits), phpBB/(files) + phpBB/phpbb/members (6 together, 55% of phpBB/phpbb/members's 11 commits), phpBB/includes + phpBB/phpbb/auth (5 together, 42% of phpBB/phpbb/auth's 12 commits), phpBB/language + phpBB/phpbb/install (9 together, 35% of phpBB/phpbb/install's 26 commits)
+- sample commits for phpBB/phpbb/auth + phpBB/phpbb/ucp: 7790b96, 564f9d6, 05477a7
+
+Partial: coupling through imports, shared data or configuration is not measured, only changes made together.
 
 ### documented-intent: Documented intent
 
@@ -253,6 +262,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with
 | required | yellow-modules | yellow zone: 9 modules | AGENTS.md |
 | recommended | typed-changes | type-strictness 3 | package.json typecheck script, DECISIONS.md |
 | recommended | legible-context | file-size 3 | AGENTS.md |
+| recommended | scoped-lanes | module-boundaries 3 | AGENTS.md, feature lanes (lane-new) |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
 
 ### required: detected-stack
@@ -352,6 +362,16 @@ Why: Large files push the relevant code out of an agent's context and invite con
 
 - files over 1000 lines: phpBB/includes/utf/data/recode_cjk.php (45177), phpBB/includes/functions.php (4270), phpBB/assets/javascript/cropper.js (3625), phpBB/includes/functions_admin.php (3236), phpBB/includes/functions_user.php (3150), phpBB/includes/functions_posting.php (2944), phpBB/includes/acp/acp_users.php (2714), phpBB/viewtopic.php (2462), phpBB/includes/functions_convert.php (2346), phpBB/includes/functions_privmsgs.php (2319)
 
+### recommended: scoped-lanes
+
+Trigger: module-boundaries 3. Surfaces: `AGENTS.md`, `feature lanes (lane-new)`.
+
+Change: List the strongly coupled module pairs in AGENTS.md, so a feature touching one plans for the other.
+
+Why: When changes usually spill across modules, an agent scoped to one module leaves the other half of the change undone, and parallel agents on neighbouring modules collide.
+
+- coupled pairs (at least 5 commits together): phpBB/phpbb/auth + phpBB/phpbb/ucp (9 together, 75% of phpBB/phpbb/auth's 12 commits), phpBB/includes + phpBB/install (13 together, 65% of phpBB/install's 20 commits), phpBB/(files) + phpBB/phpbb/members (6 together, 55% of phpBB/phpbb/members's 11 commits), phpBB/includes + phpBB/phpbb/auth (5 together, 42% of phpBB/phpbb/auth's 12 commits), phpBB/language + phpBB/phpbb/install (9 together, 35% of phpBB/phpbb/install's 26 commits)
+
 ### recommended: written-intent
 
 Trigger: documented-intent 3. Surfaces: `AGENTS.md`, `docs/ARCHITECTURE.md`.
@@ -374,10 +394,10 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 2 | documented-intent | 3 → 4 | M | 0.5 | write 10 more rules, across at least 2 files, and add an architecture doc or decision records | unchanged |
 | 3 | dependency-currency | 4 → 5 | M | 0.5 | upgrade php from 8.2 to 8.3 | unchanged |
 | 4 | file-size | 3 → 4 | L | 0.33 | split 12 of 53 files over 1000 lines (to 3% of files) and bring the p90 file length from 473 to 400 lines | unchanged |
+| 5 | module-boundaries | 3 → 4 | L | 0.33 | reduce cross-module changes from 20.8% to 20% of commits, starting with the most coupled pairs phpBB/phpbb/auth + phpBB/phpbb/ucp (9 commits together) and phpBB/includes + phpBB/install (13 commits together) | unchanged |
 
 ## Not measured
 
-- factor `module-boundaries`: no collector signal yet: needs an import graph or co-change coupling
 - factor `observability`: no collector signal yet: needs a logging and metrics detector
 - manifest `phpBB/config/development/container/environment.yml`: not a supported manifest
 - manifest `phpBB/config/development/routing/environment.yml`: not a supported manifest
@@ -517,6 +537,10 @@ Files with the most sites:
 | `phpBB/includes/functions_content.php` | 3 | variable variable |
 | `phpBB/includes/functions_convert.php` | 3 | call_user_func by name, eval |
 
+### Co-change
+
+5000 non-merge commits read (cut off at the read limit); 3898 change source files, 2017-12-25 to 2026-10-22. The module-boundaries factor above maps them onto today's modules.
+
 ## Method
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
@@ -534,6 +558,7 @@ Read-only commands run against the target:
 - `git log --no-merges --no-renames --name-only -z HEAD`
 - `git ls-tree -r -z HEAD`
 - `scc --by-file --format json .`
+- `git log --no-merges --no-renames --name-only -z --max-count=5000 HEAD`
 
 Collector notes:
 
@@ -567,3 +592,6 @@ Collector notes:
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)
 - configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected
+- the most recent non-merge commits are read from git log; renames show as a delete and an add
+- only source files count; vendored and generated paths are left out
+- nothing is checked out, run or written

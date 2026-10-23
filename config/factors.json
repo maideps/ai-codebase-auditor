@@ -62,7 +62,17 @@
       "id": "module-boundaries",
       "name": "Module boundary clarity",
       "class": "constraining",
-      "description": "Modules have clear edges, so a change can be scoped to one area."
+      "description": "Modules have clear edges, so a change can be scoped to one area.",
+      "thresholds": {
+        "maxCrossShare5": 0.1,
+        "maxCrossShare4": 0.2,
+        "maxCrossShare3": 0.3,
+        "maxCrossShare2": 0.4,
+        "windowCommits": 500,
+        "minCommits": 50,
+        "maxFilesPerCommit": 50,
+        "minPairCommits": 5
+      }
     },
     {
       "id": "documented-intent",

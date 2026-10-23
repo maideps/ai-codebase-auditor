@@ -5,10 +5,9 @@
 import type { DecisionConfig } from "../config/decision.js";
 import type { FactorConfig } from "../config/factors.js";
 import { extensionOf, SOURCE_EXTENSIONS } from "../file-kinds.js";
+import { groupModules, ROOT_MODULE } from "../modules.js";
 import type { CollectorResults, Scoring } from "../scoring/types.js";
 import type { ModuleZone, RedPath, Zones } from "./types.js";
-
-const ROOT = "(root)";
 
 // 7.1%, not a rounded 7% that hides being over a 7% limit; whole numbers stay whole.
 const percent = (share: number) => {
@@ -50,32 +49,6 @@ function redPathOf(filePath: string, terms: readonly string[]): RedPath | null {
   return term ? { path: filePath, kind: "file", term } : null;
 }
 
-// Group files into modules, splitting any module over the share limit into its subdirectories.
-function modulesOf(paths: readonly string[], config: DecisionConfig): Map<string, string[]> {
-  const groups = new Map<string, string[]>();
-  const add = (name: string, file: string) => groups.set(name, [...(groups.get(name) ?? []), file]);
-  for (const file of paths) add(file.includes("/") ? (file.split("/")[0] ?? ROOT) : ROOT, file);
-  let split = true;
-  while (split) {
-    split = false;
-    for (const [name, files] of [...groups.entries()]) {
-      const depth = name.split("/").length;
-      if (name === ROOT || name.endsWith("/(files)") || depth >= config.maxDepth || files.length / paths.length <= config.splitShare) continue;
-      const children = new Map<string, string[]>();
-      for (const file of files) {
-        const rest = file.slice(name.length + 1);
-        const child = rest.includes("/") ? `${name}/${rest.split("/")[0] ?? ""}` : `${name}/(files)`;
-        children.set(child, [...(children.get(child) ?? []), file]);
-      }
-      if (![...children.keys()].some((child) => !child.endsWith("/(files)"))) continue; // no subdirectories to split into
-      groups.delete(name);
-      for (const [child, childFiles] of children) groups.set(child, childFiles);
-      split = true;
-    }
-  }
-  return groups;
-}
-
 export function assignZones(scoring: Scoring, results: CollectorResults, factors: FactorConfig, config: DecisionConfig): Zones {
   if (results.structure.status !== "measured") {
     return { modules: [], redPaths: [], unzoned: [], note: `no zones: code structure not measured (${results.structure.reason})` };
@@ -101,7 +74,7 @@ export function assignZones(scoring: Scoring, results: CollectorResults, factors
   const maxP90 = sizeLimits.maxP90Lines3 ?? Number.POSITIVE_INFINITY;
   const maxShare = sizeLimits.maxShareOver1000Lines3 ?? 1;
 
-  const modules: ModuleZone[] = [...modulesOf(source.map((file) => file.path), config).entries()]
+  const modules: ModuleZone[] = [...groupModules(source.map((file) => file.path), config).entries()]
     .sort(([a], [b]) => byPath(a, b))
     .map(([module, files]) => {
       const red = files.filter((file) => redFiles.has(file)).length;
@@ -121,8 +94,8 @@ export function assignZones(scoring: Scoring, results: CollectorResults, factors
       return zone("green", `test-feedback ${testScore} ≥ ${config.greenMinTestScore} and files are legible (p90 ${p90} lines, ${percent(share)} over 1000 lines)`);
     });
 
-  const zonedTopLevel = new Set(source.map((file) => (file.path.includes("/") ? file.path.split("/")[0] : ROOT)));
-  const topLevel = new Set(structure.files.map((file) => (file.path.includes("/") ? file.path.split("/")[0] : ROOT)));
+  const zonedTopLevel = new Set(source.map((file) => (file.path.includes("/") ? file.path.split("/")[0] : ROOT_MODULE)));
+  const topLevel = new Set(structure.files.map((file) => (file.path.includes("/") ? file.path.split("/")[0] : ROOT_MODULE)));
   const unzoned = [...topLevel].filter((name): name is string => name !== undefined && !zonedTopLevel.has(name)).sort(byPath);
 
   return { modules, redPaths: [...redPaths.values()].sort((a, b) => byPath(a.path, b.path)), unzoned, note: null };

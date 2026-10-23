@@ -2,6 +2,7 @@
 // configuration, never the repository.
 
 import type { CodeStructure } from "../collectors/code-structure.js";
+import type { CoChange } from "../collectors/co-change.js";
 import type { Dependencies } from "../collectors/dependencies.js";
 import type { DynamicCalls } from "../collectors/dynamic-calls.js";
 import type { GitHistory } from "../collectors/git-history.js";
@@ -15,6 +16,7 @@ export interface CollectorResults {
   testsDocs: Measurement<TestsDocs>;
   dependencies: Measurement<Dependencies>;
   dynamicCalls: Measurement<DynamicCalls>;
+  coChange: Measurement<CoChange>;
 }
 
 export interface DeferralOutcome {

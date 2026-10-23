@@ -44,6 +44,15 @@
       "why": "Large files push the relevant code out of an agent's context and invite confident edits to code it has not read."
     },
     {
+      "id": "scoped-lanes",
+      "factor": "module-boundaries",
+      "assumption": "A feature can be scoped to one module, so one agent, or one lane, owns the files it changes.",
+      "surfaces": ["AGENTS.md", "feature lanes (lane-new)"],
+      "required": "In AGENTS.md, treat each strongly coupled module pair as one area: a feature that touches either module plans for both, and parallel lanes never take the two modules of a coupled pair (the harness's arch-002 does not stop two lanes from editing the same files).",
+      "recommended": "List the strongly coupled module pairs in AGENTS.md, so a feature touching one plans for the other.",
+      "why": "When changes usually spill across modules, an agent scoped to one module leaves the other half of the change undone, and parallel agents on neighbouring modules collide."
+    },
+    {
       "id": "written-intent",
       "factor": "documented-intent",
       "assumption": "Project-specific conventions are written down where agents read them.",
