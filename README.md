@@ -1,5 +1,7 @@
 # ai-codebase-auditor
 
+[![ci](https://github.com/maideps/ai-codebase-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/maideps/ai-codebase-auditor/actions/workflows/ci.yml)
+
 Can AI coding agents safely work in this codebase, and if not, what has to change first?
 
 `ai-codebase-auditor` answers that for a local git repository, legacy systems first. It reads the repository and its history statically, scores nine readiness factors from 1 to 5 with cited evidence, and returns one verdict: **adopt**, **adapt** or **prepare first**. It also marks which parts agents may edit, which need tests first, and which are proposals only. Then it plans how to adapt an agent harness to the repository, and lists the changes that would raise its scores, ordered by gain against effort.
@@ -154,6 +156,10 @@ npm run check-arch # architecture rules
 Each layer runs the harness's own check first, then the product tool. A layer that is not configured reports SKIP, which never counts as verified. The [Harness Command Reference](docs/HARNESS.md) lists every command.
 
 Project state is kept in files: features in [`feature_list.json`](feature_list.json), per-feature evidence in `.harness/state/`, progress in [PROGRESS.md](PROGRESS.md), decisions in [DECISIONS.md](DECISIONS.md) and per-feature contracts in [`docs/sprints/`](docs/sprints/).
+
+## Repository layout
+
+The product is in `src/` (the CLI, collectors and decision rules, with their Vitest tests), `config/` (factor, decision and runtime end-of-life data) and `e2e/` (smoke tests of the built CLI). The rest of the root is the process record from [ai-harness-framework](https://github.com/maideps/ai-harness-framework), the workflow this project is built with. `AGENTS.md` is the workflow every agent follows, and `CLAUDE.md`, `GEMINI.md` and `codex.md` point each agent to it. `scripts/`, `tools/`, `templates/`, `skills/` and the `.mjs` tests in `tests/` are the harness itself. `feature_list.json`, `PROGRESS.md`, `progress/`, `session-handoff.md` and `DECISIONS.md` record what was built, in what order and why.
 
 ## Documentation
 
