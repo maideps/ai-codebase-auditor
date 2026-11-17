@@ -2,9 +2,11 @@
 
 import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderHarnessDocs } from "./harness-docs.mjs";
+import { QUALITY_CONFIG, runQualityGates, validateQualityConfig } from "./quality-gates.mjs";
 
 import {
   LAYERS,
@@ -29,14 +31,19 @@ const requiredFiles = [
   "init.sh",
 ];
 
+// Reserved exit code the optional multi-repo component's verify-all (templates/multi-repo/
+// verify-all.mjs) uses to report "ran, but nothing was verified yet" honestly as SKIP rather
+// than as a silent PASS (exit 0) — the two must stay distinguishable by exit code alone, since
+// this runner only inspects the child process's exit status (#24). Keep both copies of this
+// constant in sync.
+const MULTI_REPO_VERIFY_ALL_SKIP = 42;
+
 const requiredDirs = ["docs", "templates", "scripts", ".harness", "skills"];
-const placeholderChecks = [
-  { file: "docs/PRODUCT.md", text: "[Describe what this system does and who it serves.]" },
-  { file: "docs/PRODUCT.md", text: "[Primary user flow 1]" },
-  { file: "docs/quality-document.md", text: "[module-name]" },
-  { file: "docs/quality-document.md", text: "[module or surface name]" },
-  { file: "README.md", text: "[Add license information]" },
-];
+// Docs a fresh adopter must fill in with project-specific content before shipping (#23).
+// Checked by diffing against their own template source (manifest-declared), not by matching
+// bracketed marker strings — those drift out of the templates' prose independently of whether
+// a doc was actually filled in, which is exactly how this check went silently vacuous before.
+const PLACEHOLDER_DOCS = ["README.md", "docs/PRODUCT.md", "docs/quality-document.md"];
 const requiredMakeTargets = [
   "check",
   "lint",
@@ -47,10 +54,12 @@ const requiredMakeTargets = [
   "check-arch",
   "verify-feature",
   "verify-all",
+  "quality",
   "lane-new",
   "lane-list",
   "lane-land",
   "lane-drop",
+  "lane-suggest",
   "migrate-feature-state",
   "add-feature",
   "activate",
@@ -158,7 +167,7 @@ function progressSessions() {
     const heading = readText(path.join(directory, entry.name)).split(/\r?\n/, 1)[0];
     const headingMatch = heading.match(/^### Session (\d{3,}) — (\d{4}-\d{2}-\d{2})(?: — .*)?$/);
     if (!headingMatch || Number(headingMatch[1]) !== number || headingMatch[2] !== date) {
-      fail(`progress/${entry.name} must start with a matching "### Session ${numberText} — ${date}" heading`);
+      fail(`progress/${entry.name} must start with a matching "### Session ${numberText} — ${date}" heading (three #, em dashes; an optional " — <title>" may follow). node scripts/framework-check.mjs progress-new "<title>" writes a new note with the right heading`);
     }
     sessions.push({ number, date, heading, filename: entry.name });
   }
@@ -251,6 +260,118 @@ function replaceGeneratedProgress(content, progressFile) {
   const prefix = content.slice(0, start + generatedProgressStart.length);
   const suffix = content.slice(end);
   return `${prefix}\n${generatedProgressContent()}\n${suffix}`;
+}
+
+// The skeleton of a session note: the exact heading lint requires, and the sections every note
+// in this format has. Starting from it is mechanical; agents who wrote the heading by hand often
+// got it wrong and lost turns after lint failed (feat-036, D-047).
+const SESSION_NOTE_SECTIONS = [
+  "Goal",
+  "Sprint contract",
+  "Completed",
+  "Verification run",
+  "Files or artifacts updated",
+  "Known risk or unresolved issue",
+  "Next best step",
+];
+
+function localDate(now = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function newProgressNote(title) {
+  if (typeof title !== "string" || !title.trim() || /[\r\n]/.test(title)) {
+    fail('usage: node scripts/framework-check.mjs progress-new "<one-line session title>"');
+  }
+  const sessions = progressSessions();
+  const number = String(sessions.length + 1).padStart(3, "0");
+  const date = localDate();
+  const file = path.join("progress", `${number}-${date}.md`);
+  mkdirSync("progress", { recursive: true });
+  if (existsSync(file)) {
+    fail(`${file} already exists; edit it instead`);
+  }
+  const lines = [`### Session ${number} — ${date} — ${title.trim()}`, "", ...SESSION_NOTE_SECTIONS.map((section) => `- ${section}: `), ""];
+  writeFileSync(file, lines.join(EOL), "utf8");
+  pass(`Created ${file.split(path.sep).join("/")} — fill in each section before the session ends`);
+  if (["PROGRESS.md", "progress.md", "claude-progress.md"].some(existsSync)) {
+    updateProgress();
+  }
+}
+
+// A short start-of-session briefing, so a new session needn't read all of feature_list.json
+// (52 KB in this repository, growing with every feature): the active feature, what can start
+// next, stale evidence, and the latest session note's risks and next step (feat-037, D-048).
+// ./init.sh prints it. Read-only; never fails on a missing piece.
+function noteField(text, label) {
+  const line = text.split(/\r?\n/).find((entry) => entry.startsWith(`- ${label}:`));
+  const value = line ? line.slice(label.length + 3).trim() : "";
+  return value.length > 400 ? `${value.slice(0, 397)}...` : value;
+}
+
+function sessionBrief() {
+  const clip = (text, length = 200) => (text && text.length > length ? `${text.slice(0, length - 3)}...` : text ?? "");
+  const lines = ["=== Session brief ==="];
+  if (isGitRepo()) {
+    const status = gitCapture(["status", "--porcelain"]) ?? "";
+    const changed = status.split(/\r?\n/).filter(Boolean).length;
+    lines.push(`Branch ${getCurrentBranch() || "(detached)"} at ${gitCapture(["log", "-1", "--format=%h %s"]) ?? "(no commits)"}${changed ? `; ${changed} uncommitted change(s)` : ""}`);
+  }
+
+  if (existsSync("feature_list.json")) {
+    const { features } = loadFeaturesWithState();
+    const byId = new Map(features.map((feature) => [feature.id, feature]));
+    const stateOf = (feature) => getFeatureState(feature) ?? "planned";
+    const counts = {};
+    for (const feature of features) counts[stateOf(feature)] = (counts[stateOf(feature)] ?? 0) + 1;
+    lines.push(`Features: ${features.length} (${Object.entries(counts).map(([state, count]) => `${count} ${state}`).join(", ")})`);
+
+    const active = features.filter((feature) => stateOf(feature) === "active");
+    if (active.length === 0) lines.push("Active: none");
+    for (const feature of active) {
+      lines.push(`Active: ${feature.id} — ${feature.name}`);
+      lines.push(`  behavior: ${clip(feature.behavior, 300)}`);
+      lines.push(`  layers: ${(feature.layers ?? []).map((layer) => layer.cmd).join(" | ")}`);
+    }
+
+    const ready = (feature) => (feature.dependencies ?? []).every((id) => byId.has(id) && stateOf(byId.get(id)) === "passing" && !hasStaleEvidence(byId.get(id)));
+    const planned = features.filter((feature) => stateOf(feature) === "planned");
+    const startable = planned.filter(ready);
+    const waiting = planned.filter((feature) => !ready(feature));
+    if (startable.length) lines.push(`Can start next: ${startable.slice(0, 5).map((feature) => `${feature.id} ${feature.name}`).join("; ")}${startable.length > 5 ? `; +${startable.length - 5} more` : ""}`);
+    if (waiting.length) lines.push(`Waiting on dependencies: ${waiting.slice(0, 5).map((feature) => `${feature.id} (needs ${feature.dependencies.join(", ")})`).join("; ")}${waiting.length > 5 ? `; +${waiting.length - 5} more` : ""}`);
+    const blocked = features.filter((feature) => stateOf(feature) === "blocked");
+    if (blocked.length) lines.push(`Blocked: ${blocked.map((feature) => feature.id).join(", ")}`);
+    const stale = features.filter(hasStaleEvidence);
+    if (stale.length) lines.push(`Stale evidence (layers changed after passing — re-run verify-feature): ${stale.map((feature) => feature.id).join(", ")}`);
+  }
+
+  let latestDate = "";
+  if (existsSync("progress") && statSync("progress").isDirectory()) {
+    // progressSessions() exits on a malformed archive (lint's job to report); ./init.sh calls the
+    // brief with `|| true`, so that never stops a session from starting.
+    const sessions = progressSessions();
+    const latest = sessions.at(-1);
+    if (latest) {
+      latestDate = latest.date;
+      const text = readText(path.join("progress", latest.filename));
+      lines.push(`Last session: ${latest.heading.replace(/^###\s*/, "")}`);
+      const risk = noteField(text, "Known risk or unresolved issue");
+      const next = noteField(text, "Next best step");
+      if (risk) lines.push(`  known risk: ${risk}`);
+      if (next) lines.push(`  next step: ${next}`);
+    }
+  }
+  if (existsSync("session-handoff.md") && isGitRepo()) {
+    const changed = gitCapture(["log", "-1", "--format=%cs", "--", "session-handoff.md"]);
+    if (changed) {
+      const stale = latestDate && changed < latestDate;
+      lines.push(`session-handoff.md last changed ${changed}${stale ? " — older than the latest session note; it may be out of date" : ""}`);
+    }
+  }
+  lines.push("Details: feature_list.json for the features above; progress/ for earlier sessions.");
+  console.log(lines.join(EOL));
 }
 
 function updateProgress() {
@@ -357,15 +478,42 @@ function ensureProgressLog() {
   pass(`Progress dashboard is current (${sessions.length} session${sessions.length === 1 ? "" : "s"})`);
 }
 
-function ensureNoPlaceholders() {
-  for (const check of placeholderChecks) {
-    if (!existsSync(check.file)) {
-      fail(`${check.file} is missing — copy the skeleton from templates/ and fill it in for this project`);
+function normalizeEol(text) {
+  return text.replace(/\r\n/g, "\n");
+}
+
+// The manifest is the single source of truth for a doc's own template (its {from, to}
+// entry) — never a second, hardcoded "templates/X.md" path that could drift from it.
+function templateSourceFor(to) {
+  const manifest = readJson(".harness/manifest.json");
+  for (const entry of manifest?.templates ?? []) {
+    if (typeof entry === "string" || entry.keep) continue;
+    if (entry.to === to) return entry.from;
+  }
+  return null;
+}
+
+function ensureNoPlaceholders({ warnOnly = false } = {}) {
+  const problems = [];
+  for (const doc of PLACEHOLDER_DOCS) {
+    if (!existsSync(doc)) {
+      problems.push(`${doc} is missing — copy the skeleton from templates/ and fill it in for this project`);
+      continue;
     }
-    if (readText(check.file).includes(check.text)) {
-      fail(`${check.file} still contains template placeholder text`);
+    const from = templateSourceFor(doc);
+    if (!from || !existsSync(from)) continue;
+    if (normalizeEol(readText(doc)) === normalizeEol(readText(from))) {
+      problems.push(`${doc} is unchanged from its template (${from}) — fill it in with this project's own content`);
     }
   }
+  if (problems.length === 0) return;
+  if (warnOnly) {
+    for (const problem of problems) {
+      console.log(`[WARN] ${problem}`);
+    }
+    return;
+  }
+  fail(problems.join("\n       "));
 }
 
 function ensureSkills() {
@@ -610,6 +758,27 @@ function validateFeatureId(featureId) {
   }
 }
 
+// The default Layer 3 command: the project's own `check` script minus the `npm run lint` and
+// `npm run test` steps that Layers 1 and 2 already ran, so a gate runs each check once
+// (feat-038, D-049). Only a plain `&&` chain of `npm run` steps that contains both is reduced;
+// anything else keeps `npm run check`, so a customised setup never loses a check.
+function confirmationLayerCommand(packageJsonPath = "package.json") {
+  const fallback = "npm run check";
+  let check;
+  try {
+    check = JSON.parse(readFileSync(packageJsonPath, "utf8")).scripts?.check;
+  } catch {
+    return fallback;
+  }
+  if (typeof check !== "string" || /\|\||;|\||[<>`$]/.test(check)) return fallback;
+  const steps = check.split("&&").map((step) => step.trim());
+  if (steps.some((step) => !/^npm run [\w:-]+$/.test(step))) return fallback;
+  const already = new Set(["npm run lint", "npm run test"]);
+  if (![...already].every((step) => steps.includes(step))) return fallback;
+  const rest = steps.filter((step) => !already.has(step));
+  return rest.length > 0 ? rest.join(" && ") : fallback;
+}
+
 function addFeature(featureId, featureArgs) {
   const { name, options } = parseAddFeatureArgs(featureArgs);
   if (!featureId || !name.trim()) {
@@ -634,7 +803,7 @@ function addFeature(featureId, featureArgs) {
     layers: [
       { label: "Layer 1: Static checks", cmd: "npm run lint", repair: "Fix static-analysis issues and rerun the layer command." },
       { label: "Layer 2: Runtime tests", cmd: "npm run test", repair: "Fix failing tests and rerun the layer command." },
-      { label: "Layer 3: System confirmation", cmd: "npm run check", repair: "Resolve cross-layer issues and rerun full verification." },
+      { label: "Layer 3: System confirmation", cmd: confirmationLayerCommand(), repair: "Resolve cross-layer issues and rerun full verification." },
       ...options.layers,
     ],
   });
@@ -781,6 +950,16 @@ function ensureCommandSurfaces() {
   pass("README links to the current command reference and AGENTS documents every make target");
 }
 
+// The quality config is optional, but a malformed one must fail lint, not surface only
+// when someone finally enables the gates (feat-023).
+function ensureQualityConfig() {
+  if (!existsSync(QUALITY_CONFIG)) return;
+  const errors = validateQualityConfig(readJson(QUALITY_CONFIG));
+  if (errors.length > 0) {
+    fail(`invalid ${QUALITY_CONFIG}: ${errors.join("; ")}`);
+  }
+}
+
 function ensureShellScripts() {
   const shellScripts = [
     "init.sh",
@@ -832,9 +1011,26 @@ function ensureManifest() {
       fail("manifest " + key + " must be an array");
     }
   }
+  // Only the framework's own repository sets this (feat-029, D-040); a typo such as "true"
+  // would silently turn its self-tests off, so anything but a boolean fails.
+  if ("frameworkRepository" in manifest && typeof manifest.frameworkRepository !== "boolean") {
+    fail("manifest frameworkRepository must be true or false");
+  }
   const templates = templateEntries(manifest.templates);
   if (templates.some((entry) => entry === null)) {
     fail("manifest template entries must be paths or { from, to | keep } objects");
+  }
+  // The shipped skill packs are what harness-upgrade refreshes inside skills/ (feat-026), so a
+  // listed name without its SKILL.md would make the upgrade silently skip it.
+  if ("shippedSkills" in manifest) {
+    if (!Array.isArray(manifest.shippedSkills) || manifest.shippedSkills.some((name) => typeof name !== "string" || !name)) {
+      fail("manifest shippedSkills must be an array of skill folder names");
+    }
+    for (const name of manifest.shippedSkills) {
+      if (!existsSync(path.join("skills", name, "SKILL.md"))) {
+        fail("manifest shipped skill is missing: skills/" + name + "/SKILL.md");
+      }
+    }
   }
   // Every declared surface must exist in the repository.
   for (const surface of manifest.core) {
@@ -909,13 +1105,14 @@ function ensureManifest() {
   }
   pass("Harness manifest is valid and classifies every tracked file");
 }
-function recordTrail(kind) {
+// `extra` adds fields to the record; with a `feature` it also names the file after it.
+function recordTrail(kind, extra = {}) {
   const trailsDir = ".harness/trails";
   mkdirSync(trailsDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   let commit = "unknown";
   try {
-    commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+    commit = execSync("git rev-parse --short HEAD", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     commit = "not-a-git-repo";
   }
@@ -924,8 +1121,9 @@ function recordTrail(kind) {
     recorded_at: new Date().toISOString(),
     git_commit: commit,
     active_feature: getActiveFeatureId(),
+    ...extra,
   };
-  const path = trailsDir + "/" + stamp + "-" + kind + ".json";
+  const path = trailsDir + "/" + stamp + "-" + kind + (extra.feature ? `-${extra.feature}` : "") + ".json";
   writeFileSync(path, JSON.stringify(record, null, 2) + EOL, "utf8");
   pass("Verification trail recorded: " + path);
 }
@@ -947,8 +1145,45 @@ function isDirectorySafe(path) {
   }
 }
 
+// The framework's own repository tests the harness on every check: the test layer runs the
+// runner unit tests and e2e runs the adoption matrix. An adopting repository does neither on
+// every check, because they test CORE files it may not edit and that only change on
+// harness-upgrade; verify-chain (./init.sh) runs the unit tests there once per session
+// (feat-029, D-040). The marker is a manifest key only this repository sets: create-harness
+// drops it from a new adopter's manifest, and harness-upgrade never carries it because it is
+// not one of the framework-owned manifest keys.
+function isFrameworkRepository() {
+  if (!existsSync(".harness/manifest.json")) return false;
+  try {
+    return readJson(".harness/manifest.json").frameworkRepository === true;
+  } catch {
+    return false;
+  }
+}
+
+// The harness's own unit tests (tests/*.test.mjs, CORE). Files are enumerated and passed
+// explicitly: glob patterns in --test args are expanded by Node on Windows but passed
+// literally on Linux.
+function runSelfTests() {
+  const testFiles = existsSync("tests")
+    ? readdirSync("tests")
+        .filter((name) => name.endsWith(".test.mjs"))
+        .map((name) => path.join("tests", name))
+    : [];
+  if (testFiles.length === 0) {
+    console.log("[SKIP] No harness self-tests found (tests/*.test.mjs)");
+    return;
+  }
+  const result = spawnSync(process.execPath, ["--test", ...testFiles], { stdio: "inherit" });
+  const exit = result.error ? 1 : (result.status ?? 1);
+  if (exit !== 0) {
+    fail("runner unit tests failed");
+  }
+  pass("Runner unit tests pass");
+}
+
 function reportE2eStatus() {
-  // The adoption matrix is the real e2e layer (feat-004). It generates
+  // The adoption matrix is this repository's e2e layer (feat-004). It generates
   // throwaway adopter repos from the manifest and runs the harness in each.
   if (process.env.CW_SKIP_ADOPTION_MATRIX === "1") {
     console.log("[SKIP] Adoption matrix is reserved for framework repository CI");
@@ -956,6 +1191,14 @@ function reportE2eStatus() {
   }
   if (process.env.CW_ADOPTION_CELL === "1") {
     console.log("[SKIP] e2e skipped inside an adoption cell (matrix recursion guard)");
+    return;
+  }
+  // An adopter's e2e is its own product's end-to-end tests: until it wires them, the layer is
+  // honestly unconfigured, not a PASS earned by the harness testing itself (feat-029, D-040).
+  if (!isFrameworkRepository()) {
+    console.log(
+      "[SKIP] No end-to-end tests configured — point the e2e script at this project's own end-to-end tests (the framework's adoption matrix runs only in the framework repository)",
+    );
     return;
   }
   const matrix = path.join("scripts", "adoption-matrix.mjs");
@@ -1135,9 +1378,97 @@ function checkArch() {
   }
 }
 
-function verifyFeature(featureId) {
+// Files the harness itself writes during a feature cycle (activate, verify-feature,
+// session traces, progress notes). They may be uncommitted when verify-feature runs:
+// they record the verification, they are not what is being verified (feat-030, D-041).
+const BOOKKEEPING_PATHS = [
+  ".harness/state/",
+  ".harness/logs/",
+  ".harness/traces/",
+  ".harness/trails/",
+  "progress/",
+  "PROGRESS.md",
+  "progress.md",
+  "claude-progress.md",
+  "session-handoff.md",
+];
+
+function isBookkeepingPath(file) {
+  return BOOKKEEPING_PATHS.some((entry) => (entry.endsWith("/") ? file.startsWith(entry) : file === entry));
+}
+
+// Uncommitted paths (modified, staged, deleted, renamed or untracked-not-ignored) under the
+// current directory, relative to it, minus harness bookkeeping. null outside a git repository.
+// Scoped to the current directory so an adopter inside a larger repository is judged on its
+// own files only.
+function uncommittedCodePaths() {
+  const prefix = gitCapture(["rev-parse", "--show-prefix"]);
+  if (prefix === null) return null;
+  const result = spawnSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."], { encoding: "utf8" });
+  if (result.error || (result.status ?? 1) !== 0) return null;
+  const entries = (result.stdout ?? "").split("\0");
+  const paths = [];
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    if (entry.length < 4) continue;
+    paths.push(entry.slice(3));
+    // -z prints a rename or copy as "XY <new>\0<old>"; the old path is the next entry.
+    if (/[RC]/.test(entry.slice(0, 2))) {
+      i += 1;
+      if (entries[i]) paths.push(entries[i]);
+    }
+  }
+  return [...new Set(paths.map((file) => (prefix && file.startsWith(prefix) ? file.slice(prefix.length) : file)))]
+    .filter((file) => !isBookkeepingPath(file))
+    .sort();
+}
+
+function printPathList(paths, limit = 10) {
+  for (const file of paths.slice(0, limit)) console.log(`         ${file}`);
+  if (paths.length > limit) console.log(`         ...and ${paths.length - limit} more`);
+}
+
+// A fingerprint of what verify-feature runs for a feature. The repair hint is advice, not a
+// check, so editing it does not make evidence stale.
+function featureChecksHash(feature) {
+  const checks = (feature.layers ?? []).map((layer) => ({
+    label: layer.label,
+    cmd: layer.cmd,
+    required: layer.required !== false,
+  }));
+  return createHash("sha256").update(JSON.stringify(checks)).digest("hex").slice(0, 16);
+}
+
+function parseEvidence(feature) {
+  if (typeof feature.evidence !== "string") return null;
+  try {
+    const parsed = JSON.parse(feature.evidence);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null; // older evidence is a plain string
+  }
+}
+
+// A passing feature whose declared layers changed after it was verified. Evidence recorded
+// before feat-030 carries no checksHash and is never reported stale.
+function hasStaleEvidence(feature) {
+  if (getFeatureState(feature) !== "passing") return false;
+  const evidence = parseEvidence(feature);
+  return typeof evidence?.checksHash === "string" && evidence.checksHash !== featureChecksHash(feature);
+}
+
+function warnStaleEvidence() {
+  const { features } = loadFeaturesWithState();
+  for (const feature of features.filter(hasStaleEvidence)) {
+    console.log(
+      `[WARN] ${feature.id} is passing, but its verification layers changed after it was verified — re-run: node scripts/framework-check.mjs verify-feature ${feature.id}`,
+    );
+  }
+}
+
+function verifyFeature(featureId, { allowDirty = false } = {}) {
   if (!featureId) {
-    fail("usage: node scripts/framework-check.mjs verify-feature <feature-id>");
+    fail("usage: node scripts/framework-check.mjs verify-feature <feature-id> [--allow-dirty]");
   }
 
   console.log(`=== Verifying feature: ${featureId} ===`);
@@ -1160,6 +1491,33 @@ function verifyFeature(featureId) {
   if (unmet.length > 0) {
     console.log(`[FAIL] Feature ${featureId} has unmet dependencies: ${unmet.join(", ")}`);
     console.log("Complete and verify the dependency features first.");
+    console.log("");
+    console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
+    process.exit(1);
+  }
+  const stale = (feature.dependencies ?? []).filter((dependencyId) =>
+    hasStaleEvidence(features.find((item) => item.id === dependencyId)),
+  );
+  if (stale.length > 0) {
+    console.log(`[FAIL] Feature ${featureId} depends on features whose verification layers changed after they passed: ${stale.join(", ")}`);
+    console.log(`Re-verify them first: ${stale.map((id) => `verify-feature ${id}`).join(", ")}`);
+    console.log("");
+    console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
+    process.exit(1);
+  }
+
+  // Evidence names a commit, so the commit must hold the code that passed (feat-030, D-041).
+  const uncommittedBefore = uncommittedCodePaths();
+  if (uncommittedBefore === null) {
+    console.log("NOTE: not a git repository — evidence will be recorded unbound (no commit to tie it to)");
+    console.log("");
+  } else if (uncommittedBefore.length > 0 && !allowDirty) {
+    console.log(`[FAIL] ${uncommittedBefore.length} uncommitted change(s) outside harness bookkeeping — evidence must name the commit that holds the verified code:`);
+    printPathList(uncommittedBefore);
+    console.log("");
+    console.log("Commit the feature's code and docs first, then re-run verify-feature. The state shard and");
+    console.log("progress notes it writes are bookkeeping: they may stay uncommitted and go in the next commit.");
+    console.log("To record evidence for uncommitted code anyway (marked bound: false), add --allow-dirty.");
     console.log("");
     console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
     process.exit(1);
@@ -1189,8 +1547,26 @@ function verifyFeature(featureId) {
     writeFileSync(logFile, `$ ${layer.cmd}${EOL}${EOL}${stdout}${stderr ? `${EOL}--- stderr ---${EOL}${stderr}` : ""}`, "utf8");
     if (stderr) process.stderr.write(stderr); // stderr stayed visible before logs existed; keep it so
 
-    if (!run.error && run.status === 0) {
-      const reportedSkip = stdout.split(/\r?\n/).some((line) => line.includes("[SKIP]"));
+    const outputLines = stdout.split(/\r?\n/);
+    const reportedSkip = outputLines.some((line) => line.includes("[SKIP]"));
+    // Two conventions report a real pass in this codebase: this file's own
+    // pass()/fail() helpers print "PASS: <message>" (colon, no brackets) for
+    // top-level command results, while nested checks (adoption-matrix cells,
+    // per-repo verify scripts, verify-all) print "[PASS] <message>" (bracket
+    // style). A layer command like "npm run check" can legitimately emit only
+    // the colon style at its own level while still containing plenty of
+    // bracket-style [SKIP] lines from nested output — that must not look vacuous.
+    const reportedPass = outputLines.some((line) => line.includes("[PASS]") || /^PASS:/.test(line.trim()));
+    // "Vacuous" means the layer produced no evidence of anything actually being
+    // checked — only SKIP lines, no PASS lines — as opposed to a SKIP for one
+    // optional sub-check (e.g. a missing toolchain cell) sitting alongside real
+    // PASS output elsewhere in the same layer. A required layer must not be
+    // allowed to go from "nothing ran" to feature state "passing" (2026-09-08
+    // external review, finding H01 — see DECISIONS.md).
+    const isVacuousSkip = reportedSkip && !reportedPass;
+    const isRequired = layer.required !== false;
+
+    if (!run.error && run.status === 0 && !(isVacuousSkip && isRequired)) {
       if (reportedSkip) skippedLayers.push(layer.label);
       layerResults.push({ label: layer.label, cmd: layer.cmd, result: "PASS", skipReported: reportedSkip, durationMs, log: logFile });
       console.log("");
@@ -1203,7 +1579,15 @@ function verifyFeature(featureId) {
         for (const line of tail) console.log(`  ${line}`);
       }
       console.log("");
-      console.log(`  [FAIL] ${layer.label} (${formatDuration(durationMs)}) — full output: ${logFile}`);
+      if (isVacuousSkip && isRequired) {
+        layerResults.push({ label: layer.label, cmd: layer.cmd, result: "FAIL", skipReported: true, durationMs, log: logFile });
+        console.log(`  [FAIL] ${layer.label} (${formatDuration(durationMs)}) — required layer reported only SKIP, nothing was verified`);
+        console.log(`  Full output: ${logFile}`);
+        console.log("");
+        console.log(`  To mark this layer optional instead of required, set "required": false on it in feature_list.json.`);
+      } else {
+        console.log(`  [FAIL] ${layer.label} (${formatDuration(durationMs)}) — full output: ${logFile}`);
+      }
       console.log("");
       if (layer.repair) {
         console.log(`Repair hint: ${layer.repair}`);
@@ -1214,27 +1598,49 @@ function verifyFeature(featureId) {
     }
   }
 
+  // A layer that writes files (a formatter, a generated file, a coverage report that is not
+  // ignored) leaves a tree the recorded commit does not contain.
+  const uncommittedAfter = uncommittedBefore === null ? null : uncommittedCodePaths();
+  if (uncommittedAfter !== null && uncommittedAfter.length > 0 && !allowDirty) {
+    console.log(`[FAIL] The verification layers left ${uncommittedAfter.length} uncommitted change(s) outside harness bookkeeping:`);
+    printPathList(uncommittedAfter);
+    console.log("");
+    console.log("The recorded commit would not match the verified tree. Commit the files, add generated");
+    console.log("output to .gitignore, or stop the layer from writing them; then re-run verify-feature.");
+    console.log("");
+    console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
+    process.exit(1);
+  }
+
   console.log(`=== Feature ${featureId}: ALL LAYERS PASS ===`);
   if (skippedLayers.length > 0) {
     console.log(`Note: these layers reported SKIP inside a passing run: ${skippedLayers.join(", ")}`);
   }
   const skipNote = skippedLayers.length > 0 ? ` (SKIP reported in: ${skippedLayers.join(", ")})` : "";
   const commit = tryGit("rev-parse --short HEAD");
-  let dirty = true;
-  try {
-    dirty = execSync("git status --porcelain", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim().length > 0;
-  } catch {
-    // A missing Git repository cannot be confirmed clean.
+  const dirty = uncommittedAfter === null || uncommittedBefore.length > 0 || uncommittedAfter.length > 0;
+  const bound = !dirty;
+  let boundNote = "";
+  if (uncommittedAfter === null) {
+    boundNote = " — unbound: not a git repository";
+  } else if (dirty) {
+    boundNote = " — unbound: verified with uncommitted changes (--allow-dirty)";
+    console.log("Note: evidence recorded with bound: false — the commit it names does not hold all of the verified code");
   }
   const evidence = JSON.stringify({
-    summary: `All verification layers passed via node scripts/framework-check.mjs verify-feature${skipNote}`,
+    summary: `All verification layers passed via node scripts/framework-check.mjs verify-feature${skipNote}${boundNote}`,
     timestamp: new Date().toISOString(),
     commit,
     dirty,
+    bound,
+    checksHash: featureChecksHash(feature),
     layers: layerResults,
   });
   recordFeaturePass(featureId, evidence);
   console.log(`Evidence recorded in ${featureStatePath(featureId)}`);
+  // The trail the end-of-session steps ask for, written by the gate itself: across five
+  // passing eval trials agents never ran `npm run vcr` for it (feat-034, D-045).
+  if (bound) recordTrail("verify-feature", { feature: featureId, commit, checksHash: featureChecksHash(feature) });
 }
 
 // Verification logs are local diagnostics, never committed: the folder ignores itself, so
@@ -1506,6 +1912,77 @@ function laneDrop(featureId) {
   console.log(`Worktree removed. Branch ${branch} still exists — delete it manually (git branch -D ${branch}) if it's no longer needed.`);
 }
 
+// Advisory only — never creates a worktree, never writes state, never starts
+// anything. It answers "what could run in parallel right now", so an agent
+// can propose a plan and a human can approve it before any lane-new runs
+// (feat-021, D-017's human-in-the-loop extension). "Independent" here means
+// dependency-graph safe only: every candidate already has its dependencies
+// passing (the same gate lane-new enforces per-feature), so by construction
+// none of them can depend on another still-open candidate in the same set.
+// It is not a promise that two candidates leave disjoint files untouched —
+// this framework does not track per-feature file scope, so that risk is
+// still reviewed by a human at lane-land time, same as any merge.
+function laneSuggest() {
+  const { features } = loadFeaturesWithState();
+  const byId = new Map(features.map((feature) => [feature.id, feature]));
+
+  const claimedByLane = new Set(
+    (gitCapture(["for-each-ref", "--format=%(refname:short)", "refs/heads/lane"]) ?? "")
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((branch) => laneFeatureIdFromBranch(branch))
+      .filter(Boolean),
+  );
+
+  const candidates = features.filter((feature) => {
+    if (getFeatureState(feature) !== "planned") {
+      return false;
+    }
+    if (claimedByLane.has(feature.id)) {
+      return false;
+    }
+    const unmet = getFeatureDependencies(feature).filter((dependencyId) => byId.get(dependencyId)?.state !== "passing");
+    return unmet.length === 0;
+  });
+
+  console.log("=== Lane Suggestions ===");
+  console.log("");
+
+  if (candidates.length === 0) {
+    console.log("No features are currently startable in parallel: every planned feature either has");
+    console.log("unmet dependencies, is blocked, or already has a lane claiming it.");
+    return;
+  }
+
+  if (candidates.length === 1) {
+    const only = candidates[0];
+    console.log(`Only one feature is startable right now: ${only.id} (${only.name ?? only.title}).`);
+    console.log("Nothing to parallelize yet. Start it directly once approved:");
+    console.log(`  npm run lane-new -- ${only.id}`);
+    return;
+  }
+
+  console.log(`${candidates.length} feature(s) are startable right now and independent of each other`);
+  console.log("(dependency-graph safe — none is waiting on another feature in this set):");
+  console.log("");
+  for (const feature of candidates) {
+    const deps = getFeatureDependencies(feature);
+    const depsText = deps.length > 0 ? `depends on: ${deps.join(", ")} [passing]` : "no dependencies";
+    console.log(`  - ${feature.id}: ${feature.name ?? feature.title} (${depsText})`);
+  }
+  console.log("");
+  console.log("This is a suggestion only — nothing has been created. A human must approve before");
+  console.log("any lane is started. Suggested commands, once approved:");
+  console.log("");
+  for (const feature of candidates) {
+    console.log(`  npm run lane-new -- ${feature.id}`);
+  }
+  console.log("");
+  console.log("Note: independence here is dependency-graph safety, not a file-conflict guarantee —");
+  console.log("this framework does not track per-feature file scope. Review each lane before");
+  console.log("running lane-land on it.");
+}
+
 function collectModifiedFiles() {
   const files = new Set();
   for (const cmd of ["git diff --name-only --relative", "git ls-files --others --exclude-standard"]) {
@@ -1743,6 +2220,31 @@ function cleanStateCheck() {
     console.log("  [WARN] Cannot verify feature state (feature_list.json missing)");
   }
 
+  // Rating what changed is a judgment call, so it can't be automated, but it can be checked:
+  // agents updated the quality document in one of five passing eval trials (feat-034, D-045).
+  // Only gate-verified features (bound evidence, feat-030 onwards) are checked.
+  console.log("");
+  console.log("--- Quality Document ---");
+  const qualityDoc = "docs/quality-document.md";
+  const verified = existsSync("feature_list.json")
+    ? loadFeaturesWithState().features
+        .filter((feature) => getFeatureState(feature) === "passing" && parseEvidence(feature)?.bound === true)
+        .map((feature) => feature.id)
+    : [];
+  if (verified.length === 0) {
+    console.log("  [PASS] No gate-verified features to rate yet");
+  } else if (!existsSync(qualityDoc)) {
+    console.log(`  [WARN] ${qualityDoc} is missing — cannot check the ratings for ${verified.join(", ")}`);
+  } else {
+    const text = readText(qualityDoc);
+    const unmentioned = verified.filter((id) => !new RegExp(`\\b${id}\\b`).test(text));
+    check(
+      unmentioned.length === 0,
+      `${qualityDoc} mentions every gate-verified feature (${verified.length})`,
+      `${qualityDoc} does not mention ${unmentioned.join(", ")}. Add a line for each (for example under Notes: what changed and which modules), rate those modules in the Modules table, and commit.`,
+    );
+  }
+
   console.log("");
   console.log("--- OS Artifacts ---");
   let staged = "";
@@ -1784,13 +2286,18 @@ function runVerifyAll() {
   const script = ["scripts/verify-all", "scripts/verify-all.mjs", "scripts/verify-all.cjs"].find(existsSync);
   if (!script) {
     console.log("[SKIP] Multi-repo component not activated (verify-all script absent)");
-    console.log("  Activate it by copying the templates/multi-repo skeletons to their declared destinations.");
+    console.log("  Activate it with: node scripts/create-harness.mjs <dir> --with multi-repo");
     return;
   }
   try {
     const result = spawnSync(process.execPath, [script], { stdio: "inherit" });
-    if (result.error || (result.status ?? 1) !== 0) {
-      console.log(`[FAIL] verify-all failed (exit ${result.error ? 1 : result.status})`);
+    const status = result.error ? 1 : (result.status ?? 1);
+    if (status === MULTI_REPO_VERIFY_ALL_SKIP) {
+      console.log("[SKIP] verify-all ran but nothing was verified yet");
+      return;
+    }
+    if (status !== 0) {
+      console.log(`[FAIL] verify-all failed (exit ${status})`);
       process.exit(1);
     }
   } catch (err) {
@@ -1799,7 +2306,18 @@ function runVerifyAll() {
   }
 }
 
+// ./init.sh's chain. In an adopter it ends with the harness self-tests, which the test layer
+// no longer runs there (feat-029, D-040): once per session is enough to catch a Node version or
+// platform that breaks the harness. In this repository the test layer already runs them.
 function runVerifyChain() {
+  runProjectChain();
+  if (!isFrameworkRepository()) {
+    console.log("--- Running: harness self-tests (node scripts/framework-check.mjs selftest) ---");
+    runSelfTests();
+  }
+}
+
+function runProjectChain() {
   const chain = getVerifyChain();
   if (chain.length === 0) {
     console.log("=== No application runtime detected (harness-only bootstrap) ===");
@@ -1836,24 +2354,29 @@ function printHelp() {
   console.log("");
   console.log("  setup          Install all dependencies from scratch");
   console.log("  dev            Start local development server");
-  console.log("  check          Full verification: lint → typecheck → test → build → e2e");
+  console.log("  check          Full verification: lint → typecheck → test → build → e2e → verify-all → quality");
   console.log("  lint           Layer 1: static analysis");
   console.log("  typecheck      Layer 1b: type checking");
   console.log("  test           Layer 2: runtime tests");
   console.log("  build          Layer 3: build verification");
   console.log("  e2e            Layer 3b: end-to-end tests");
+  console.log("  quality        Opt-in metric gates from .harness/quality.json (coverage, mutation, …)");
   console.log("  check-arch     Architecture constraint enforcement");
-  console.log("  verify-feature F=<id>  Run all verification layers for a feature");
+  console.log("  verify-feature F=<id>  Run all verification layers for a feature (commit its code first)");
   console.log("  activate F=<id>        Activate a feature when dependencies allow");
   console.log("  lane-new F=<id>   Create a sibling git worktree lane on branch lane/<id>");
   console.log("  lane-list         List local lane/* branches, their feature, state, worktree");
   console.log("  lane-land F=<id>  Merge a passing lane back and clean up its worktree/branch");
   console.log("  lane-drop F=<id>  Abandon a lane's worktree without merging");
+  console.log("  lane-suggest      List features startable in parallel right now (advisory, creates nothing)");
   console.log("  migrate-feature-state  Move inline state/evidence into .harness/state/<id>.json");
   console.log("  add-feature ID=<id> NAME=<name>  Append a declaration-only feature stub");
   console.log("  vcr            verify + check-arch + record trail");
   console.log("  session-start  Record session start");
   console.log("  session-end    Record session end");
+  console.log("  selftest       Harness self-tests (the runner's unit tests); ./init.sh runs them in adopters");
+  console.log("  brief            Start-of-session summary: active feature, what can start, stale evidence, last session's risks and next step");
+  console.log("  progress-new \"<title>\"  Start this session's note in progress/ (number, date, heading, sections)");
   console.log("  progress-update  Regenerate the progress state and session index");
   console.log("  progress-migrate  Move a single-file PROGRESS.md into progress/ and generate the dashboard");
   console.log("  clean-check    Pre-commit clean state verification");
@@ -1880,7 +2403,12 @@ switch (mode) {
     }
     readJson("feature_list.json");
     readJson(".harness/arch-rules.json");
-    ensureNoPlaceholders();
+    ensureQualityConfig();
+    // init.sh's first run on a just-adopted project hasn't had a chance to fill in docs yet;
+    // warn there instead of failing lint outright so `./init.sh` still completes (#23). A
+    // manually-run `npm run check`/`npm run lint`, and arch-003 (arch:no-placeholders below),
+    // are unaffected and still fail on an unfilled doc.
+    ensureNoPlaceholders({ warnOnly: process.env.CW_INIT_SH === "1" });
     ensureSkills();
     ensureCommandSurfaces();
     ensureProgressLog();
@@ -1890,28 +2418,28 @@ switch (mode) {
   case "typecheck": {
     ensureFeatureShape();
     pass("Feature tracker schema is consistent");
+    // A warning, not a failure: re-verifying needs a clean tree, and the commit that changes
+    // a feature's layers must itself pass check first (feat-030, D-041).
+    warnStaleEvidence();
     break;
   }
   case "test": {
     ensureFeatureGraph();
     ensureLaneWipContract();
     pass("Feature dependency graph and WIP contract are valid");
-    // Unit tests for the runner's own logic (node:test) run as part of Layer 2.
-    // Files are enumerated and passed explicitly: glob patterns in --test args
-    // are expanded by Node on Windows but passed literally on Linux.
-    if (existsSync("tests")) {
-      const testFiles = readdirSync("tests")
-        .filter((name) => name.endsWith(".test.mjs"))
-        .map((name) => path.join("tests", name));
-      if (testFiles.length > 0) {
-        const result = spawnSync(process.execPath, ["--test", ...testFiles], { stdio: "inherit" });
-        const exit = result.error ? 1 : (result.status ?? 1);
-        if (exit !== 0) {
-          fail("runner unit tests failed");
-        }
-        pass("Runner unit tests pass");
-      }
+    // The runner's unit tests are this repository's product tests, so they run in Layer 2
+    // here. An adopter runs them once per session from ./init.sh instead (feat-029, D-040).
+    if (isFrameworkRepository()) {
+      runSelfTests();
+    } else {
+      console.log(
+        "NOTE: harness self-tests are not part of this layer in an adopting project — ./init.sh runs them once per session; node scripts/framework-check.mjs selftest runs them on demand",
+      );
     }
+    break;
+  }
+  case "selftest": {
+    runSelfTests();
     break;
   }
   case "build": {
@@ -1948,6 +2476,14 @@ switch (mode) {
   }
   case "progress-update": {
     updateProgress();
+    break;
+  }
+  case "progress-new": {
+    newProgressNote(args.join(" "));
+    break;
+  }
+  case "brief": {
+    sessionBrief();
     break;
   }
   case "progress-migrate": {
@@ -1996,7 +2532,11 @@ switch (mode) {
     break;
   }
   case "verify-feature": {
-    verifyFeature(args[0]);
+    const unknown = args.filter((arg) => arg.startsWith("--") && arg !== "--allow-dirty");
+    if (unknown.length > 0) {
+      fail(`unknown verify-feature option ${unknown[0]} (expected --allow-dirty)`);
+    }
+    verifyFeature(args.find((arg) => !arg.startsWith("--")), { allowDirty: args.includes("--allow-dirty") });
     break;
   }
   case "session-trace": {
@@ -2015,6 +2555,10 @@ switch (mode) {
     runVerifyAll();
     break;
   }
+  case "quality": {
+    process.exitCode = runQualityGates();
+    break;
+  }
   case "lane-new": {
     laneNew(args[0]);
     break;
@@ -2029,6 +2573,10 @@ switch (mode) {
   }
   case "lane-drop": {
     laneDrop(args[0]);
+    break;
+  }
+  case "lane-suggest": {
+    laneSuggest();
     break;
   }
   case "migrate-feature-state": {

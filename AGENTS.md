@@ -9,19 +9,21 @@ Before writing code:
 1. **Confirm working directory** with `pwd`
 2. **Read this file** completely
 3. **Read project docs** (`docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, README)
-4. **Run `./init.sh`** to verify environment is healthy
-5. **Read `feature_list.json`** to see current feature state
-6. **Review recent commits** with `git log --oneline -5`
+4. **Run `./init.sh`** to verify environment is healthy (it also runs the harness self-tests, once per session)
+5. **Read the session brief** `./init.sh` prints at the end (or run `node scripts/framework-check.mjs brief`): the active feature, what can start next, stale evidence, and the last session's risks and next step. Open `feature_list.json` only for the features it names
+6. **Check for parallel work** — if more than one feature is `planned`, run `npm run lane-suggest` before picking just one. It is read-only; if it reports an independent set, propose that set (and the `parallel-lanes` skill's flow) to a human before defaulting to a single feature.
+7. **Review recent commits** with `git log --oneline -5`
 
 If baseline verification is failing, repair that first before adding new scope.
 
 ## Working Rules
 
-- **One feature at a time**: Pick exactly one unfinished feature from `feature_list.json`
+- **One feature at a time**: Pick exactly one unfinished feature from `feature_list.json` — unless `npm run lane-suggest` found an independent, human-approved set to run in parallel lanes instead (see `parallel-lanes` skill, DECISIONS.md D-028)
 - **WIP=1**: Only one feature may be active at any time (`state: "active"` or compatibility alias `status: "in_progress"` in that feature's `.harness/state/<id>.json`). Complete and move to `passing` before activating the next. On a `lane/<feature-id>` worktree lane, this is scoped per lane — a lane may only activate the feature it is named for (see `lane-new`/`lane-list`/`lane-land`/`lane-drop`, docs/ARCHITECTURE.md, and DECISIONS.md D-017).
 - **Verification required**: Don't claim done without running verification commands
 - **Update artifacts**: Before ending a session, add `progress/NNN-YYYY-MM-DD.md`, regenerate `PROGRESS.md`, and update the active feature's `.harness/state/<id>.json`
 - **Stay in scope**: Don't modify files unrelated to the current feature
+- **The declared behavior is the spec**: a feature's `behavior` in `feature_list.json` defines done. A test that contradicts it is a bug in the test — fix the test in the same commit and say so in the commit message and session note. Stop and ask only when the declared behavior itself looks wrong
 - **Leave clean state**: Next session must be able to run `./init.sh` immediately
 - **One logical operation per commit**: The repo must be in a consistent state after every commit
 - **Update docs with code**: No stale documentation — update docs in the same commit as the code change
@@ -34,6 +36,8 @@ If baseline verification is failing, repair that first before adding new scope.
 - **MUST** run `make check` (or equivalent verification) before every commit
   <!-- source: harness-engineering-template L03 — repo must have a verifiable consistent-state predicate -->
 - **MUST NOT** mark a feature as `passing` manually — use `make verify-feature F=<id>` or the documented verification path
+- **MUST** commit the feature's code and docs before `verify-feature` — it refuses uncommitted changes outside harness bookkeeping, so its evidence names the commit that passed; the state shard it writes goes in the next commit
+  <!-- source: feat-030, D-041 — evidence recorded on a dirty tree named a commit that did not hold the verified code -->
   <!-- source: harness-engineering-template L08 — state transitions must go through the harness gate -->
 - **MUST** add session notes under `progress/` and regenerate `PROGRESS.md` at session end
   <!-- source: harness-engineering-template L05 — durable cross-session continuity requires written handoff -->
@@ -83,10 +87,11 @@ Required checks (each with its npm mirror):
 - `make test` / `npm run test` — Unit and integration tests
 - `make build` / `npm run build` — Production build verification
 - `make e2e` / `npm run e2e` — End-to-end tests (required for cross-component changes)
+- `make quality` / `npm run quality` — Opt-in metric gates from `.harness/quality.json` (coverage, mutation score, …); SKIP while disabled
 
-Other mirrors: `check-arch`, `verify-feature` (`npm run verify-feature -- <id>`), `activate` (`npm run activate -- <id>`), `verify-all`, `lane-new` (`-- <id>`), `lane-list`, `lane-land` (`-- <id>`), `lane-drop` (`-- <id>`), `migrate-feature-state`, `add-feature` (`-- <id> <name>`), `vcr`, `harness-docs`, `create-harness`, `harness-upgrade`, `harness-audit`, `backup-list`, `backup-pin` (`-- <id>`), `backup-unpin` (`-- <id>`), `backup-restore` (`-- <id>`), `report`, `sweep`, `session-start`, `session-end`, `clean-check`, `setup`, `dev`, `help`.
+Other mirrors: `check-arch`, `verify-feature` (`npm run verify-feature -- <id>`), `activate` (`npm run activate -- <id>`), `verify-all`, `lane-new` (`-- <id>`), `lane-list`, `lane-land` (`-- <id>`), `lane-drop` (`-- <id>`), `lane-suggest`, `migrate-feature-state`, `add-feature` (`-- <id> <name>`), `vcr`, `harness-docs`, `create-harness`, `harness-upgrade`, `harness-audit`, `backup-list`, `backup-pin` (`-- <id>`), `backup-unpin` (`-- <id>`), `backup-restore` (`-- <id>`), `report`, `sweep`, `session-start`, `session-end`, `clean-check`, `setup`, `dev`, `help`.
 
-`make check` runs all layers in order (lint → typecheck → test → build → e2e → optional verify-all). The multi-repo layer reports SKIP when its markers are absent; other unconfigured layers also report SKIP and do not count as verified. A failing layer stops the chain. Both surfaces delegate to the same Node runner (`scripts/framework-check.mjs`); `npm run check` is the make-free entrypoint.
+`make check` runs all layers in order (lint → typecheck → test → build → e2e → optional verify-all → optional quality). The multi-repo layer reports SKIP when its markers are absent, and the quality layer while `.harness/quality.json` is disabled; other unconfigured layers also report SKIP and do not count as verified. A failing layer stops the chain. Both surfaces delegate to the same Node runner (`scripts/framework-check.mjs`); `npm run check` is the make-free entrypoint.
 
 ## Architecture Boundaries
 
@@ -105,9 +110,10 @@ Other mirrors: `check-arch`, `verify-feature` (`npm run verify-feature -- <id>`)
 
 ## Tools and MCP
 
-- Tool access is scoped via `.claude/settings.json`
+- `.claude/settings.json` denies Claude Code reads of secret files (`.env` variants, `~/.ssh`, `~/.aws`, …); every other permission stays at the tool's own default. It is not a security boundary: scripts can still open those files
+- Codex and Gemini CLI get no shipped permission file; `docs/TOOLS.md` says how to get the same protection there, and how to opt into Claude Code's OS sandbox
+- Never add `allow` rules for sensitive actions (writes outside the project, network, installs, pushes) to the shared settings file — it applies to every teammate
 - MCP integrations and permitted capabilities are documented in `docs/TOOLS.md`
-- Default permission for sensitive tools is `ask`, not `allow`
 
 ## Skills
 
@@ -117,9 +123,11 @@ Skills are reusable capability packs in `skills/` — one folder per skill, each
 - `verification` — running the gates honestly and reading their output
 - `session-handoff` — ending a session durably
 - `adopt` — bootstrapping the harness in a new project
+- `parallel-lanes` — an agent proposes a parallel-lane plan from independent features; a human approves every state-changing step
 - `release` — the final pass before reporting work done
 - `commit` — focused commits, one logical operation, message explains WHY
 - `review` — an independent verification pass before the feature gate
+- `testing` — which tests go in which layer, acceptance tests from the declared behavior, a fast gate, judging test quality
 - `update-docs` — the docs-drift pass (same-commit rule)
 - `write-skill` — authoring new skills (project skills may be added under `skills/`)
 
@@ -130,9 +138,9 @@ Skill structure is validated by the lint layer; see the `write-skill` skill for 
 Before ending a session:
 
 1. Run `make clean-check` — confirms build passes, no debug artifacts, progress updated
-2. Add the session notes to `progress/NNN-YYYY-MM-DD.md` and regenerate the dashboard with `node scripts/framework-check.mjs progress-update`
+2. Start the session note with `node scripts/framework-check.mjs progress-new "<title>"` (it picks the number, date and heading lint requires, writes the sections and refreshes `PROGRESS.md`), then fill in every section; after any later state change run `node scripts/framework-check.mjs progress-update`
 3. Keep `feature_list.json` declaration-only; feature state belongs in `.harness/state/<id>.json`
-4. Update `docs/quality-document.md` for modules touched (A/B/C/D per dimension)
+4. Update `docs/quality-document.md`: name each feature that passed this session (its id, what changed, which modules) and rate those modules A/B/C/D — `clean-check` fails until every gate-verified feature is mentioned
 5. Record any unresolved risks or blockers
 6. Commit with descriptive message explaining WHY, not just what
 7. Leave repo clean enough for next session to run `./init.sh` immediately
@@ -143,6 +151,6 @@ Before ending a session:
 
 If you encounter:
 - **Architecture decisions**: Consult `docs/ARCHITECTURE.md` and `DECISIONS.md` first, then `docs/decisions/`
-- **Unclear requirements**: Check `docs/PRODUCT.md` if present, otherwise ask user
+- **Unclear requirements**: Check `docs/PRODUCT.md` if present, otherwise ask user. A test that contradicts the declared behavior is not unclear requirements: the behavior wins (see Working Rules)
 - **Repeated test failures**: Update `PROGRESS.md`, flag for human review
 - **Scope ambiguity**: Re-read `feature_list.json` for definition of done

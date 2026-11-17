@@ -8,12 +8,13 @@
 // feature cycle through verify-feature. Cells whose toolchain is absent report
 // SKIP (honest degradation) instead of failing. The upgrade test adopts,
 // customizes, simulates a harness upgrade, and asserts the customizations
-// survive while mustNotEdit surfaces are refreshed (D-010).
+// survive while mustNotEdit surfaces are refreshed (D-010). The cells' test
+// layers do not run the harness's own unit tests (an adopter runs them from
+// ./init.sh, feat-029), so one adopter runs them once through `selftest`.
 
 import { spawnSync } from "node:child_process";
 import {
   appendFileSync,
-  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -25,7 +26,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { HARNESS_ROOT, adopt, loadManifest } from "./create-harness.mjs";
+import { HARNESS_ROOT, adopt, placeTemplates } from "./create-harness.mjs";
 import { generateHarnessDocs } from "./harness-docs.mjs";
 import { upgrade as upgradeHarness } from "./harness-upgrade.mjs";
 import { restoreBackup as restoreBackupSnapshot } from "./harness-backup.mjs";
@@ -47,13 +48,13 @@ export function normalizeFixtureScripts(root) {
   for (const layer of LAYERS) {
     pkg.scripts[layer] = `node scripts/framework-check.mjs ${layer}`;
   }
-  pkg.scripts.check = "npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all";
+  pkg.scripts.check = "npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all && npm run quality";
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
 }
 
-function buildAdopter(stage, stack) {
+function buildAdopter(stage, stack, { components = [] } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), `cw-adopt-${stage}-${stack}-`));
-  adopt(root);
+  adopt(root, { components });
   normalizeFixtureScripts(root);
   fillDocs(root, stack);
   addProduct(root, stack);
@@ -140,15 +141,26 @@ function fillFeatureList(root) {
   writeFileSync(path.join(root, "feature_list.json"), `${JSON.stringify({ features: [feature] }, null, 2)}\n`, "utf8");
 }
 
-function spawnRunner(root, args, timeoutMs = 180000) {
+// The environment each cell's runner sees. ./init.sh runs the whole chain, e2e
+// included, with CW_INIT_SH=1, which turns lint's unfilled-docs check into a
+// warning; a cell must not inherit that, or it would stop proving that lint
+// fails on an unfilled doc (D-039, same rule as run() in the tests, D-032).
+export function cellEnv(baseEnv = process.env) {
+  const env = { ...baseEnv, CW_ADOPTION_CELL: "1" };
+  delete env.CW_INIT_SH;
+  return env;
+}
+
+export function spawnRunner(root, args, timeoutMs = 180000) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
     cwd: root,
     encoding: "utf8",
     timeout: timeoutMs,
-    env: { ...process.env, CW_ADOPTION_CELL: "1" },
+    env: cellEnv(),
   });
   const stdout = result.stdout ?? "";
-  const stderr = result.stderr ?? "";
+  // let, not const: a spawn error (e.g. a cell timeout) is appended below.
+  let stderr = result.stderr ?? "";
   const exit = result.error ? 1 : (result.status ?? 1);
   if (result.error) stderr += `\n${result.error.message}`;
   return { exit, output: `${stdout}${stderr}` };
@@ -285,18 +297,33 @@ function runUpgradeTest() {
 function runMultiRepoTest() {
   const root = buildAdopter("multirepo", "none");
   try {
-    // Activate the component: place every multi-repo skeleton at its declared
-    // destination (the manifest's optional-marker entries).
-    const manifest = loadManifest();
-    const optionalPrefixes = ["contracts/", "tasks/", "repositories/", "scripts/verify-all"];
-    for (const entry of manifest.templates) {
-      if (typeof entry === "string" || entry.keep) continue;
-      if (!optionalPrefixes.some((prefix) => entry.to.startsWith(prefix) || entry.to === prefix)) continue;
-      const src = path.join(HARNESS_ROOT, entry.from);
-      const dest = path.join(root, entry.to);
-      mkdirSync(path.dirname(dest), { recursive: true });
-      copyFileSync(src, dest);
-    }
+    const earlyAssertions = [];
+    const earlyCheck = (ok, message) => earlyAssertions.push({ ok, message });
+    // A plain adopter (no --with multi-repo) gets none of the component's directories or
+    // files — it is opt-in, not placed unconditionally (#24) — so verify-all reports the
+    // layer itself as SKIP (component not activated), not a silent pass for nothing checked.
+    earlyCheck(!existsSync(path.join(root, "repositories")), "a plain adopter has no repositories/ directory");
+    earlyCheck(!existsSync(path.join(root, "scripts", "verify-all.mjs")), "a plain adopter has no scripts/verify-all.mjs");
+    const pristineVerifyAll = spawnRunner(root, ["verify-all"]);
+    earlyCheck(pristineVerifyAll.exit === 0, `verify-all layer passes (reports SKIP, not FAIL) when the component isn't activated (exit ${pristineVerifyAll.exit})`);
+    earlyCheck(pristineVerifyAll.output.includes("[SKIP] Multi-repo component not activated"), "verify-all layer reports the component as not activated, honestly, not as a pass");
+
+    // Activate the component via the same opt-in path a real adopter uses
+    // (create-harness --with multi-repo / placeTemplates({ components })). skipExisting
+    // matters here as much as components does: without it, every already-placed,
+    // already-filled template (README.md, docs/*) gets silently reset to its pristine
+    // template content too, since only optional-component destinations are filtered —
+    // every other template entry is placed unconditionally when skipExisting is false.
+    placeTemplates(root, { skipExisting: true, components: ["multi-repo"] });
+    // H01, freshly-activated state: activating gives only repositories/example with no
+    // check.js yet. verify-all must treat this as "nothing to verify yet", not as a
+    // failure — only a repo added *after* activation and still unconfigured should fail it.
+    const freshlyActivatedVerifyAll = spawnRunner(root, ["verify-all"]);
+    earlyCheck(
+      freshlyActivatedVerifyAll.exit === 0,
+      `verify-all passes on a freshly-activated component with only the example placeholder (exit ${freshlyActivatedVerifyAll.exit})`,
+    );
+    earlyCheck(freshlyActivatedVerifyAll.output.includes("[SKIP] verify-all ran but nothing was verified yet"), "the runner reports the vacuous activation as SKIP, not a silent pass");
     // Exercise extensionless, ESM, and CommonJS entrypoints within a module-typed root.
     const packagePath = path.join(root, "package.json");
     const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
@@ -317,7 +344,7 @@ function runMultiRepoTest() {
     const gitAdd = () => spawnSync("git", ["add", "-A"], { cwd: root });
     gitAdd();
 
-    const assertions = [];
+    const assertions = [...earlyAssertions];
     const check = (ok, message) => assertions.push({ ok, message });
 
     const checkArch = spawnRunner(root, ["check-arch"]);
@@ -334,6 +361,23 @@ function runMultiRepoTest() {
     const verifyAllFail = spawnRunner(root, ["verify-all"]);
     check(verifyAllFail.exit === 1, `verify-all fails when a subrepo fails (exit ${verifyAllFail.exit})`);
     writeFileSync(path.join(lib, "verify.cjs"), "console.log('[PASS] CommonJS entrypoint');\n", "utf8");
+
+    // Negative (H01): every repository present but none has a verify script —
+    // all SKIP, zero PASS — must fail, not silently report "all pass".
+    const exampleCheck = path.join(example, "check.js");
+    const appVerify = path.join(app, "verify.mjs");
+    const libVerify = path.join(lib, "verify.cjs");
+    rmSync(exampleCheck, { force: true });
+    rmSync(appVerify, { force: true });
+    rmSync(libVerify, { force: true });
+    const verifyAllVacuous = spawnRunner(root, ["verify-all"]);
+    check(
+      verifyAllVacuous.exit === 1,
+      `verify-all fails when every repository is SKIP and none actually verified (exit ${verifyAllVacuous.exit})`
+    );
+    writeFileSync(exampleCheck, "console.log('[PASS] extensionless template');\n", "utf8");
+    writeFileSync(appVerify, "console.log('[PASS] ESM entrypoint');\n", "utf8");
+    writeFileSync(libVerify, "console.log('[PASS] CommonJS entrypoint');\n", "utf8");
 
     // Negative: an unclassified file fails arch-005 coverage
     writeFileSync(path.join(root, "stray.txt"), "unclassified\n", "utf8");
@@ -419,6 +463,31 @@ function runExistingRepoTest() {
   }
 }
 
+// ---- Shipped self-tests (feat-029, D-040) -----------------------------------
+
+// An adopter's test layer no longer runs the harness's own unit tests; ./init.sh runs them
+// once per session through `selftest`. The cells above therefore never run them, so prove once
+// here that the tests/ an adopter receives pass from an adopter's layout (its manifest has no
+// frameworkRepository, its package.json and productRoots are its own).
+function runShippedSelfTests() {
+  let root = "";
+  try {
+    root = buildAdopter("selftest", "node");
+    const result = spawnRunner(root, ["selftest"]);
+    const ok = result.exit === 0 && result.output.includes("PASS: Runner unit tests pass");
+    if (!ok) {
+      console.log(result.output
+        .split(/\r?\n/)
+        .slice(-15)
+        .map((line) => `    | ${line}`)
+        .join("\n"));
+    }
+    return { ok };
+  } finally {
+    if (root) rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // ---- Entry point ----------------------------------------------------------
 
 function main() {
@@ -473,6 +542,15 @@ function main() {
   } else {
     failures += 1;
     console.log("  [FAIL] existing-repo adoption test failed — see assertions above");
+  }
+
+  console.log("=== Shipped Self-Tests ===");
+  const selfTests = runShippedSelfTests();
+  if (selfTests.ok) {
+    console.log("  [PASS] the harness self-tests an adopter receives pass in an adopter layout");
+  } else {
+    failures += 1;
+    console.log("  [FAIL] shipped self-tests failed in an adopter — see output above");
   }
 
   console.log("");

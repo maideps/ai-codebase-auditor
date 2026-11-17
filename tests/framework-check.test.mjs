@@ -1,10 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { adopt } from "../scripts/create-harness.mjs";
 
 // scripts/framework-check.mjs is a monolithic CLI (fail() calls process.exit
 // directly, every mode reads relative to process.cwd()) rather than a module
@@ -25,12 +27,19 @@ function write(root, rel, content) {
   writeFileSync(dest, content, "utf8");
 }
 
-function run(root, mode, args = [], env = {}) {
+function run(root, mode, args = [], env = {}, { unset = [] } = {}) {
+  // ./init.sh runs this suite with CW_INIT_SH=1 set, which turns lint's placeholder check
+  // into a warning. Drop it from the inherited environment so a test only sees it when it
+  // passes it explicitly; otherwise the #23 lint assertions pass alone but fail under init.sh.
+  // `unset` drops more inherited variables for the tests that depend on their absence.
+  const inheritedEnv = { ...process.env };
+  delete inheritedEnv.CW_INIT_SH;
+  for (const name of unset) delete inheritedEnv[name];
   const result = spawnSync(process.execPath, [RUNNER, mode, ...args], {
     cwd: root,
     encoding: "utf8",
     timeout: 30000,
-    env: { ...process.env, ...env },
+    env: { ...inheritedEnv, ...env },
   });
   const stdout = result.stdout ?? "";
   const stderr = result.stderr ?? "";
@@ -41,6 +50,55 @@ function run(root, mode, args = [], env = {}) {
 function cleanup(root) {
   rmSync(root, { recursive: true, force: true });
 }
+
+// #23: a fresh create-harness output must fail lint/arch-003 until its docs are actually
+// filled in, diffed against their own template source rather than matched against bracketed
+// placeholder text (which had drifted out of the templates' prose and gone silently vacuous).
+test("ensureNoPlaceholders: a fresh create-harness output fails lint and arch-003 (#23)", () => {
+  const root = fixture();
+  try {
+    adopt(root, { skipExisting: true });
+    const lint = run(root, "lint");
+    assert.equal(lint.exit, 1, lint.output);
+    assert.match(lint.output, /README\.md is unchanged from its template/);
+    assert.match(lint.output, /docs\/PRODUCT\.md is unchanged from its template/);
+    assert.match(lint.output, /docs\/quality-document\.md is unchanged from its template/);
+    const archCheck = run(root, "arch:no-placeholders");
+    assert.equal(archCheck.exit, 1, archCheck.output);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("ensureNoPlaceholders: passes once a doc is edited; still fails for any doc left unfilled", () => {
+  const root = fixture();
+  try {
+    adopt(root, { skipExisting: true });
+    writeFileSync(path.join(root, "README.md"), "# Real Project\n\nActual project-specific content.\n", "utf8");
+    const lint = run(root, "lint");
+    assert.equal(lint.exit, 1, lint.output);
+    assert.doesNotMatch(lint.output, /README\.md is unchanged/);
+    assert.match(lint.output, /docs\/PRODUCT\.md is unchanged from its template/);
+    assert.match(lint.output, /docs\/quality-document\.md is unchanged from its template/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("ensureNoPlaceholders: init.sh's CW_INIT_SH warns instead of failing, so a first run completes", () => {
+  const root = fixture();
+  try {
+    adopt(root, { skipExisting: true });
+    const result = run(root, "lint", [], { CW_INIT_SH: "1" });
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /\[WARN\] README\.md is unchanged from its template/);
+    // arch-003 is unaffected by CW_INIT_SH — it is the hard gate check-arch still enforces.
+    const archCheck = run(root, "arch:no-placeholders", [], { CW_INIT_SH: "1" });
+    assert.equal(archCheck.exit, 1, archCheck.output);
+  } finally {
+    cleanup(root);
+  }
+});
 
 test("clean-state-check: scans the directories derived from productRoots, not hardcoded roots", () => {
   const root = fixture();
@@ -67,6 +125,33 @@ test("verify-all: skips cleanly when the optional component is absent", () => {
   }
 });
 
+// #24: the multi-repo component's own verify-all can be present but have verified nothing
+// yet (e.g. only the untouched example scaffold). It signals that with a reserved exit code
+// (42) rather than a silent exit 0, so this runner reports it as SKIP, not a pass.
+test("verify-all: a reserved exit code from the script is reported as SKIP, not a silent pass", () => {
+  const root = fixture();
+  try {
+    write(root, "scripts/verify-all.mjs", "process.exit(42);\n");
+    const result = run(root, "verify-all");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /\[SKIP\] verify-all ran but nothing was verified yet/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-all: a real failure (any other non-zero exit) still fails the layer", () => {
+  const root = fixture();
+  try {
+    write(root, "scripts/verify-all.mjs", "process.exit(1);\n");
+    const result = run(root, "verify-all");
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.stdout, /\[FAIL\] verify-all failed \(exit 1\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test("verify-all: accepts an ESM root script in a module-typed adopter", () => {
   const root = fixture();
   try {
@@ -86,6 +171,127 @@ test("e2e: adopter CI skips the framework adoption matrix", () => {
     const result = run(root, "e2e", [], { CW_SKIP_ADOPTION_MATRIX: "1" });
     assert.equal(result.exit, 0, result.output);
     assert.match(result.stdout, /\[SKIP\] Adoption matrix is reserved for framework repository CI/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-029: harness self-tests leave an adopter's per-feature path ------
+//
+// A fixture is an adopter unless its manifest sets frameworkRepository: true. Its tests/ holds a
+// failing *.test.mjs, so a mode that runs the harness self-tests fails and one that skips them
+// passes; its scripts/adoption-matrix.mjs is a stub that only prints a marker. The matrix runs
+// this suite inside adoption cells (CW_ADOPTION_CELL=1), and CI may set CW_SKIP_ADOPTION_MATRIX,
+// so the tests that depend on their absence unset both. node:test marks this file's process with
+// NODE_TEST_CONTEXT, and a nested `node --test` that inherits it skips every file and exits 0, so
+// the tests that need the fixture's self-test to really run unset it too.
+
+const MATRIX_VARS = ["CW_ADOPTION_CELL", "CW_SKIP_ADOPTION_MATRIX"];
+const NESTED_TEST_VARS = ["NODE_TEST_CONTEXT"];
+
+function selfTestFixture({ framework = false, failing = true } = {}) {
+  const root = fixture();
+  write(root, "feature_list.json", `${JSON.stringify({ features: [] }, null, 2)}\n`);
+  write(
+    root,
+    "tests/harness.test.mjs",
+    `import { test } from "node:test";\nimport assert from "node:assert/strict";\ntest("harness self-test", () => assert.equal(1, ${failing ? 2 : 1}));\n`,
+  );
+  write(root, "scripts/adoption-matrix.mjs", "console.log('STUB ADOPTION MATRIX RAN');\n");
+  if (framework) {
+    write(root, ".harness/manifest.json", `${JSON.stringify({ frameworkRepository: true }, null, 2)}\n`);
+  }
+  return root;
+}
+
+test("test: in an adopter the layer checks the feature graph but does not run the harness self-tests", () => {
+  const root = selfTestFixture();
+  try {
+    const result = run(root, "test", [], {}, { unset: NESTED_TEST_VARS });
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /PASS: Feature dependency graph and WIP contract are valid/);
+    assert.match(result.stdout, /NOTE: harness self-tests are not part of this layer/);
+    assert.doesNotMatch(result.output, /Runner unit tests|runner unit tests failed/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("test: in the framework repository the layer still runs the harness self-tests", () => {
+  const root = selfTestFixture({ framework: true });
+  try {
+    const result = run(root, "test", [], {}, { unset: NESTED_TEST_VARS });
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.output, /FAIL: runner unit tests failed/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("selftest: runs tests/*.test.mjs on demand and fails when one fails", () => {
+  const failing = selfTestFixture();
+  const passing = selfTestFixture({ failing: false });
+  try {
+    const failed = run(failing, "selftest", [], {}, { unset: NESTED_TEST_VARS });
+    assert.equal(failed.exit, 1, failed.output);
+    assert.match(failed.output, /FAIL: runner unit tests failed/);
+    const passed = run(passing, "selftest", [], {}, { unset: NESTED_TEST_VARS });
+    assert.equal(passed.exit, 0, passed.output);
+    assert.match(passed.stdout, /PASS: Runner unit tests pass/);
+  } finally {
+    cleanup(failing);
+    cleanup(passing);
+  }
+});
+
+test("selftest: reports SKIP when there are no harness self-tests", () => {
+  const root = fixture();
+  try {
+    const result = run(root, "selftest");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /\[SKIP\] No harness self-tests found/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-chain: an adopter runs the harness self-tests once per session (./init.sh)", () => {
+  const adopterRoot = selfTestFixture();
+  const frameworkRoot = selfTestFixture({ framework: true });
+  try {
+    const adopterRun = run(adopterRoot, "verify-chain", [], {}, { unset: NESTED_TEST_VARS });
+    assert.equal(adopterRun.exit, 1, adopterRun.output);
+    assert.match(adopterRun.stdout, /--- Running: harness self-tests/);
+    assert.match(adopterRun.output, /FAIL: runner unit tests failed/);
+    // In the framework repository the test layer of the project chain runs them instead; this
+    // fixture has no runtime, so the chain is empty and nothing runs the failing test.
+    const frameworkRun = run(frameworkRoot, "verify-chain", [], {}, { unset: NESTED_TEST_VARS });
+    assert.equal(frameworkRun.exit, 0, frameworkRun.output);
+    assert.doesNotMatch(frameworkRun.stdout, /harness self-tests/);
+  } finally {
+    cleanup(adopterRoot);
+    cleanup(frameworkRoot);
+  }
+});
+
+test("e2e: an adopter reports SKIP instead of running the framework's adoption matrix", () => {
+  const root = selfTestFixture();
+  try {
+    const result = run(root, "e2e", [], {}, { unset: MATRIX_VARS });
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /\[SKIP\] No end-to-end tests configured/);
+    assert.doesNotMatch(result.stdout, /STUB ADOPTION MATRIX RAN/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("e2e: the framework repository still runs its adoption matrix", () => {
+  const root = selfTestFixture({ framework: true });
+  try {
+    const result = run(root, "e2e", [], {}, { unset: MATRIX_VARS });
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /STUB ADOPTION MATRIX RAN/);
   } finally {
     cleanup(root);
   }
@@ -133,6 +339,22 @@ test("ensureManifest: passes on a fully classified, self-consistent manifest", (
   }
 });
 
+// feat-029: a quoted "true" would read as false and silently turn the framework's self-tests off.
+test("ensureManifest: frameworkRepository must be a boolean", () => {
+  const valid = manifestFixture(baseManifest({ frameworkRepository: true }));
+  const invalid = manifestFixture(baseManifest({ frameworkRepository: "true" }));
+  try {
+    const ok = run(valid, "manifest");
+    assert.equal(ok.exit, 0, ok.output);
+    const bad = run(invalid, "manifest");
+    assert.equal(bad.exit, 1, bad.output);
+    assert.match(bad.output, /manifest frameworkRepository must be true or false/);
+  } finally {
+    cleanup(valid);
+    cleanup(invalid);
+  }
+});
+
 test("ensureManifest: fails when .harness/manifest.json is missing", () => {
   const root = fixture();
   try {
@@ -163,6 +385,20 @@ test("ensureManifest: fails when a declared CORE surface does not exist on disk"
     const result = run(root, "manifest");
     assert.equal(result.exit, 1);
     assert.match(result.stderr, /manifest core surface is missing: core-file\.txt/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("ensureManifest: fails when a shipped skill named in shippedSkills has no SKILL.md (feat-026)", () => {
+  const manifest = baseManifest({ core: [...baseManifest().core, "skills/"], shippedSkills: ["verification", "gone"] });
+  const root = manifestFixture(manifest, {
+    extraTrackedFiles: { "skills/verification/SKILL.md": "---\nname: verification\ndescription: x\n---\n## When to Use\n" },
+  });
+  try {
+    const result = run(root, "manifest");
+    assert.equal(result.exit, 1);
+    assert.match(result.stderr, /manifest shipped skill is missing: skills\/gone\/SKILL\.md/);
   } finally {
     cleanup(root);
   }
@@ -636,6 +872,103 @@ test("lane-drop: refuses to discard an uncommitted lane, then removes it cleanly
   }
 });
 
+// ---- lane-suggest (feat-021) ------------------------------------------------
+// Advisory only: never creates a worktree, writes no state. These tests assert
+// it reports the right *set* of startable features and excludes anything
+// already claimed, without exercising git worktree mechanics (lane-new's own
+// tests above already cover that) — a plain `git branch` is enough to
+// simulate "a lane already claims this feature".
+
+test("lane-suggest: reports nothing to start when no feature is planned", () => {
+  const root = gitFeatureFixture([{ id: "feat-001", state: "passing", dependencies: [], layers: [] }]);
+  try {
+    const result = run(root, "lane-suggest");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /No features are currently startable in parallel/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lane-suggest: suggests a single startable feature directly instead of a parallel set", () => {
+  const root = gitFeatureFixture([{ id: "feat-001", name: "Solo Feature", state: "planned", dependencies: [], layers: [] }]);
+  try {
+    const result = run(root, "lane-suggest");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /Only one feature is startable right now: feat-001 \(Solo Feature\)/);
+    assert.match(result.stdout, /npm run lane-new -- feat-001/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lane-suggest: lists every independent startable feature with dependency status and suggested commands", () => {
+  const root = gitFeatureFixture([
+    { id: "feat-001", name: "Already Done", state: "passing", dependencies: [], layers: [] },
+    { id: "feat-002", name: "No Deps", state: "planned", dependencies: [], layers: [] },
+    { id: "feat-003", name: "Satisfied Deps", state: "planned", dependencies: ["feat-001"], layers: [] },
+  ]);
+  try {
+    const result = run(root, "lane-suggest");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /2 feature\(s\) are startable right now and independent of each other/);
+    assert.match(result.stdout, /feat-002: No Deps \(no dependencies\)/);
+    assert.match(result.stdout, /feat-003: Satisfied Deps \(depends on: feat-001 \[passing\]\)/);
+    assert.match(result.stdout, /npm run lane-new -- feat-002/);
+    assert.match(result.stdout, /npm run lane-new -- feat-003/);
+    assert.doesNotMatch(result.stdout, /feat-001:/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lane-suggest: excludes a planned feature with unmet dependencies", () => {
+  const root = gitFeatureFixture([
+    { id: "feat-001", name: "Not Done Yet", state: "planned", dependencies: [], layers: [] },
+    { id: "feat-002", name: "No Deps", state: "planned", dependencies: [], layers: [] },
+    { id: "feat-003", name: "Blocked On 001", state: "planned", dependencies: ["feat-001"], layers: [] },
+  ]);
+  try {
+    const result = run(root, "lane-suggest");
+    assert.equal(result.exit, 0, result.output);
+    // feat-001 and feat-002 are both startable (two candidates); feat-003 is not.
+    assert.match(result.stdout, /2 feature\(s\) are startable/);
+    assert.doesNotMatch(result.stdout, /feat-003:/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lane-suggest: excludes active and blocked features", () => {
+  const root = gitFeatureFixture([
+    { id: "feat-001", name: "In Progress", state: "active", dependencies: [], layers: [] },
+    { id: "feat-002", name: "Blocked", state: "blocked", dependencies: [], layers: [] },
+    { id: "feat-003", name: "Startable", state: "planned", dependencies: [], layers: [] },
+  ]);
+  try {
+    const result = run(root, "lane-suggest");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /Only one feature is startable right now: feat-003/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lane-suggest: excludes a feature already claimed by an existing lane/* branch", () => {
+  const root = gitFeatureFixture([
+    { id: "feat-001", name: "Already Claimed", state: "planned", dependencies: [], layers: [] },
+    { id: "feat-002", name: "Still Open", state: "planned", dependencies: [], layers: [] },
+  ]);
+  try {
+    spawnSync("git", ["branch", "lane/feat-001"], { cwd: root });
+    const result = run(root, "lane-suggest");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /Only one feature is startable right now: feat-002/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 // ---- Lane-aware WIP=1 (ensureLaneWipContract, via arch:wip-contract) ------
 
 function laneBranchFixture(branch, features) {
@@ -786,7 +1119,7 @@ test("verify-feature: records passing evidence in the shard, never rewrites feat
           dependencies: [],
           layers: [
             { label: "L", cmd: `${NODE} -e "process.exit(0)"`, repair: "r" },
-            { label: "Optional", cmd: `${NODE} -e "console.log('[SKIP] optional')"`, repair: "r" },
+            { label: "Optional", cmd: `${NODE} -e "console.log('[SKIP] optional')"`, repair: "r", required: false },
           ],
         },
       ],
@@ -826,11 +1159,395 @@ test("verify-feature: records passing evidence in the shard, never rewrites feat
     assert.equal(cleanEvidence.layers[1].log, ".harness/logs/feat-001/02-optional.log");
     assert.match(readFileSync(path.join(root, cleanEvidence.layers[1].log), "utf8"), /\[SKIP\] optional/);
 
+    assert.equal(cleanEvidence.bound, true);
+    assert.match(cleanEvidence.checksHash, /^[0-9a-f]{16}$/);
+
     write(root, "dirty-marker.txt", "dirty\n");
-    const dirtyResult = run(root, "verify-feature", ["feat-001"]);
+    const dirtyResult = run(root, "verify-feature", ["feat-001", "--allow-dirty"]);
     assert.equal(dirtyResult.exit, 0, dirtyResult.output);
     const dirtyShard = JSON.parse(readFileSync(path.join(root, ".harness/state/feat-001.json"), "utf8"));
-    assert.equal(JSON.parse(dirtyShard.evidence).dirty, true);
+    const dirtyEvidence = JSON.parse(dirtyShard.evidence);
+    assert.equal(dirtyEvidence.dirty, true);
+    assert.equal(dirtyEvidence.bound, false);
+    assert.match(dirtyEvidence.summary, /unbound: verified with uncommitted changes/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-030 (D-041): evidence is bound to committed code ----------------
+
+function evidenceFeature(overrides = {}) {
+  return {
+    id: "feat-001",
+    name: "One",
+    behavior: "b",
+    verification: "v",
+    dependencies: [],
+    layers: [{ label: "L", cmd: `${NODE} -e "process.exit(0)"`, repair: "r" }],
+    ...overrides,
+  };
+}
+
+function readEvidence(root, featureId = "feat-001") {
+  const shard = JSON.parse(readFileSync(path.join(root, `.harness/state/${featureId}.json`), "utf8"));
+  return { state: shard.state, evidence: shard.evidence ? JSON.parse(shard.evidence) : null };
+}
+
+function writeDeclarations(root, features) {
+  write(root, "feature_list.json", `${JSON.stringify({ features }, null, 2)}\n`);
+}
+
+test("verify-feature: uncommitted code refuses before any layer runs (feat-030)", () => {
+  const root = gitFeatureFixture([
+    evidenceFeature({ state: "active", layers: [{ label: "L", cmd: `${NODE} -e "require('fs').writeFileSync('layer-ran.txt','x')"`, repair: "r" }] }),
+  ]);
+  try {
+    write(root, "src/app.js", "console.log('uncommitted');\n");
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.output, /1 uncommitted change\(s\) outside harness bookkeeping/);
+    assert.match(result.output, /src\/app\.js/);
+    assert.match(result.output, /--allow-dirty/);
+    assert.equal(existsSync(path.join(root, "layer-ran.txt")), false, "no layer may run on a refused tree");
+    assert.equal(readEvidence(root).state, "active");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a modified tracked file refuses too, not only untracked ones (feat-030)", () => {
+  const root = gitFeatureFixture([evidenceFeature({ state: "active" })]);
+  try {
+    write(root, "feature_list.json", `${readFileSync(path.join(root, "feature_list.json"), "utf8")}\n`);
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.output, /feature_list\.json/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: uncommitted harness bookkeeping does not block, and the evidence is bound (feat-030)", () => {
+  const root = gitFeatureFixture([evidenceFeature({ state: "active" })]);
+  try {
+    // activate rewrote the shard; a session note and dashboard are in progress
+    write(root, ".harness/state/feat-001.json", `${JSON.stringify({ state: "active", evidence: "" }, null, 2)}\n`);
+    write(root, "progress/001-2026-11-05.md", "### Session 001\n");
+    write(root, "PROGRESS.md", "# Progress\n");
+    write(root, "session-handoff.md", "notes\n");
+    write(root, ".harness/traces/session-start-1.json", "{}\n");
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 0, result.output);
+    const { state, evidence } = readEvidence(root);
+    assert.equal(state, "passing");
+    assert.equal(evidence.bound, true);
+    assert.equal(evidence.dirty, false);
+    assert.doesNotMatch(evidence.summary, /unbound/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a layer that leaves a new file behind fails instead of recording evidence (feat-030)", () => {
+  const root = gitFeatureFixture([
+    evidenceFeature({ state: "active", layers: [{ label: "Writes", cmd: `${NODE} -e "require('fs').writeFileSync('coverage.out','x')"`, repair: "r" }] }),
+  ]);
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.output, /verification layers left 1 uncommitted change/);
+    assert.match(result.output, /coverage\.out/);
+    assert.equal(readEvidence(root).state, "active");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: outside a git repository the evidence is recorded unbound with a NOTE (feat-030)", () => {
+  const root = fixture();
+  writeDeclarations(root, [evidenceFeature()]);
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.output, /NOTE: not a git repository/);
+    const { evidence } = readEvidence(root);
+    assert.equal(evidence.bound, false);
+    assert.match(evidence.summary, /unbound: not a git repository/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: an unknown option fails instead of being taken as the feature id (feat-030)", () => {
+  const root = fixture();
+  writeDeclarations(root, [evidenceFeature()]);
+  try {
+    const result = run(root, "verify-feature", ["feat-001", "--alow-dirty"]);
+    assert.equal(result.exit, 1);
+    assert.match(result.stderr, /unknown verify-feature option --alow-dirty/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("typecheck: warns when a passing feature's label, cmd or required changed after it was verified, not its repair hint (feat-030)", () => {
+  const root = fixture();
+  const layer = { label: "L", cmd: `${NODE} -e "process.exit(0)"`, repair: "r" };
+  writeDeclarations(root, [evidenceFeature({ layers: [layer] })]);
+  try {
+    assert.equal(run(root, "verify-feature", ["feat-001"]).exit, 0);
+    const fresh = run(root, "typecheck");
+    assert.equal(fresh.exit, 0, fresh.output);
+    assert.doesNotMatch(fresh.output, /\[WARN\]/);
+
+    writeDeclarations(root, [evidenceFeature({ layers: [{ ...layer, repair: "a different hint" }] })]);
+    assert.doesNotMatch(run(root, "typecheck").output, /\[WARN\]/, "repair text is not a check");
+
+    for (const changed of [{ ...layer, cmd: `${NODE} -e "process.exit(0) // changed"` }, { ...layer, label: "Renamed" }, { ...layer, required: false }]) {
+      writeDeclarations(root, [evidenceFeature({ layers: [changed] })]);
+      const stale = run(root, "typecheck");
+      assert.equal(stale.exit, 0, "stale evidence warns, it does not fail the layer");
+      assert.match(stale.output, /\[WARN\] feat-001 is passing, but its verification layers changed after it was verified/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-034 (D-045): the end-of-session steps agents skipped ------------
+
+test("verify-feature: a bound pass records a verify-feature trail; an unbound pass does not (feat-034)", () => {
+  const root = gitFeatureFixture([evidenceFeature({ state: "active" })]);
+  const unbound = fixture();
+  writeDeclarations(unbound, [evidenceFeature()]);
+  try {
+    assert.equal(run(root, "verify-feature", ["feat-001"]).exit, 0);
+    const trails = readdirSync(path.join(root, ".harness", "trails")).filter((name) => /-verify-feature-feat-001\.json$/.test(name));
+    assert.equal(trails.length, 1, "one trail named after the feature");
+    const trail = JSON.parse(readFileSync(path.join(root, ".harness", "trails", trails[0]), "utf8"));
+    const { evidence } = readEvidence(root);
+    assert.equal(trail.kind, "verify-feature");
+    assert.equal(trail.feature, "feat-001");
+    assert.equal(trail.commit, evidence.commit);
+    assert.equal(trail.checksHash, evidence.checksHash);
+
+    assert.equal(run(unbound, "verify-feature", ["feat-001"]).exit, 0);
+    assert.equal(existsSync(path.join(unbound, ".harness", "trails")), false, "no trail for evidence that names no commit");
+  } finally {
+    cleanup(root);
+    cleanup(unbound);
+  }
+});
+
+test("clean-state-check: fails until docs/quality-document.md mentions every gate-verified feature (feat-034)", () => {
+  const bound = JSON.stringify({ summary: "s", commit: "abc1234", dirty: false, bound: true, checksHash: "0123456789abcdef", layers: [] });
+  const legacy = JSON.stringify({ summary: "s", commit: "abc1234", dirty: true, layers: [] });
+  const root = featureListFixture([
+    evidenceFeature({ state: "passing", evidence: bound }),
+    evidenceFeature({ id: "feat-002", name: "Two", state: "passing", evidence: legacy }),
+  ]);
+  try {
+    const qualityLine = (result) => result.output.split(/\r?\n/).find((line) => line.includes("quality-document")) ?? "";
+    assert.match(qualityLine(run(root, "clean-state-check")), /\[WARN\] docs\/quality-document\.md is missing/);
+
+    write(root, "docs/quality-document.md", "# Quality\n\nNothing rated yet.\n");
+    const missing = run(root, "clean-state-check");
+    assert.equal(missing.exit, 1);
+    assert.match(qualityLine(missing), /\[FAIL\] docs\/quality-document\.md does not mention feat-001\. Add a line/);
+    assert.doesNotMatch(qualityLine(missing), /feat-002/, "evidence recorded before feat-030 is not checked");
+
+    write(root, "docs/quality-document.md", "# Quality\n\n## Notes\n\n- feat-001: greeting, app/greet.mjs rated A.\n");
+    assert.match(qualityLine(run(root, "clean-state-check")), /\[PASS\] docs\/quality-document\.md mentions every gate-verified feature \(1\)/);
+    // A longer id that merely contains the feature's id does not count.
+    write(root, "docs/quality-document.md", "- feat-0010 only\n");
+    assert.match(qualityLine(run(root, "clean-state-check")), /\[FAIL\]/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("clean-state-check: nothing to rate when no feature has gate evidence (feat-034)", () => {
+  const root = featureListFixture([evidenceFeature({ state: "planned" })]);
+  try {
+    assert.match(run(root, "clean-state-check").output, /\[PASS\] No gate-verified features to rate yet/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("typecheck: evidence recorded before feat-030 (no checksHash) is never reported stale", () => {
+  const root = featureListFixture([
+    evidenceFeature({ state: "passing", evidence: JSON.stringify({ summary: "old", commit: "abc1234", dirty: true, layers: [] }) }),
+    evidenceFeature({ id: "feat-002", state: "passing", evidence: "Verified by hand on 2026-01-01" }),
+  ]);
+  try {
+    const result = run(root, "typecheck");
+    assert.equal(result.exit, 0, result.output);
+    assert.doesNotMatch(result.output, /\[WARN\]/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a dependency whose layers changed after it passed blocks its dependents (feat-030)", () => {
+  const root = fixture();
+  const dependency = evidenceFeature();
+  const dependent = evidenceFeature({ id: "feat-002", name: "Two", dependencies: ["feat-001"] });
+  writeDeclarations(root, [dependency, dependent]);
+  try {
+    assert.equal(run(root, "verify-feature", ["feat-001"]).exit, 0);
+    writeDeclarations(root, [evidenceFeature({ layers: [{ ...dependency.layers[0], cmd: `${NODE} -e "process.exit(0) // v2"` }] }), dependent]);
+    const blocked = run(root, "verify-feature", ["feat-002"]);
+    assert.equal(blocked.exit, 1, blocked.output);
+    assert.match(blocked.output, /depends on features whose verification layers changed after they passed: feat-001/);
+
+    assert.equal(run(root, "verify-feature", ["feat-001"]).exit, 0, "re-verifying the dependency refreshes its evidence");
+    const unblocked = run(root, "verify-feature", ["feat-002"]);
+    assert.equal(unblocked.exit, 0, unblocked.output);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- H01: a required layer that only reports SKIP must not pass -----------
+// (2026-09-08 external review of a downstream adopter: a feature went
+// "passing" while its required layer printed only [SKIP] and did nothing.)
+
+test("verify-feature: a required layer that only reports SKIP fails, not passes", () => {
+  const root = fixture();
+  write(root, "feature_list.json", `${JSON.stringify(
+    {
+      features: [
+        {
+          id: "feat-001",
+          name: "One",
+          behavior: "b",
+          verification: "v",
+          dependencies: [],
+          layers: [
+            { label: "Vacuous", cmd: `${NODE} -e "console.log('[SKIP] nothing was configured')"`, repair: "r" },
+          ],
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`);
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.output, /\[FAIL\] Vacuous .* required layer reported only SKIP, nothing was verified/);
+    assert.match(result.output, /set "required": false on it in feature_list\.json/);
+    assert.equal(existsSync(path.join(root, ".harness/state/feat-001.json")), false);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a layer with required:false may report only SKIP and still pass", () => {
+  const root = fixture();
+  write(root, "feature_list.json", `${JSON.stringify(
+    {
+      features: [
+        {
+          id: "feat-001",
+          name: "One",
+          behavior: "b",
+          verification: "v",
+          dependencies: [],
+          layers: [
+            {
+              label: "Vacuous but optional",
+              cmd: `${NODE} -e "console.log('[SKIP] optional toolchain not installed')"`,
+              repair: "r",
+              required: false,
+            },
+          ],
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`);
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 0, result.output);
+    const shard = JSON.parse(readFileSync(path.join(root, ".harness/state/feat-001.json"), "utf8"));
+    assert.equal(shard.state, "passing");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a SKIP alongside a real PASS in the same layer is informational, not a failure", () => {
+  const root = fixture();
+  write(root, "feature_list.json", `${JSON.stringify(
+    {
+      features: [
+        {
+          id: "feat-001",
+          name: "One",
+          behavior: "b",
+          verification: "v",
+          dependencies: [],
+          layers: [
+            {
+              label: "Mixed",
+              cmd: `${NODE} -e "console.log('[PASS] core check'); console.log('[SKIP] optional toolchain cell')"`,
+              repair: "r",
+            },
+          ],
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`);
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 0, result.output);
+    const shard = JSON.parse(readFileSync(path.join(root, ".harness/state/feat-001.json"), "utf8"));
+    assert.equal(shard.state, "passing");
+    assert.match(JSON.parse(shard.evidence).summary, /SKIP reported in: Mixed/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a layer whose own pass evidence uses \"PASS:\" (not \"[PASS]\") alongside a nested [SKIP] is not vacuous", () => {
+  // framework-check.mjs's own pass()/fail() helpers print "PASS: <message>"
+  // (no brackets) — a layer like "npm run check" that only emits that
+  // colon-style convention at its own level, while nested output elsewhere
+  // contains bracket-style [SKIP] lines, must not be misread as vacuous.
+  const root = fixture();
+  write(root, "feature_list.json", `${JSON.stringify(
+    {
+      features: [
+        {
+          id: "feat-001",
+          name: "One",
+          behavior: "b",
+          verification: "v",
+          dependencies: [],
+          layers: [
+            {
+              label: "Colon style",
+              cmd: `${NODE} -e "console.log('PASS: core command result'); console.log('[SKIP] nested optional toolchain')"`,
+              repair: "r",
+            },
+          ],
+        },
+      ],
+    },
+    null,
+    2,
+  )}\n`);
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 0, result.output);
+    const shard = JSON.parse(readFileSync(path.join(root, ".harness/state/feat-001.json"), "utf8"));
+    assert.equal(shard.state, "passing");
   } finally {
     cleanup(root);
   }
@@ -1409,4 +2126,161 @@ test("lint:progress-log: fails when the session filename and heading disagree", 
   } finally {
     cleanup(root);
   }
+});
+
+// ---- feat-036 (D-047): session notes start from a generated skeleton ------
+
+const todayLocal = () => {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+
+test("progress-new: writes the next note with the exact heading and sections, and lint's progress check passes right after (feat-036)", () => {
+  const root = progressFixture([], [{ id: "feat-001", name: "First", state: "planned" }]);
+  try {
+    const first = run(root, "progress-new", ["Greeting", "feature"]);
+    assert.equal(first.exit, 0, first.output);
+    const date = todayLocal();
+    const note = readFileSync(path.join(root, "progress", `001-${date}.md`), "utf8");
+    assert.equal(note.split("\n")[0], `### Session 001 — ${date} — Greeting feature`);
+    for (const section of ["Goal", "Sprint contract", "Completed", "Verification run", "Files or artifacts updated", "Known risk or unresolved issue", "Next best step"]) {
+      assert.match(note, new RegExp(`^- ${section}: `, "m"), section);
+    }
+    const lint = run(root, "lint:progress-log");
+    assert.equal(lint.exit, 0, lint.output);
+    assert.match(lint.output, /Progress dashboard is current \(1 session\)/);
+
+    assert.equal(run(root, "progress-new", ["Second"]).exit, 0);
+    assert.ok(existsSync(path.join(root, "progress", `002-${date}.md`)), "numbers continue");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("progress-new: refuses a blank or multi-line title, and never overwrites a note (feat-036)", () => {
+  const root = progressFixture([], []);
+  try {
+    assert.match(run(root, "progress-new").stderr, /usage: node scripts\/framework-check\.mjs progress-new/);
+    assert.match(run(root, "progress-new", ["two\nlines"]).stderr, /one-line session title/);
+    const date = todayLocal();
+    write(root, `progress/001-${date}.md`, `### Session 001 — ${date} — Mine\n\n- Goal: kept\n`);
+    // A second note today with number 001 would collide only if the index thought 001 was free.
+    const again = run(root, "progress-new", ["Next"]);
+    assert.equal(again.exit, 0, again.output);
+    assert.equal(readFileSync(path.join(root, "progress", `001-${date}.md`), "utf8"), `### Session 001 — ${date} — Mine\n\n- Goal: kept\n`);
+    assert.ok(existsSync(path.join(root, "progress", `002-${date}.md`)));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("progress lint: a hand-written '# Session' heading fails with the exact heading and the progress-new hint (feat-036)", () => {
+  const root = progressFixture([{ number: 1, date: "2026-10-01", heading: "# Session 001 - 2026-10-01" }], [], { generate: false });
+  try {
+    const result = run(root, "lint:progress-log");
+    assert.equal(result.exit, 1);
+    assert.match(result.stderr, /must start with a matching "### Session 001 — 2026-10-01" heading/);
+    assert.match(result.stderr, /progress-new "<title>" writes a new note with the right heading/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-037 (D-048): the start-of-session brief -------------------------
+
+test("brief: names the active feature, what can start, what waits, stale evidence and the last session's risk and next step (feat-037)", () => {
+  const staleEvidence = JSON.stringify({ summary: "s", commit: "abc1234", bound: true, checksHash: "0000000000000000", layers: [] });
+  const root = gitFeatureFixture([
+    { id: "feat-001", name: "Base", behavior: "b", verification: "v", dependencies: [], layers: [{ label: "L", cmd: "node -e 0", repair: "r" }], state: "passing", evidence: staleEvidence },
+    { id: "feat-002", name: "Doing", behavior: "the thing being built", verification: "v", dependencies: [], layers: [{ label: "L", cmd: "node --test app/doing.test.mjs", repair: "r" }], state: "active" },
+    { id: "feat-003", name: "Free", behavior: "b", verification: "v", dependencies: [], layers: [] },
+    { id: "feat-004", name: "After", behavior: "b", verification: "v", dependencies: ["feat-002"], layers: [] },
+    { id: "feat-005", name: "OnStale", behavior: "b", verification: "v", dependencies: ["feat-001"], layers: [] },
+    { id: "feat-006", name: "Stuck", behavior: "b", verification: "v", dependencies: [], layers: [], state: "blocked" },
+  ]);
+  try {
+    write(root, "progress/001-2026-11-01.md", "### Session 001 — 2026-11-01 — First\n\n- Goal: g\n- Known risk or unresolved issue: flaky network test\n- Next best step: finish feat-002\n");
+    write(root, "session-handoff.md", "# Session Handoff\n");
+    spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "add", "-A"], { cwd: root });
+    spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "notes"], { cwd: root });
+    const result = run(root, "brief");
+    assert.equal(result.exit, 0, result.output);
+    const out = result.stdout;
+    assert.match(out, /^Features: 6 \(1 passing, 1 active, 3 planned, 1 blocked\)$/m);
+    assert.match(out, /^Active: feat-002 — Doing$/m);
+    assert.match(out, /behavior: the thing being built/);
+    assert.match(out, /layers: node --test app\/doing\.test\.mjs/);
+    assert.match(out, /^Can start next: feat-003 Free$/m, "feat-004 waits on an active feature, feat-005 on stale evidence");
+    assert.match(out, /^Waiting on dependencies: feat-004 \(needs feat-002\); feat-005 \(needs feat-001\)$/m);
+    assert.match(out, /^Blocked: feat-006$/m);
+    assert.match(out, /^Stale evidence .*: feat-001$/m);
+    assert.match(out, /^Last session: Session 001 — 2026-11-01 — First$/m);
+    assert.match(out, /known risk: flaky network test/);
+    assert.match(out, /next step: finish feat-002/);
+    assert.match(out, /session-handoff\.md last changed \d{4}-\d{2}-\d{2}/);
+    assert.ok(out.length < 2048, `brief stays short (${out.length} bytes)`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("brief: works with no git, no progress notes and no features, and flags a handoff older than the latest note (feat-037)", () => {
+  const bare = fixture();
+  write(bare, "feature_list.json", '{ "features": [] }\n');
+  const dated = gitFeatureFixture([]);
+  try {
+    const result = run(bare, "brief");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /Features: 0 \(\)/);
+    assert.match(result.stdout, /Active: none/);
+
+    write(dated, "session-handoff.md", "# Handoff\n");
+    const env = { ...process.env, GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z", GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z" };
+    spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "add", "-A"], { cwd: dated });
+    spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "old handoff"], { cwd: dated, env });
+    write(dated, "progress/001-2026-11-01.md", "### Session 001 — 2026-11-01 — Later\n\n- Next best step: x\n");
+    assert.match(run(dated, "brief").stdout, /session-handoff\.md last changed 2026-01-01 — older than the latest session note/);
+  } finally {
+    cleanup(bare);
+    cleanup(dated);
+  }
+});
+
+// ---- feat-038 (D-049): new features run each check once -------------------
+
+function addFeatureLayer3(checkScript) {
+  const root = featureListFixture([]);
+  try {
+    if (checkScript !== undefined) {
+      write(root, "package.json", `${JSON.stringify({ name: "x", scripts: checkScript === null ? {} : { check: checkScript } }, null, 2)}\n`);
+    }
+    const result = run(root, "add-feature", ["feat-001", "One"]);
+    assert.equal(result.exit, 0, result.output);
+    const layers = JSON.parse(readFileSync(path.join(root, "feature_list.json"), "utf8")).features[0].layers;
+    assert.deepEqual(layers.slice(0, 2).map((layer) => layer.cmd), ["npm run lint", "npm run test"]);
+    return layers[2].cmd;
+  } finally {
+    cleanup(root);
+  }
+}
+
+test("add-feature: Layer 3 runs the check chain without the lint and test steps Layers 1-2 already ran (feat-038)", () => {
+  assert.equal(
+    addFeatureLayer3("npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all && npm run quality"),
+    "npm run typecheck && npm run build && npm run e2e && npm run verify-all && npm run quality",
+  );
+  // This repository's own check script reduces the same way.
+  const own = JSON.parse(readFileSync(path.resolve(path.dirname(RUNNER), "..", "package.json"), "utf8")).scripts.check;
+  assert.doesNotMatch(addFeatureLayer3(own), /npm run (lint|test)\b/);
+});
+
+test("add-feature: Layer 3 keeps npm run check whenever the check script is not a plain chain with both steps (feat-038)", () => {
+  assert.equal(addFeatureLayer3(undefined), "npm run check", "no package.json");
+  assert.equal(addFeatureLayer3(null), "npm run check", "no check script");
+  assert.equal(addFeatureLayer3("make check"), "npm run check", "not npm run steps");
+  assert.equal(addFeatureLayer3("npm run lint && npm run test || true"), "npm run check", "||");
+  assert.equal(addFeatureLayer3("npm run lint; npm run test; npm run build"), "npm run check", ";");
+  assert.equal(addFeatureLayer3("npm run lint && npm run build"), "npm run check", "no test step to skip");
+  assert.equal(addFeatureLayer3("npm run lint && npm run test"), "npm run check", "nothing left after removing both");
 });

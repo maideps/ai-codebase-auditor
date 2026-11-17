@@ -17,7 +17,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all && npm run quality",
     "lint": "node scripts/framework-check.mjs lint && eslint src e2e",
     "typecheck": "node scripts/framework-check.mjs typecheck && tsc --noEmit",
     "test": "node scripts/framework-check.mjs test && vitest run",
@@ -27,10 +27,12 @@
     "check-arch": "node scripts/framework-check.mjs check-arch",
     "verify-feature": "node scripts/framework-check.mjs verify-feature",
     "verify-all": "node scripts/framework-check.mjs verify-all",
+    "quality": "node scripts/framework-check.mjs quality",
     "lane-new": "node scripts/framework-check.mjs lane-new",
     "lane-list": "node scripts/framework-check.mjs lane-list",
     "lane-land": "node scripts/framework-check.mjs lane-land",
     "lane-drop": "node scripts/framework-check.mjs lane-drop",
+    "lane-suggest": "node scripts/framework-check.mjs lane-suggest",
     "migrate-feature-state": "node scripts/framework-check.mjs migrate-feature-state",
     "add-feature": "node scripts/framework-check.mjs add-feature",
     "activate": "node scripts/framework-check.mjs activate",

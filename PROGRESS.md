@@ -31,4 +31,5 @@ After adding or updating a session note, regenerate this file with `node scripts
 - [Session 011 — 2026-10-23 — feat-011 Direct-api-calls collector](progress/011-2026-10-23.md)
 - [Session 012 — 2026-10-23 — feat-012 Module-boundaries collector](progress/012-2026-10-23.md)
 - [Session 013 — 2026-10-23 — feat-013 Observability collector](progress/013-2026-10-23.md)
+- [Session 014 — 2026-11-17 — Harness upgrade to ai-harness-framework 7aefd1d](progress/014-2026-11-17.md)
 <!-- END GENERATED PROGRESS -->
