@@ -95,7 +95,7 @@ A second pass, after version 2 was complete. Vendor claims are unverified.
 | [Trivedi and Schmitt, arXiv 2605.20049](https://arxiv.org/abs/2605.20049) | Minimal pairs, 660 Claude Code trials: cleanliness did not change pass rate; cleaner code used about 7–8% fewer tokens and 34% fewer file revisits | Complexity is a cost signal for zones, not a blocking factor |
 | [dvnc.dev](https://dvnc.dev/blog/repository-readiness-score-coding-agent-release-gate) | A readiness score is inventory, not evidence | Calibration here is against human labels, not agent runs |
 
-The resulting backlog is feat-014 to feat-024 in `feature_list.json`, with the reasons in DECISIONS.md D-018.
+The resulting backlog is feat-014 to feat-024 in `feature_list.json`, with the reasons in DECISIONS.md D-018. feat-015 (knowledge risk) was later dropped after a survey of the calibration clones (D-020).
 
 ## How this differs from existing tools
 

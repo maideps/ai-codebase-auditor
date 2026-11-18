@@ -233,6 +233,16 @@ The reports were regenerated on 2026-11-18 with hotspots in green modules (D-019
 
 **Found in passing:** `StrutsParameterAuthorizer.java` decides which request parameters may be set, which is authorization logic, but "authorizer" is not a red term, so it is not red. Adding `authorizer` to `redTerms` is a candidate change for the next review of the red-term list. It is out of scope for feat-014.
 
+## Knowledge Risk: Surveyed and Dropped (feat-015)
+
+A survey of single-author files (one author over the whole history), dormant files (no commit for 5 years while the module changes) and orphaned files (no author active in the last 12 months) found no usable zone signal on these clones (D-020; full table in [sprints/feat-015.md](../sprints/feat-015.md)):
+- **Struts:** its package move restarts most file histories, which explains its 32–44% single-author shares.
+- **moin-1.9:** bulk commits touched about 1,900 files each, so it shows no single-author or orphaned code, although only 1 of its 46 authors committed in the last 12 months.
+- **Redmine:** its committers apply patches under their own names.
+- **Dormancy:** it mostly marks migrations and finished plugins.
+
+No report changed.
+
 ## Known Limits Kept After Review
 
 1. **Bundled libraries under non-standard directory names** count as product code (moin-1.9 `MoinMoin/support/`). A fix would honor `linguist-vendored` or take a team-supplied exclude list.

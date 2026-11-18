@@ -433,44 +433,13 @@
       ]
     },
     {
-      "id": "feat-015",
-      "name": "Knowledge risk in risk zones",
-      "behavior": "Marks product files whose whole history has a single author, or whose last commit is older than a configured age while the rest of the module still changes (dormant code). A green module where such files hold more than a configured share of its lines becomes yellow, citing the files, authors and last commit dates. A shallow clone or missing history leaves the rule not measured, never guessed. Thresholds live in config/decision.json. Factor scores and the verdict do not change.",
-      "verification": "Fixture repositories with known authors and dates cover single-author, dormant and shallow cases at each threshold edge. The five calibration repositories are re-audited and every zone change is checked against git log.",
-      "dependencies": [
-        "feat-014"
-      ],
-      "layers": [
-        {
-          "label": "Layer 1: Static checks",
-          "cmd": "npm run lint",
-          "repair": "Fix static-analysis issues and rerun the layer command."
-        },
-        {
-          "label": "Layer 2: Runtime tests",
-          "cmd": "npm run test",
-          "repair": "Fix failing tests and rerun the layer command."
-        },
-        {
-          "label": "Layer 2b: Feature tests",
-          "cmd": "npx vitest run src/decision/knowledge",
-          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
-        },
-        {
-          "label": "Layer 3: System confirmation",
-          "cmd": "npm run check",
-          "repair": "Resolve cross-layer issues and rerun full verification."
-        }
-      ]
-    },
-    {
       "id": "feat-016",
       "name": "Read-only MCP server over a saved report",
       "behavior": "`ai-codebase-auditor mcp <report.json>` starts a stdio MCP server that answers from a saved JSON report only: the verdict and its rule, one factor's score and evidence, the zone of a given path with its reason (red paths win over their module), the red paths, and the roadmap. It never re-audits, reads the audited repository or runs anything, and it refuses a report whose schemaVersion it does not support. A skill file in templates/ tells agents to ask for a path's zone before editing it.",
       "verification": "Unit tests call every tool against a fixture report, including a red path inside a green module, an unknown path and an unsupported schemaVersion. An e2e test starts the built server, lists its tools and calls each one over stdio.",
       "dependencies": [
         "feat-008",
-        "feat-015"
+        "feat-014"
       ],
       "layers": [
         {
@@ -565,7 +534,7 @@
       "verification": "Unit tests map each plan item and zone to its generated file content, including a repository with no red paths and no yellow modules. The e2e test audits a fixture repository and checks that the folder exists under --out and that nothing was written to the target.",
       "dependencies": [
         "feat-010",
-        "feat-015"
+        "feat-014"
       ],
       "layers": [
         {
@@ -720,7 +689,7 @@
       "behavior": "`ai-codebase-auditor validate <report.json> <outcomes.json>` reads agent task outcomes recorded by a separate runner (task id, files changed, passed or failed, model and harness used) in a documented schema, and reports success counts and rates with confidence intervals per zone and per verdict, whether green ≥ yellow ≥ red holds, and which tasks touched red paths. The auditor never runs agents or the audited code; with too few tasks per zone it says so instead of reporting a rate.",
       "verification": "Unit tests cover the outcomes schema, a file that names paths missing from the report, ordered and unordered results, and zones with too few tasks. The e2e test validates a fixture outcomes file against a fixture report.",
       "dependencies": [
-        "feat-015"
+        "feat-014"
       ],
       "layers": [
         {

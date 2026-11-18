@@ -381,3 +381,25 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
   - names are not references: 6 of the 14 yellow paths are tested under another name, and two are string tables (labels.json);
   - the window ends at the audit date, so a repository that paused a year ago shows no hotspots;
   - the percentile is per module, so a module split moves the cut, which the floors limit.
+
+### D-020: Knowledge risk from git authorship is dropped (feat-015 removed)
+
+**Date:** 2026-11-18
+**Status:** accepted (survey in docs/sprints/feat-015.md; option 1 chosen in review). It supersedes the knowledge-risk part of D-018.
+**Context:** feat-015 was declared to turn a green module yellow when single-author files (one author over the whole history) or dormant files (no commit for years while the module changes) held more than a configured share of its lines. A survey of the green modules on the calibration clones found that these signals reflect how commits were made, not who knows the code:
+- **Renames:** history is not followed across renames (D-006). Struts's package move to `org.apache.struts2` restarts most histories, and single-author shares reach 32–44%.
+- **Bulk commits:** moin-1.9's 2014–2015 commits touched about 1,900 files each, so it shows 0% single-author and 0% orphaned, although 1 of its 46 authors is active.
+- **Committers:** Redmine's core committers apply contributors' patches under their own names, so 12 authors cover 19,890 commits.
+- **Dormancy:** it marks stable code, mainly append-only migrations (77% of Redmine's `db`) and finished plugins (89–92% of moin-1.9's `action` and `macro`).
+
+Every module the declared rule would mark on the calibration set is a false positive.
+**Decision:**
+- Remove feat-015 from `feature_list.json`. feat-016, feat-019 and feat-024, which depended on it, now depend on feat-014.
+- Keep the survey and this record, so the idea is not reopened without new evidence.
+**Alternatives considered:**
+- Build it as declared, with thresholds from the survey — Rejected: all of its findings on the calibration set are false positives.
+- Yellow paths for single-author or dormant files, as D-019 does for hotspots — Rejected: hundreds of paths, for the same reasons.
+- An informational signal: authors active in the last 12 months per repository, and the orphaned-line share per module — Not chosen. Only the repository-level count is informative on these clones (moin-1.9 1 of 46, phpBB 15 of 358, Redmine 2 of 12, Struts 18 of 149). It can come back as its own feature if a report needs it.
+**Consequences:**
+- Positive: no zone rule that mostly measures commit workflow; the backlog is one feature shorter.
+- Negative: code whose authors have all left is still not flagged. Doing that reliably would need rename following, bulk-commit filtering and an author model beyond `.mailmap`, which this tool does not have.
