@@ -4,13 +4,13 @@
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\DOOM` at commit `a77dfb96cb91` |
 | Audit date | 2026-11-18 |
-| Verdict | **prepare first** (provisional: direct-api-calls not measured) |
-| Readiness level | **1 of 5**, set by test-feedback (provisional) |
+| Verdict | **prepare first** |
+| Readiness level | **1 of 5**, set by test-feedback |
 | Tool | ai-codebase-auditor 0.1.0 |
 
 ## Verdict
 
-**prepare first** (provisional: direct-api-calls not measured): make changes verifiable before letting agents edit: add characterization tests first.
+**prepare first**: make changes verifiable before letting agents edit: add characterization tests first.
 
 Rule: test-feedback 1 ≤ 2 and module boundaries not measured
 
@@ -22,7 +22,7 @@ Triggered by: test-feedback 1, module-boundaries not measured.
 |---|---|---|---|
 | test-feedback | blocking | 1 | no test files |
 | type-strictness | constraining | 4 | weighted typed share 0.75 |
-| direct-api-calls | blocking | – | not measured: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules |
+| direct-api-calls | blocking | 5 | 1.37% of 146 covered files have a computed-target call (7 sites) |
 | file-size | constraining | 2 | lower of p90 988 lines (→ 2) and 8.90% of files over 1000 lines (→ 2) |
 | module-boundaries | constraining | – | not measured: only 2 commits change product source in a current module; at least 50 are needed |
 | documented-intent | constraining | 2 | a README without written rules |
@@ -55,7 +55,17 @@ Evidence:
 
 ### direct-api-calls: Direct calls (visible at call site)
 
-Not measured (blocking): covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules.
+Score **5** (blocking). Rule: 1.37% of 146 covered files have a computed-target call (7 sites).
+
+Evidence:
+
+- 2 of 146 covered product files (1.37%) have computed-target calls: 7 sites
+- by construct: function-pointer table call 7
+- top files: linuxdoom-1.10/m_menu.c (4), linuxdoom-1.10/f_wipe.c (3)
+- sample sites: linuxdoom-1.10/m_menu.c:1649 function-pointer table call, linuxdoom-1.10/f_wipe.c:285 function-pointer table call, linuxdoom-1.10/m_menu.c:1658 function-pointer table call, linuxdoom-1.10/f_wipe.c:290 function-pointer table call, linuxdoom-1.10/m_menu.c:1669 function-pointer table call, linuxdoom-1.10/f_wipe.c:297 function-pointer table call, linuxdoom-1.10/m_menu.c:1674 function-pointer table call
+- covered languages hold 100.00% of 59110 source lines
+
+Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected.
 
 ### file-size: File size and context legibility
 
@@ -218,7 +228,6 @@ Why: Agents may only edit autonomously where their changes can be verified.
 
 Not assessed (factor not measured):
 
-- traceable-calls (direct-api-calls): covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
 - scoped-lanes (module-boundaries): only 2 commits change product source in a current module; at least 50 are needed
 - supported-runtime (dependency-currency): no declared runtime with a known end-of-life status outside test fixtures
 
@@ -236,7 +245,6 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ## Not measured
 
-- factor `direct-api-calls`: covered languages hold 0.00% of source lines, below 50%; the main language, c (59110 lines), has no dynamic-call rules
 - factor `module-boundaries`: only 2 commits change product source in a current module; at least 50 are needed
 - factor `dependency-currency`: no declared runtime with a known end-of-life status outside test fixtures
 - tool `scc`: scc is not installed or not on PATH
@@ -299,15 +307,22 @@ None.
 
 ### Dynamic calls
 
-0 covered files read, tests included; 0 with computed-target calls, 0 sites. Skipped: none.
+146 covered files read, tests included; 2 with computed-target calls, 7 sites. Skipped: none.
 
-None.
+| Language | Files | With sites | Sites |
+|---|---|---|---|
+| c | 146 | 2 | 7 |
 
-None.
+| Construct | Sites |
+|---|---|
+| function-pointer table call | 7 |
 
 Files with the most sites:
 
-None.
+| File | Sites | Constructs |
+|---|---|---|
+| `linuxdoom-1.10/m_menu.c` | 4 | function-pointer table call |
+| `linuxdoom-1.10/f_wipe.c` | 3 | function-pointer table call |
 
 ### Observability
 
@@ -366,7 +381,7 @@ Collector notes:
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
 - files are those tracked at HEAD; content is read from the working tree; nothing is run
-- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- covered languages: Python, PHP, Ruby, Java, JavaScript, TypeScript, C# and Go
 - comments are removed and strings replaced before matching, so text inside strings never counts
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)

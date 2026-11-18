@@ -69,6 +69,14 @@ describe("findSites: computed targets count, literal targets do not", () => {
     ["go", "p, _ := plugin.Open(path); p.Lookup(\"Handler\")", []],
     ["go", "env.Lookup(name) // no plugin package", []],
     ["go", "s := `v.MethodByName(name)` // reflect.Call\nx := 'r'", []],
+    // C and C++
+    ["c", "void *f = dlsym(handle, symbol); FARPROC p = GetProcAddress(mod, name);", ["symbol lookup by name", "symbol lookup by name"]],
+    ["c", "dlsym(handle, \"plugin_init\"); GetProcAddress(mod, \"Run\"); dlsym(RTLD_DEFAULT, SYMBOL_NAME);", []],
+    ["c", "handlers[op](ctx); currentMenu->menuitems[itemOn].routine(itemOn); (*table[i])(x); rc = (*wipes[wipeno*3+1])(w, h, t);", ["function-pointer table call", "function-pointer table call", "function-pointer table call", "function-pointer table call"]],
+    ["c", "ops[OP_READ](ctx); fns[0](x); x = values[i]; fp(x); (*fp)(x); obj.method(y); (*table[0])(x); if (a[i]) (void)b;", []],
+    ["c", "static int (*wipes[])(int, int, int) = { a, b }; actor->state->action.acp1(actor);", []],
+    ["c", "auto f = [&](int a) { return a; }; v[i][j](k); T& operator[](size_t i);", ["function-pointer table call"]],
+    ["c", "// handlers[op](x)\nconst char *s = \"t[i](x)\"; char c = '['; auto r = R\"x(t[i](y))x\";", []],
   ])("%s: %s", (family, source, expected) => {
     expect(constructs(source, family)).toEqual(expected);
   });

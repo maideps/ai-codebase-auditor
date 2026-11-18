@@ -30,11 +30,11 @@ export const LANGUAGE_BY_EXTENSION: Readonly<Record<string, Language>> = {
 export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set(Object.keys(LANGUAGE_BY_EXTENSION));
 
 /** Language families with dynamic-call detection rules; TypeScript uses the JavaScript rules. */
-export type DynamicFamily = "python" | "php" | "ruby" | "java" | "javascript" | "csharp" | "go";
+export type DynamicFamily = "python" | "php" | "ruby" | "java" | "javascript" | "csharp" | "go" | "c";
 
 export const DYNAMIC_CALL_FAMILIES: Readonly<Record<string, DynamicFamily>> = {
   python: "python", php: "php", ruby: "ruby", java: "java", javascript: "javascript", typescript: "javascript",
-  csharp: "csharp", go: "go",
+  csharp: "csharp", go: "go", c: "c", cpp: "c",
 };
 
 export const LOCK_FILE_NAMES: ReadonlySet<string> = new Set([

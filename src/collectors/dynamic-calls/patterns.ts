@@ -80,6 +80,7 @@ function isLiteral(arg: string | undefined, family: DynamicFamily): boolean {
   if (family === "javascript") return /^\d+$/.test(arg);
   if (family === "php") return /^(?:array\s*\(|\[)[^,]+,\s*"S"\s*[\])]$/.test(arg);
   if (family === "csharp") return /^(?:nameof|typeof)\s*\(/.test(arg);
+  if (family === "c") return /^(?:0[xX][\da-fA-F]+|\d+)[uUlL]*$/.test(arg);
   return false;
 }
 
@@ -129,6 +130,32 @@ const csharpInvoke = (code: string, end: number, family: DynamicFamily, start: n
 const goReflect = (code: string, end: number, family: DynamicFamily) => /\breflect\.\w/.test(code) && hasArgs(code, end, family);
 const goPlugin = (code: string, end: number, family: DynamicFamily) => /\bplugin\.Open\b/.test(code) && firstComputed(code, end, family);
 
+// C and C++: a call through a table indexed by a computed value, optionally through members:
+// handlers[op](x), menu->items[i].routine(i). A literal or constant index is visible, an empty one
+// is C++'s operator[], and a function pointer called by its own name is visible.
+function cTableCall(code: string, end: number, family: DynamicFamily): boolean {
+  const open = end - 1;
+  let depth = 0;
+  for (let j = open; j < code.length; j += 1) {
+    const char = code[j];
+    if (char === "[") depth += 1;
+    else if (char === "]" && --depth === 0) {
+      const key = code.slice(open + 1, j).trim();
+      return key !== "" && !isLiteral(key, family) && /^(?:\s*(?:\.|->)\s*[A-Za-z_]\w*)*\s*\(/.test(code.slice(j + 1, j + 120));
+    }
+    else if (char === "\n" || char === ";") return false;
+  }
+  return false;
+}
+
+// (*table[i])(x): the dereferenced form; the match ends just past the "[".
+function cDerefTableCall(code: string, end: number, family: DynamicFamily): boolean {
+  const close = code.indexOf("]", end);
+  if (close === -1 || code.slice(end, close).includes("\n")) return false;
+  const key = code.slice(end, close).trim();
+  return key !== "" && !isLiteral(key, family) && /^\s*\)\s*\(/.test(code.slice(close + 1, close + 40));
+}
+
 const CONSTRUCTS: Readonly<Record<DynamicFamily, readonly Construct[]>> = {
   python: [
     { name: "getattr by name", pattern: /\b(?:getattr|setattr|delattr)(?=\s*\()/g, accept: secondComputed },
@@ -176,6 +203,11 @@ const CONSTRUCTS: Readonly<Record<DynamicFamily, readonly Construct[]>> = {
     { name: "reflect Call", pattern: /\.(?:Call|CallSlice)(?=\s*\()/g, accept: goReflect },
     { name: "MethodByName", pattern: /\.(?:MethodByName|FieldByName)(?=\s*\()/g, accept: firstComputed },
     { name: "plugin.Lookup", pattern: /\.Lookup(?=\s*\()/g, accept: goPlugin },
+  ],
+  c: [
+    { name: "symbol lookup by name", pattern: /\b(?:dlsym|dlvsym|GetProcAddress)(?=\s*\()/g, accept: secondComputed },
+    { name: "function-pointer table call", pattern: /(?<=[\w)\]])\[/g, accept: cTableCall },
+    { name: "function-pointer table call", pattern: /\(\s*\*\s*[A-Za-z_][\w.]*(?:->[A-Za-z_]\w*)*\[/g, accept: cDerefTableCall },
   ],
   javascript: [
     { name: "eval or Function", pattern: /(?<![.\w$])eval(?=\s*\()|\bnew\s+Function(?=\s*\()/g },

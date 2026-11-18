@@ -2,7 +2,7 @@
 
 **Status:** final, reviewed 2026-10-22. The proposals from the first run were approved and applied (D-013). The reports in each folder are the regenerated ones; machine-readable labels are in [labels.json](labels.json).
 
-Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 7: regenerated on 2026-11-18 for feat-014 with hotspots and yellow paths; see the sections on direct calls, module boundaries, observability and hotspots below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
+Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 7: regenerated on 2026-11-18 for feat-014 with hotspots and yellow paths, then for feat-023 with direct-call rules for C and C++; see the sections on direct calls, module boundaries, observability and hotspots below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
 
 ## Repositories
 
@@ -233,6 +233,22 @@ The reports were regenerated on 2026-11-18 with hotspots in green modules (D-019
 
 **Found in passing:** `StrutsParameterAuthorizer.java` decides which request parameters may be set, which is authorization logic, but "authorizer" is not a red term, so it is not red. Adding `authorizer` to `redTerms` is a candidate change for the next review of the red-term list. It is out of scope for feat-014.
 
+## Direct Calls in C, C++, C# and Go (feat-022, feat-023)
+
+The reports were regenerated on 2026-11-18 with direct-call rules for C#, Go, C and C++ (D-027, D-028). The four other repositories differ only in the collector's covered-languages note: none holds C, C++, C# or Go source. DOOM's direct-api-calls is now measured:
+
+| Repository | Covered files | Files with sites | Sites | Score | Verdict |
+|---|---|---|---|---|---|
+| DOOM | 146 (C) | 2 (1.37%) | 7 function-pointer table calls | 5 | prepare first, no longer provisional |
+
+**Checking the findings:** all 7 sites were read in the clone, and all are true positives:
+- 4 in `m_menu.c` call `currentMenu->menuitems[itemOn].routine(...)`;
+- 3 in `f_wipe.c` call `(*wipes[wipeno*3])(...)` and its `+1` and `+2` neighbors. The first version of the rule missed these, because it did not know the dereferenced form. The calibration run found the gap, and the form was added.
+
+DOOM's calls through struct members, such as `actor->state->action.acp1(actor)`, name their target at the call site and are not counted. That is what the declared behavior says: a function pointer called by its own name is visible.
+
+No C# or Go repository was audited: none is on this machine, and cloning one needs the owner's approval (D-027).
+
 ## Knowledge Risk: Surveyed and Dropped (feat-015)
 
 A survey of single-author files (one author over the whole history), dormant files (no commit for 5 years while the module changes) and orphaned files (no author active in the last 12 months) found no usable zone signal on these clones (D-020; full table in [sprints/feat-015.md](../sprints/feat-015.md)):
@@ -248,6 +264,6 @@ No report changed.
 1. **Bundled libraries under non-standard directory names** count as product code (moin-1.9 `MoinMoin/support/`). A fix would honor `linguist-vendored` or take a team-supplied exclude list.
 2. **Red-term false positives** from UI and tooling names (`Password*` form-field classes, "doctum-checkout"). Path terms favor recall, and red only means agents propose instead of editing.
 3. **Doc classification by name:** "convention" in a feature name matches, and design specs in a `specs/` directory are skipped as test paths.
-4. **Unmeasured signals:** test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.
+4. **Unmeasured signals:** test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for languages without rules (for example Rust, Kotlin and Swift).
 5. **Co-change by design counts as coupling:** Rails migrations change with their models, and example apps change with the features they show. A team can raise the thresholds, or keep such pairs in one module.
 6. **Hotspot tests are matched by name:** a yellow path means no test is named after the file, not that nothing tests it. 6 of the 14 yellow paths are reached by tests under another name, and string-table files such as phpBB's language files can be hotspots. Matching through imports or class references would need per-language parsing (D-001).

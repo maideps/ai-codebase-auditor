@@ -25,7 +25,8 @@
         { "finding": "dependency-currency", "score": null, "label": "NO", "note": "C with no manifests or declared runtime" },
         { "finding": "git-history", "score": null, "label": "NO", "note": "4 commits from a source drop" },
         { "finding": "zones", "score": null, "label": "TP", "note": "4 yellow modules" },
-        { "finding": "hotspots", "score": null, "label": "NO", "note": "no commits in the 12 months to 2026-11-18 (feat-014, reviewed 2026-11-18)" }
+        { "finding": "hotspots", "score": null, "label": "NO", "note": "no commits in the 12 months to 2026-11-18 (feat-014, reviewed 2026-11-18)" },
+        { "finding": "direct-api-calls", "score": 5, "label": "TP", "note": "7 calls through function-pointer tables: 4 in m_menu.c (menuitems[itemOn].routine) and 3 in f_wipe.c ((*wipes[wipeno*3])), every one read in the clone; calls through struct members such as action.acp1 are visible by name and not counted (feat-023, reviewed 2026-11-18)" }
       ]
     },
     {

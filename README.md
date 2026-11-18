@@ -123,7 +123,7 @@ steps:
 | Factor | Class | Measured from |
 |---|---|---|
 | test-feedback | blocking | test files per source file, runner config, CI |
-| direct-api-calls | blocking | share of files with calls whose target is computed: reflection, dispatch by name, `eval`, `method_missing` (Python, PHP, Ruby, Java, JavaScript, TypeScript, C#, Go) |
+| direct-api-calls | blocking | share of files with calls whose target is computed: reflection, dispatch by name, `eval`, `method_missing` (Python, PHP, Ruby, Java, JavaScript, TypeScript, C#, Go, C, C++) |
 | type-strictness | constraining | share of code under a type checker, TypeScript `strict` |
 | file-size | constraining | p90 file length, share of files over 1000 lines |
 | module-boundaries | constraining | share of the latest 500 commits that change more than one module (from git history, any language) |
@@ -169,14 +169,14 @@ The rules were calibrated on five public legacy repositories, each checked again
 | [Struts](https://github.com/apache/struts) (Java) | adopt | nothing weak |
 | [Redmine](https://github.com/redmine/redmine) (Ruby on Rails) | adapt | well tested, but no type checking |
 
-DOOM's verdict is provisional: its C code has no dynamic-call rules, so direct-api-calls is not measured there. The [case study](docs/case-study/README.md) has the full reports, the labels and the known limits.
+DOOM's direct-api-calls is measured since the C rules (feat-023): 7 calls through function-pointer tables in 2 of 146 files, so its verdict is no longer provisional. The [case study](docs/case-study/README.md) has the full reports, the labels and the known limits.
 
 ## Status and Limits
 
 Version 2 is complete: the audit, the reports, the harness adaptation plan and the modernization roadmap.
 - Observability measures what the repository has for logging and reporting, not whether anyone reads the logs.
 - Module boundaries come from how files changed together, so layouts where co-change is by design count as coupling, such as Rails migrations with their models.
-- Direct calls are detected for Python, PHP, Ruby, Java, JavaScript, TypeScript, C# and Go only, by pattern matching rather than parsing. Dispatch wired through configuration (dependency injection, XML mappings, callbacks by symbol) is not counted.
+- Direct calls are detected for Python, PHP, Ruby, Java, JavaScript, TypeScript, C#, Go, C and C++ only, by pattern matching rather than parsing. Dispatch wired through configuration (dependency injection, XML mappings, callbacks by symbol) is not counted.
 - Test speed, CI pass rates and branch protection cannot be seen from repository contents.
 - Roadmap effort comes from counts, not from how hard the code is.
 - An LLM never sets a score or a verdict.

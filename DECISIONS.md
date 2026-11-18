@@ -534,3 +534,20 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: C# and Go repositories get a direct-api-calls score.
 - Negative: precision on real code is unmeasured until a C# or Go repository is audited and its findings are labeled.
+
+### D-028: C and C++ direct calls are symbol lookups and indexed function-pointer calls
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-023.md.
+**Context:** DOOM's verdict was provisional because C had no direct-call rules (D-015). In C, the computed-target call is a function-pointer table indexed at run time, or a symbol looked up by name.
+**Decision:**
+- One `c` family covers C and C++. Its stripper handles comments, strings, char literals and C++ raw strings.
+- Counted: `dlsym`, `dlvsym` and `GetProcAddress` with a computed name, and calls through a table at a computed index, written as `t[i](x)`, `t[i].member(x)` or `(*t[i])(x)`.
+- Visible, so not counted: literal or constant indexes, function pointers called by their own name (struct members included), array declarations, `operator[]` and lambdas.
+- `c` and `cpp` count toward the covered share. The scoring tests that used C as their example uncovered language now use Rust.
+**Alternatives considered:**
+- Counting every call through a function pointer (`fp(x)`, `s->cb(x)`) — Rejected: the target is named at the call site, and the feature declared those visible. In DOOM, that would have counted the state machine's `action.acp1` calls in three files.
+- Treating `#define` macros specially — Rejected for now: macro bodies are scanned as code, which is right for table calls written inside macros.
+**Consequences:**
+- Positive: DOOM is measured (direct-api-calls 5, 7 sites in 2 of 146 files, all true positives) and its verdict is no longer provisional. Every calibration repository now has both blocking factors measured.
+- Negative: function pointers stored in variables and called by name are invisible to this factor, even when they were picked at run time.

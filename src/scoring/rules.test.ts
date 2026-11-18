@@ -294,17 +294,17 @@ describe("direct-api-calls", () => {
 
   it("is not measured when covered languages hold less than half the source lines, naming the main uncovered one", () => {
     const python = Array.from({ length: 10 }, (_, index) => ({ path: `tools/t${index}.py`, lines: 10 }));
-    const c = Array.from({ length: 20 }, (_, index) => ({ path: `src/m${index}.c`, lines: 10 }));
-    const results = collected({ structure: structureOf([...python, ...c]), dynamicCalls: dynamicCallsOf(python) });
-    expect(run("direct-api-calls", results)).toEqual({ status: "not-measured", reason: "covered languages hold 33.33% of source lines, below 50%; the main language, c (200 lines), has no dynamic-call rules" });
+    const rust = Array.from({ length: 20 }, (_, index) => ({ path: `src/m${index}.rs`, lines: 10 }));
+    const results = collected({ structure: structureOf([...python, ...rust]), dynamicCalls: dynamicCallsOf(python) });
+    expect(run("direct-api-calls", results)).toEqual({ status: "not-measured", reason: "covered languages hold 33.33% of source lines, below 50%; the main language, rust (200 lines), has no dynamic-call rules" });
   });
 
   it("names uncovered languages as partial coverage when coverage is enough", () => {
     const python = Array.from({ length: 10 }, (_, index) => ({ path: `app/p${index}.py`, lines: 30 }));
-    const results = collected({ structure: structureOf([...python, { path: "ext/fast.c", lines: 100 }]), dynamicCalls: dynamicCallsOf(python) });
+    const results = collected({ structure: structureOf([...python, { path: "ext/fast.rs", lines: 100 }]), dynamicCalls: dynamicCallsOf(python) });
     const outcome = run("direct-api-calls", results);
     expect(outcome.status === "scored" && outcome.partial).toBe(
-      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: c (25.00% of source lines)",
+      "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected; not covered: rust (25.00% of source lines)",
     );
   });
 

@@ -77,7 +77,7 @@ Runtimes declared under test or fixture directories are listed with `testFixture
 
 ### Dynamic calls
 
-The dynamic-calls collector reads the tracked source files in Python, PHP, Ruby, Java, JavaScript, TypeScript, C# and Go, and lists the call sites whose target is computed at run time. Nothing is run. Comments are removed and strings replaced first, so text inside strings never counts. A call with a literal target (`getattr(obj, 'name')`, `send(:save)`, `Class.forName("x.Y")`) or an UPPER_CASE constant is visible at the call site and is not counted.
+The dynamic-calls collector reads the tracked source files in Python, PHP, Ruby, Java, JavaScript, TypeScript, C#, Go, C and C++, and lists the call sites whose target is computed at run time. Nothing is run. Comments are removed and strings replaced first, so text inside strings never counts. A call with a literal target (`getattr(obj, 'name')`, `send(:save)`, `Class.forName("x.Y")`) or an UPPER_CASE constant is visible at the call site and is not counted.
 
 | Language | Counted |
 |---|---|
@@ -88,6 +88,7 @@ The dynamic-calls collector reads the tracked source files in Python, PHP, Ruby,
 | JavaScript, TypeScript | `eval`, `new Function`, `obj[expr]()`, `Reflect.apply`/`construct` |
 | C# | `GetType`/`Assembly.Load` by name, `Activator.CreateInstance` of a computed type (`typeof` and `nameof` are visible), `GetMethod`/`GetProperty`/`GetField`/`InvokeMember` by name, `MethodInfo.Invoke` (in files using `System.Reflection`, never `?.Invoke` on events), `dynamic` variables and parameters |
 | Go | `reflect` `Call`/`CallSlice` (in files using `reflect.`), `MethodByName`/`FieldByName` by name, `plugin` `Lookup` by name (in files calling `plugin.Open`) |
+| C, C++ | `dlsym`/`dlvsym`/`GetProcAddress` by name, calls through a function-pointer table at a computed index (`handlers[op](x)`, `menu->items[i].routine(i)`, `(*table[i])(x)`); a literal or constant index, a function pointer called by its own name and C++ `operator[]` are visible |
 
 Vendored and generated paths are skipped, and so are minified files (a line over 1000 characters). Dispatch wired through configuration is not detected: dependency-injection containers, XML action mappings, Rails callbacks by symbol and annotations. The rules are in [sprints/feat-011.md](sprints/feat-011.md).
 

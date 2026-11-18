@@ -217,6 +217,29 @@ function stripGo(text: string): string {
   return state.out;
 }
 
+// C and C++: strings and char literals with escapes, and C++ raw strings R"delim(...)delim".
+function stripC(text: string): string {
+  const state: State = { text, i: 0, out: "" };
+  while (state.i < text.length) {
+    if (skipComment(state)) continue;
+    const char = text[state.i] ?? "";
+    const raw = char === "R" && !/[\w$]/.test(text[state.i - 1] ?? "") ? /^R"([^()\\\s]{0,16})\(/.exec(text.slice(state.i, state.i + 20)) : null;
+    if (raw) {
+      const closer = `)${raw[1] ?? ""}"`;
+      const close = text.indexOf(closer, state.i + raw[0].length);
+      emitString(state, close === -1 ? text.length : close + closer.length, false);
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      emitString(state, scanQuoted(text, state.i, char, false, false).end, false);
+      continue;
+    }
+    state.out += char;
+    state.i += 1;
+  }
+  return state.out;
+}
+
 function stripPhp(text: string): string {
   const state: State = { text, i: 0, out: "" };
   let code = false;
@@ -360,5 +383,7 @@ export function stripCode(text: string, family: DynamicFamily): string {
       return stripCSharp(text);
     case "go":
       return stripGo(text);
+    case "c":
+      return stripC(text);
   }
 }

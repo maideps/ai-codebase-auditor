@@ -37,6 +37,7 @@ function knownRepo(): string {
         "ui/bundle.js": `var a=${"1".repeat(1200)};eval(a);\n`,
         "vendor/lib.rb": "x.send(name)\n",
         "native/main.c": "int main(void) { return 0; }\n",
+        "native/lib.rs": "fn run(f: fn()) { f() }\n",
         "README.md": "eval(x)\n",
         "assets/logo.php": Buffer.from([0x3c, 0x3f, 0x00, 0x01]),
       },
@@ -64,6 +65,7 @@ describe("collectDynamicCalls on a repository with every covered language", () =
       { path: "app/plugins.py", family: "python", lines: 4, sites: [{ line: 4, construct: "import by name", excerpt: "return importlib.import_module(name)" }] },
       { path: "cmd/run.go", family: "go", lines: 5, sites: [{ line: 5, construct: "MethodByName", excerpt: "func call(o any, m string) { reflect.ValueOf(o).MethodByName(m).Call(nil) }" }, { line: 5, construct: "reflect Call", excerpt: "func call(o any, m string) { reflect.ValueOf(o).MethodByName(m).Call(nil) }" }] },
       { path: "lib/model.rb", family: "ruby", lines: 5, sites: [{ line: 2, construct: "method_missing", excerpt: "def method_missing(sym, *args)" }] },
+      { path: "native/main.c", family: "c", lines: 1, sites: [] },
       { path: "src/Loader.java", family: "java", lines: 5, sites: [{ line: 3, construct: "Class.forName by name", excerpt: "return Class.forName(n).getDeclaredConstructor().newInstance();" }] },
       { path: "svc/Factory.cs", family: "csharp", lines: 3, sites: [{ line: 2, construct: "Activator.CreateInstance", excerpt: "object Make(string t) => Activator.CreateInstance(Type.GetType(t));" }, { line: 2, construct: "GetType by name", excerpt: "object Make(string t) => Activator.CreateInstance(Type.GetType(t));" }] },
       { path: "ui/app.ts", family: "javascript", lines: 1, sites: [{ line: 1, construct: "computed call", excerpt: "export const run = (handlers: Record<string, () => void>, key: string) => handlers[key]();" }] },
@@ -79,7 +81,7 @@ describe("collectDynamicCalls on a repository with every covered language", () =
       { path: "ui/bundle.js", reason: "minified" },
       { path: "vendor/lib.rb", reason: "vendored" },
     ]);
-    expect(value.files.map((file) => file.path)).not.toContain("native/main.c");
+    expect(value.files.map((file) => file.path)).not.toContain("native/lib.rs");
   });
 
   it("records what it read and how", () => {

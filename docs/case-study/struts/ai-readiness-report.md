@@ -495,7 +495,7 @@ Collector notes:
 - end-of-life dates come from the table as of 2026-10-21; a runtime is end-of-life on or after its cycle's date
 - Maven dependencies include those declared in dependencyManagement and plugin blocks
 - files are those tracked at HEAD; content is read from the working tree; nothing is run
-- covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript
+- covered languages: Python, PHP, Ruby, Java, JavaScript, TypeScript, C# and Go
 - comments are removed and strings replaced before matching, so text inside strings never counts
 - only calls whose target is computed count; a literal target is visible at the call site
 - vendored and generated paths are skipped, and so are minified files (a line over 1000 characters)

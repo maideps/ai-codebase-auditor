@@ -22,6 +22,8 @@ describe("stripCode", () => {
     ["csharp", 'a = """\n  raw "quoted" text\n  """; c = \'\\\'\';', 'a = "S"\n\n; c = "S";'],
     ["csharp", 'a = $$"""{{x}}"""; /* x\n */ b', 'a = "I"; \n b'],
     ["go", "a := `raw\n\\no escape` + \"s\\\"q\" + 'r' // c\nb", 'a := "S"\n + "S" + "S" \nb'],
+    ["c", 'a = "x\\"y"; /* c\n */ b = \'\\n\'; // d\nR = 1', 'a = "S"; \n b = "S"; \nR = 1'],
+    ["c", 'auto s = R"tag(raw "text"\n)tag"; LR = R2;', 'auto s = "S"\n; LR = R2;'],
   ] as const)("%s: %j", (family, input, expected) => {
     expect(stripCode(input, family)).toBe(expected);
     expect(lines(stripCode(input, family))).toBe(lines(input));
