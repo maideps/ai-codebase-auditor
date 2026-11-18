@@ -24,3 +24,54 @@ jobs:
 
       - name: Verify architecture
         run: npm run check-arch
+
+  # The repository's own composite Action, run against a throwaway fixture repository.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Create a fixture repository
+        run: |
+          mkdir -p "$RUNNER_TEMP/fixture/src"
+          cd "$RUNNER_TEMP/fixture"
+          git init -q
+          git config user.email ci@example.com
+          git config user.name ci
+          printf 'export const a = 1;\n' > src/app.js
+          printf '{"engines":{"node":">=20"}}\n' > package.json
+          git add -A
+          git commit -qm fixture
+
+      - name: Audit without a gate
+        id: plain
+        uses: ./
+        with:
+          path: ${{ runner.temp }}/fixture
+          out: ${{ runner.temp }}/plain
+          upload-sarif: "false"
+
+      - name: Audit with a gate that must fail
+        id: gated
+        continue-on-error: true
+        uses: ./
+        with:
+          path: ${{ runner.temp }}/fixture
+          out: ${{ runner.temp }}/gated
+          fail-on: adapt
+          upload-sarif: "false"
+
+      - name: Check the Action's outputs
+        env:
+          VERDICT: ${{ steps.plain.outputs.verdict }}
+          GATED: ${{ steps.gated.outcome }}
+        run: |
+          test -f "$RUNNER_TEMP/plain/ai-readiness-report.sarif"
+          test -f "$RUNNER_TEMP/gated/ai-readiness-report.md"
+          echo "verdict: $VERDICT, gated step: $GATED"
+          test -n "$VERDICT"
+          if [ "$VERDICT" != "adopt" ]; then test "$GATED" = "failure"; fi

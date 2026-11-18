@@ -22,6 +22,7 @@
     "typecheck": "node scripts/framework-check.mjs typecheck && tsc --noEmit",
     "test": "node scripts/framework-check.mjs test && vitest run",
     "build": "node scripts/framework-check.mjs build && tsc -p tsconfig.build.json",
+    "prepack": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && npm run build",
     "e2e": "tsc -p tsconfig.build.json && vitest run --config vitest.e2e.config.ts",
     "dev": "node scripts/framework-check.mjs dev",
     "check-arch": "node scripts/framework-check.mjs check-arch",

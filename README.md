@@ -83,6 +83,29 @@ node dist/cli.js audit ../some-legacy-repo --out ../audit-reports/some-legacy-re
 
 Clone the repositories you audit outside this one. The tool refuses an `--out` directory inside the audited repository.
 
+To install it as a command instead, pack the clone and install the tarball. `npm pack` builds the package first:
+
+```bash
+npm pack
+npm install --global ./ai-codebase-auditor-0.1.0.tgz
+ai-codebase-auditor audit ../some-legacy-repo --out ../audit-reports/some-legacy-repo
+```
+
+In GitHub Actions, the repository is a composite Action. It audits the checked-out repository, adds the report to the job summary, uploads the SARIF findings to code scanning, and can fail the job on the verdict:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0 # full history for the git-based factors
+  - uses: maideps/ai-codebase-auditor@main
+    with:
+      fail-on: prepare-first
+```
+
 | Option | Purpose |
 |---|---|
 | `--out <dir>` | Write `ai-readiness-report.md`, `.json`, and `.sarif` for code-scanning tools |

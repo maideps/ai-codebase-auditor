@@ -41,6 +41,8 @@ config/
   runtime-eol.json    dated end-of-life table for Node.js, Python, PHP, Ruby, Java
   decision.json       weak-score limit, green rule, module splitting, hotspot thresholds, red path terms
   harness-requirements.json  ai-harness-framework assumptions per factor, stack detection, zone guardrails
+  agent-skills/       risk-zones/SKILL.md: tells agents to ask the MCP server for a path's zone before editing
+action.yml            composite GitHub Action: build, audit, job summary, SARIF upload, verdict gate
 ```
 
 ```

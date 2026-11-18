@@ -40,4 +40,5 @@
 | `make setup` | `npm run setup` |
 | `make dev` | `npm run dev` |
 | `make help` | `npm run help` |
+| — | `npm run prepack` |
 | — | `npm run harness-docs` |

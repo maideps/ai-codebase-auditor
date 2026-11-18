@@ -221,6 +221,12 @@ Ties go to blocking factors, then config order. `verdictAfter` is the verdict th
 
 Reports hold no per-file lists, so a test file inside a module directory gets that module's zone. The protocol is implemented without dependencies (versions 2025-06-18, 2025-03-26 and 2024-11-05; D-021). Register it in Claude Code with `claude mcp add ai-codebase-auditor -- node <clone>/dist/cli.js mcp <report.json>`. The skill [config/agent-skills/risk-zones/SKILL.md](../config/agent-skills/risk-zones/SKILL.md) tells agents to call `get_zone` before every edit.
 
+### Package and GitHub Action
+
+`npm pack` cleans `dist/`, rebuilds it, and packs `dist/`, `config/` (with the risk-zones skill), `README.md` and `LICENSE`. The tarball installs with `npm install` and runs as `ai-codebase-auditor` on Node.js 18 or newer. The package stays `private` until its owner publishes it (D-005, D-023).
+
+`action.yml` makes the repository a composite GitHub Action (`uses: maideps/ai-codebase-auditor@main`). It builds the auditor, audits `path` (default `.`; check out with `fetch-depth: 0` so history is measured) into `out` (default `$RUNNER_TEMP/ai-readiness`), adds the Markdown report to the job summary, and uploads the SARIF file to code scanning when `upload-sarif` is `"true"` (the default; it needs `security-events: write`). With `fail-on`, the job fails last, after the summary and the upload. Outputs: `verdict` and `report-dir`.
+
 ### Verdict gate for CI
 
 `--fail-on <adapt|prepare-first>` exits with code 1 when the verdict is at or below that level (adopt > adapt > prepare first), or when no verdict could be reached. The summary ends with a line such as `Verdict gate (--fail-on adapt): FAIL, verdict adapt (provisional: direct-api-calls not measured)`. The gate is checked after the report files are written. Any other value is an input error (exit code 2), and without the option exit codes are unchanged (D-022).

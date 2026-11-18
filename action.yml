@@ -1,0 +1,80 @@
+name: ai-codebase-auditor
+description: Audit the checked-out repository for AI-agent readiness, upload the SARIF findings to code scanning, and gate on the verdict.
+author: maideps
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: Repository to audit, relative to the workspace. It must be a full clone (actions/checkout with fetch-depth 0), or git history is reported as not measured.
+    default: "."
+  fail-on:
+    description: Fail the step when the verdict is at or below this level (adapt or prepare-first). Empty never fails on the verdict.
+    default: ""
+  out:
+    description: Directory for ai-readiness-report.md, .json and .sarif, outside the audited repository. Empty means ai-readiness under the runner's temp directory.
+    default: ""
+  upload-sarif:
+    description: Upload the SARIF file to GitHub code scanning (needs the security-events write permission).
+    default: "true"
+
+outputs:
+  verdict:
+    description: adopt, adapt or prepare-first (empty when no verdict was reached)
+    value: ${{ steps.audit.outputs.verdict }}
+  report-dir:
+    description: Directory holding the three report files
+    value: ${{ steps.audit.outputs.dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build the auditor
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund && npm run build
+
+    # The gate's exit code is kept, so the summary and the upload still run when it fails.
+    - name: Audit
+      id: audit
+      shell: bash
+      env:
+        TARGET: ${{ inputs.path }}
+        OUT_INPUT: ${{ inputs.out }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        OUT="${OUT_INPUT:-$RUNNER_TEMP/ai-readiness}"
+        echo "dir=$OUT" >> "$GITHUB_OUTPUT"
+        set +e
+        args=(audit "$TARGET" --out "$OUT")
+        if [ -n "$FAIL_ON" ]; then args+=(--fail-on "$FAIL_ON"); fi
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ -f "$OUT/ai-readiness-report.sarif" ]; then echo "sarif=$OUT/ai-readiness-report.sarif" >> "$GITHUB_OUTPUT"; fi
+        if [ -f "$OUT/ai-readiness-report.json" ]; then
+          echo "verdict=$(node -e 'const r=require(process.argv[1]);process.stdout.write(r.verdict.verdict??"")' "$OUT/ai-readiness-report.json")" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Job summary
+      if: always()
+      shell: bash
+      env:
+        OUT: ${{ steps.audit.outputs.dir }}
+      run: |
+        if [ -f "$OUT/ai-readiness-report.md" ]; then cat "$OUT/ai-readiness-report.md" >> "$GITHUB_STEP_SUMMARY"; fi
+
+    - name: Upload SARIF to code scanning
+      if: always() && inputs.upload-sarif == 'true' && steps.audit.outputs.sarif != ''
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.audit.outputs.sarif }}
+        category: ai-codebase-auditor
+
+    - name: Verdict gate
+      shell: bash
+      env:
+        CODE: ${{ steps.audit.outputs.exit-code }}
+      run: exit "${CODE:-1}"

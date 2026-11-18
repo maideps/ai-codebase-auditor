@@ -443,3 +443,20 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: findings can show in code-scanning views, and pipelines can gate on the verdict.
 - Negative: tools that need a location for every result may drop the factor results. Exit 1 also covers a failed report write, so the message on stderr tells the two apart.
+
+### D-023: An installable package and a composite GitHub Action; publishing stays human
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-018.md.
+**Context:** competing readiness tools run with `npx` or as a CI step (D-018). This tool ran only from a clone.
+**Decision:**
+- `npm pack` produces a working package. A `prepack` clean build keeps stale files out, and an e2e test installs the tarball offline and audits a repository with it. `private: true` stays (D-005), so publishing remains a human step.
+- A composite `action.yml` builds the auditor, audits the checked-out repository, adds the Markdown report to the job summary, uploads the SARIF to code scanning, and applies `--fail-on` last. A failing gate therefore still leaves the reports and the findings.
+- CI runs the Action against a fixture repository, with and without a failing gate.
+**Alternatives considered:**
+- A JavaScript or Docker Action with a committed bundle — Rejected: a committed `dist/` would drift from the sources. A composite Action builds from source in about a minute.
+- Publishing to npm in this run — Rejected: publishing is outward-facing and needs the owner's account and decision.
+- Failing in the audit step itself — Rejected: the summary and the upload would not run on failure.
+**Consequences:**
+- Positive: the tool can be installed from a tarball today, and the Action is ready for the Marketplace once published.
+- Negative: the Action builds the auditor on every run, which costs about a minute. The CI job is unverified until the next push.
