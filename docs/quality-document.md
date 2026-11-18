@@ -29,6 +29,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | config/harness-requirements (`src/config/harness-requirements.ts`, `config/harness-requirements.json`) | A | A | A | A | A |
 | mcp (`src/mcp/`, `config/agent-skills/`) | A | A | A | A | A |
 | compare (`src/compare/`) | A | A | A | A | A |
+| batch (`src/batch/`) | A | A | A | A | B |
 | testing (`src/testing/git-fixture.ts`) | n/a | A | B | A | A |
 
 - `cli`: unit tests cover every command and error path, and the e2e smoke run covers the built binary, including that the audited repository is left unchanged. No coverage tool is configured, hence B.
@@ -54,11 +55,12 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `report`: file snapshots of all three formats (SARIF with a structural 2.1.0 validator that is itself tested against a broken log) for a fixed, git-free input, determinism, same content across formats, LF endings, cell escaping, the out-directory guard (inside, link into the target, sibling with a shared prefix) and writing; the e2e run compares two real runs byte for byte.
 - `mcp`: 15 tests cover report validation, zone lookup (red over yellow over module, `(root)`, `<dir>/(files)`, longest module, Windows separators, unzoned paths), every tool, the handshake per protocol version, notifications, and each JSON-RPC error. The stdio loop is tested with streams, and the e2e test drives the built server through every tool.
 - `compare`: 4 tests cover a report against itself, every kind of factor change, zone moves, red and yellow path changes, completed roadmap steps, different repositories and the three renderings; CLI tests cover argument and version errors and `--out`; an e2e test compares audits of a fixture at two commits.
+- `batch`: 6 tests cover list parsing, folder names that repeat, entry summaries, sorting and counts, and renderings with failures. CLI tests run a healthy repository beside a missing path, a non-git directory and a repository whose write throws; the e2e test checks every folder and that the repositories are unchanged. Performance B: repositories are audited one after another, about 90 seconds for the five calibration clones.
 - `testing`: test-only, excluded from the build.
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-020 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-021 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -73,6 +75,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-11-18: feat-021 added `audit-batch` (`src/batch/`) and split the CLI's audit into `loadAuditInputs`, `auditOne` and `writeAuditFiles` (D-026). Modules touched: batch (new), cli.
 - 2026-11-18: feat-020 added `compare` (`src/compare/`), moved saved-report parsing to `src/report/saved.ts`, and added `writeOutFiles` to the report writer (D-025). Modules touched: compare (new), report, mcp, cli.
 - 2026-11-18: feat-019 added copy-ready harness files under `--out/harness/` (`src/plan/files.ts`) and a path guard in the report writer (D-024). Modules touched: plan, report, cli; ratings unchanged.
 - 2026-11-18: feat-018 made the package installable (`prepack` clean build, an e2e test that installs the tarball and audits with it) and added the composite GitHub Action `action.yml` with a CI job (D-023). Modules touched: packaging and CI only; ratings unchanged. The Action's CI job has not run yet: nothing was pushed.
