@@ -22,7 +22,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | scoring (`src/scoring/`, thresholds in `config/factors.json`) | A | A | A | A | A |
 | config/deferrals (`src/config/deferrals.ts`) | A | A | A | A | A |
 | file-kinds (`src/file-kinds.ts`) | B | A | B | A | A |
-| decision (`src/decision/`, `config/decision.json`) | A | A | A | A | A |
+| decision (`src/decision/` including `hotspots.ts`, `config/decision.json`) | A | A | A | A | A |
 | config/decision (`src/config/decision.ts`) | A | A | A | A | A |
 | report (`src/report/`) | A | A | A | A | A |
 | plan (`src/plan/`) | A | A | A | A | A |
@@ -45,8 +45,8 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `scoring`: table-driven tests on every threshold edge for six rules (just below, at, just above), each not-measured path, readiness (lowest blocking, constraining ignored, ties, provisional, none scored), deferrals (raise, cap, expiry boundary, unmeasured factor, effect on readiness) and threshold validation.
 - `config/deferrals`: validation of every field, revisit-before-recorded, unknown factors, missing files.
 - `file-kinds`: pure data, covered through the collector and scoring tests rather than its own suite, hence B.
-- `decision`: 29 tests cover every verdict rule and boundary (scores 2 and 3, measured and unmeasured boundaries, deferred scores), provisional marking, red terms (camelCase, digits, whole words, no match on session, invoice, author, rolex), red-directory collapsing, green and yellow at the file-size edges, all-red modules, splitting at the share and depth limits, and test files left unzoned.
-- `config/decision`: 11 tests on validation and the default terms.
+- `decision`: 29 tests cover every verdict rule and boundary (scores 2 and 3, measured and unmeasured boundaries, deferred scores), provisional marking, red terms (camelCase, digits, whole words, no match on session, invoice, author, rolex), red-directory collapsing, green and yellow at the file-size edges, all-red modules, splitting at the share and depth limits, and test files left unzoned. feat-014 added 22 hotspot tests (name words, test-name suffix matching including partial words and longer names, the percentile and floor edges, ties, changed-files-only percentiles, no changes in the window) and 5 zone tests (a yellow path inside a green module with scores untouched, green modules only, red files never hotspots, history not measured, an empty window).
+- `config/decision`: 17 tests on validation (including the hotspot settings) and the default terms.
 - `plan`: 26 plan tests cover each requirement at scores 2, 3 and 4, not-assessed factors, every verdict's framing, stack detection for each harness marker and an undetected language, zone items with deny rules, and every item citing its trigger. 18 roadmap tests cover each factor's step and effort bands, the ordering formula with ties, `verdictAfter` and runtime upgrade targets. The case-study script confirms every item and step in the five reports cites a matching score or zone.
 - `config/harness-requirements`: 12 tests on validation (ids, duplicates, surfaces, unknown keys, zones), unknown factors and the default file.
 - `report`: file snapshots of both formats for a fixed, git-free input, determinism, same content across formats, LF endings, cell escaping, the out-directory guard (inside, link into the target, sibling with a shared prefix) and writing; the e2e run compares two real runs byte for byte.
@@ -54,7 +54,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-013 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-014 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -69,6 +69,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-11-18: feat-014 added hotspots in green modules and yellow paths (`src/decision/hotspots.ts`, `hotspots` in `config/decision.json`), the yellow-paths plan item, and report schemaVersion 7 (D-019). Modules touched: decision, config/decision, plan, report, cli; ratings unchanged. Known limit: tests are matched by name, so 6 of the 14 calibration yellow paths are tested under another name.
 - 2026-10-23: feat-013 added the observability collector and score, the observability name lists, the observable-changes requirement and roadmap step, and report schemaVersion 6 (D-017).
 - 2026-10-23: feat-012 added the co-change collector and the module-boundaries score, shared module grouping, the scoped-lanes requirement and roadmap step, and report schemaVersion 5 (D-016).
 - 2026-10-23: feat-011 added the dynamic-calls collector and the direct-api-calls score, the traceable-calls requirement and roadmap step, report schemaVersion 4, and single-open file reads (D-015).
