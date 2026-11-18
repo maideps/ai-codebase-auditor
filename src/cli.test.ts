@@ -386,3 +386,37 @@ describe("runCli: mcp", () => {
     expect(runCli(["mcp", sample], "0.1.0", root)).toEqual({ exitCode: 0, stdout: "", stderr: `${sample}: a valid report; the MCP server runs over stdio when started as a process\n` });
   });
 });
+
+describe("runCli: compare", () => {
+  const sample = path.resolve("src/report/__snapshots__/sample-report.json");
+  const sampleReport = JSON.parse(readFileSync(sample, "utf8")) as { target: { path: string }; schemaVersion: number };
+
+  it.each([
+    [[sample], "error: compare needs two saved reports, before and after, got 1"],
+    [[sample, sample, sample], "error: compare needs two saved reports, before and after, got 3"],
+    [[sample, "missing.json"], "missing.json: file not found"],
+  ])("exits 2 for %j", (args, message) => {
+    const result = runCli(["compare", ...args], "0.1.0", root);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(message);
+  });
+
+  it("exits 2 for reports of different repositories or an unsupported version", () => {
+    const other = path.join(root, "other.json");
+    writeFileSync(other, JSON.stringify({ ...sampleReport, target: { ...sampleReport.target, path: "/repos/other" } }));
+    expect(runCli(["compare", sample, other], "0.1.0", root).stderr).toContain("error: the reports are of different repositories: /repos/sample and /repos/other");
+    const old = path.join(root, "old-compare.json");
+    writeFileSync(old, JSON.stringify({ ...sampleReport, schemaVersion: 6 }));
+    expect(runCli(["compare", old, sample], "0.1.0", root)).toMatchObject({ exitCode: 2, stderr: expect.stringContaining("schemaVersion 6 is not supported") });
+  });
+
+  it("prints the comparison, and writes Markdown and JSON with --out", () => {
+    const plain = runCli(["compare", sample, sample], "0.1.0", root);
+    expect(plain).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(plain.stdout).toContain("Comparing audits of /repos/sample\n");
+    const out = path.join(root, "comparison");
+    const written = runCli(["compare", sample, sample, "--out", out], "0.1.0", root);
+    expect(written.stdout).toContain(`Comparison written:\n  ${path.join(out, "ai-readiness-compare.md")}\n  ${path.join(out, "ai-readiness-compare.json")}\n`);
+    expect(JSON.parse(readFileSync(path.join(out, "ai-readiness-compare.json"), "utf8"))).toMatchObject({ schema: "ai-codebase-auditor/comparison", schemaVersion: 1 });
+  });
+});

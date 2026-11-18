@@ -13,6 +13,7 @@ node dist/cli.js audit <repo-path> --harness my-harness.json  # another harness'
 node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown, JSON and SARIF report
 node dist/cli.js audit <repo-path> --fail-on adapt  # exit 1 unless the verdict is adopt
 node dist/cli.js mcp ../audit-reports/<name>/ai-readiness-report.json  # serve the report to agents over MCP
+node dist/cli.js compare before/ai-readiness-report.json after/ai-readiness-report.json --out ../audit-reports/compare
 node dist/cli.js --help
 ```
 
@@ -206,6 +207,17 @@ Steps are ordered by **priority = gain × weight ÷ effort**:
 - **effort** counts S as 1, M as 2 and L as 3.
 
 Ties go to blocking factors, then config order. `verdictAfter` is the verdict the decision rules give with only that step applied, shown when it differs from today's.
+
+### Comparing two audits
+
+`compare <before.json> <after.json>` prints what changed between two saved reports of the same repository (the same `target.path`). It covers:
+- the verdict and readiness;
+- each factor's score, with raised, lowered, now measured, no longer measured, added or removed, and its rule;
+- modules whose zone changed, appeared or disappeared;
+- red and yellow paths added and removed;
+- the earlier roadmap's steps whose target score was reached.
+
+With `--out <dir>`, it also writes `ai-readiness-compare.md` and `ai-readiness-compare.json` (`schema: ai-codebase-auditor/comparison`, version 1). Reports of different repositories or unsupported versions exit with code 2 (D-025).
 
 ### MCP server for agents
 

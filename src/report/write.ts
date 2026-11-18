@@ -48,3 +48,16 @@ export function writeReports(outDir: string, contents: ReportContents, extra: re
   }
   return written;
 }
+
+/** Writes named files directly in outDir (for compare); returns their paths in order. */
+export function writeOutFiles(outDir: string, files: readonly { name: string; content: string }[]): string[] {
+  for (const file of files) {
+    if (file.name !== path.basename(file.name)) throw new Error(`refusing to write ${file.name}: a file name, not a path, is expected`);
+  }
+  mkdirSync(outDir, { recursive: true });
+  return files.map((file) => {
+    const target = path.join(outDir, file.name);
+    writeFileSync(target, file.content, "utf8");
+    return target;
+  });
+}

@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createFixtureRepo } from "../src/testing/git-fixture.js";
+import { commitFixture, createFixtureRepo } from "../src/testing/git-fixture.js";
 
 const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
@@ -191,5 +191,23 @@ describe("verdict gate", () => {
       expect(result.stdout).toContain(`Verdict gate (--fail-on ${level}):`);
     }
     expect(run("audit", repo, "--fail-on", "never").status).toBe(2);
+  });
+});
+
+describe("compare", () => {
+  it("compares audits of one repository at two commits", () => {
+    const evolving = createFixtureRepo([{ author: "a@example.com", date: "2024-01-01T00:00:00Z", files: { "src/app.js": "1\n" } }]);
+    const first = path.join(scratch, "compare-1");
+    expect(run("audit", evolving, "--out", first).status).toBe(0);
+    commitFixture(evolving, { author: "a@example.com", date: "2024-02-01T00:00:00Z", files: { "src/app.test.js": "t\n", "src/auth/login.js": "l\n" } });
+    const second = path.join(scratch, "compare-2");
+    expect(run("audit", evolving, "--out", second).status).toBe(0);
+    const out = path.join(scratch, "comparison");
+    const result = run("compare", path.join(first, "ai-readiness-report.json"), path.join(second, "ai-readiness-report.json"), "--out", out);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("test-feedback: 1 → ");
+    expect(result.stdout).toContain("Red paths: added src/auth/;");
+    const comparison = JSON.parse(readFileSync(path.join(out, "ai-readiness-compare.json"), "utf8")) as { before: { commit: string }; after: { commit: string } };
+    expect(comparison.before.commit).not.toBe(comparison.after.commit);
   });
 });

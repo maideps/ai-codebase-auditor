@@ -67,7 +67,7 @@ With `--out`, the same content is written as a Markdown report for people, a JSO
 node dist/cli.js mcp ../audit-reports/some-legacy-repo/ai-readiness-report.json
 ```
 
-It answers `get_zone`, `get_verdict`, `get_factor`, the red and yellow paths and the roadmap, read-only. The [risk-zones skill](config/agent-skills/risk-zones/SKILL.md) tells agents how to use it.
+It answers `get_zone`, `get_verdict`, `get_factor`, the red and yellow paths and the roadmap, read-only. To see what moved after following the roadmap, compare two saved reports of the same repository with `node dist/cli.js compare before.json after.json`. It shows score and verdict changes, zone moves, path changes and the roadmap steps that were completed. The [risk-zones skill](config/agent-skills/risk-zones/SKILL.md) tells agents how to use it.
 
 ## Quick Start
 

@@ -4,27 +4,12 @@
 // in, at most one out. The stdio loop lives in stdio.ts.
 
 import type { ModuleZone, RedPath, YellowPath, Zone } from "../decision/types.js";
-import { REPORT_SCHEMA, REPORT_SCHEMA_VERSION, type AuditReport } from "../report/model.js";
-import type { Result } from "../result.js";
+import type { AuditReport } from "../report/model.js";
+
+export { parseSavedReport, SUPPORTED_REPORT_VERSIONS } from "../report/saved.js";
 
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
-export const SUPPORTED_REPORT_VERSIONS: readonly number[] = [REPORT_SCHEMA_VERSION];
-
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** Checks a parsed JSON value is a report this server can answer from. */
-export function parseSavedReport(raw: unknown, source: string): Result<AuditReport> {
-  if (!isRecord(raw) || raw.schema !== REPORT_SCHEMA) {
-    return { ok: false, errors: [`${source}: not an ai-codebase-auditor report (schema must be "${REPORT_SCHEMA}")`] };
-  }
-  if (typeof raw.schemaVersion !== "number" || !SUPPORTED_REPORT_VERSIONS.includes(raw.schemaVersion)) {
-    return { ok: false, errors: [`${source}: report schemaVersion ${String(raw.schemaVersion)} is not supported (supported: ${SUPPORTED_REPORT_VERSIONS.join(", ")}); re-run the audit with this version`] };
-  }
-  for (const key of ["verdict", "readiness", "factors", "zones", "roadmap", "target"]) {
-    if (!(key in raw)) return { ok: false, errors: [`${source}: report has no ${key}`] };
-  }
-  return { ok: true, value: raw as unknown as AuditReport };
-}
 
 export interface ZoneAnswer {
   path: string;

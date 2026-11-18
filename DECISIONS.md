@@ -477,3 +477,24 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: the plan becomes copy-ready, and every generated line can be traced.
 - Negative: the files are written for Claude Code and ai-harness-framework. Other agents' settings formats are not generated.
+
+### D-025: compare shows what moved between two saved reports
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-020.md.
+**Context:** a team that follows the roadmap needs to see what changed between audits. Reports are deterministic, so two reports can be compared field by field.
+**Decision:**
+- `compare <before.json> <after.json> [--out <dir>]` lists the changes in:
+  - the verdict and readiness;
+  - each factor's score (raised, lowered, now or no longer measured, added, removed) with its rule;
+  - zones per module;
+  - red and yellow paths;
+  - the earlier roadmap steps whose target score was reached.
+- It refuses reports of different repositories (by `target.path`) or of unsupported versions, with exit code 2. Saved-report parsing moved to `src/report/saved.ts`, shared with `mcp`.
+- `--out` writes `ai-readiness-compare.md` and `.json` through `report/write.ts`. That directory is never inside the audited repository, when that repository exists on this machine.
+**Alternatives considered:**
+- Matching repositories by remote URL — Rejected: reports do not record one, and adding it would change the report schema for this feature alone.
+- Ordering the two reports by audit date — Rejected: an explicit before and after is clearer, and allows looking back.
+**Consequences:**
+- Positive: roadmap progress becomes measurable, and CI can store the comparison next to the report.
+- Negative: two clones of one repository at different paths cannot be compared.

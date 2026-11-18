@@ -6,7 +6,7 @@
 // verdict and risk zones, plans the harness adaptation and the modernization
 // roadmap, and with --out writes the Markdown and JSON report.
 
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -29,7 +29,7 @@ import { renderSarif } from "./report/sarif.js";
 import { buildHarnessFiles, HARNESS_DIR } from "./plan/files.js";
 import { FAIL_ON_VALUES, isFailOn, verdictGate } from "./decision/gate.js";
 import { buildReport } from "./report/model.js";
-import { checkOutDir, writeReports } from "./report/write.js";
+import { checkOutDir, writeOutFiles, writeReports } from "./report/write.js";
 import type { Decision } from "./decision/types.js";
 import { checkRequirementFactors, DEFAULT_HARNESS_REQUIREMENTS_PATH, loadHarnessRequirements } from "./config/harness-requirements.js";
 import { buildPlan, type Plan } from "./plan/plan.js";
@@ -38,7 +38,9 @@ import { checkThresholds, scoreFactors } from "./scoring/score.js";
 import type { CollectorResults, Scoring } from "./scoring/types.js";
 import type { Result } from "./result.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
-import { parseSavedReport, type ServerInfo } from "./mcp/server.js";
+import type { ServerInfo } from "./mcp/server.js";
+import { parseSavedReport } from "./report/saved.js";
+import { COMPARISON_FILES, compareReports, formatComparison, renderComparisonJson, renderComparisonMarkdown } from "./compare/compare.js";
 import { serveStdio } from "./mcp/stdio.js";
 import type { AuditReport } from "./report/model.js";
 
@@ -53,6 +55,7 @@ const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
 export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>] [--fail-on <verdict>]
+       ai-codebase-auditor compare <before.json> <after.json> [--out <dir>]
        ai-codebase-auditor mcp <report.json>
        ai-codebase-auditor --help | --version
 
@@ -61,6 +64,7 @@ read, never modified or executed.
 
 Commands:
   audit <repo-path>      Audit the git working tree at <repo-path>
+  compare <a> <b>        Show what changed between two saved JSON reports of one repository
   mcp <report.json>      Serve a saved JSON report read-only to agents over MCP (stdio)
 
 Options:
@@ -417,10 +421,8 @@ export interface McpStart {
 }
 
 /** Validates `mcp <report.json>` and loads the report; the caller serves it over stdio. */
-export function prepareMcp(args: readonly string[], version: string, cwd: string): McpStart | CliResult {
-  const [reportPath, ...extra] = args;
-  if (reportPath === undefined || reportPath.startsWith("-")) return usageError(["mcp needs the path of a saved ai-readiness-report.json"]);
-  if (extra.length > 0) return usageError([`mcp takes one report path, got ${args.length}`]);
+/** Reads and checks one saved report, for mcp and compare. */
+function readSavedReport(cwd: string, reportPath: string): { report: AuditReport; source: string } | CliResult {
   const source = path.resolve(cwd, reportPath);
   let text: string;
   try {
@@ -436,8 +438,55 @@ export function prepareMcp(args: readonly string[], version: string, cwd: string
     return usageError([`${source}: invalid JSON (${(error as Error).message})`]);
   }
   const report = parseSavedReport(raw, source);
-  if (!report.ok) return usageError(report.errors);
-  return { report: report.value, info: { name: "ai-codebase-auditor", version }, source };
+  return report.ok ? { report: report.value, source } : usageError(report.errors);
+}
+
+export function prepareMcp(args: readonly string[], version: string, cwd: string): McpStart | CliResult {
+  const [reportPath, ...extra] = args;
+  if (reportPath === undefined || reportPath.startsWith("-")) return usageError(["mcp needs the path of a saved ai-readiness-report.json"]);
+  if (extra.length > 0) return usageError([`mcp takes one report path, got ${args.length}`]);
+  const read = readSavedReport(cwd, reportPath);
+  if ("exitCode" in read) return read;
+  return { report: read.report, info: { name: "ai-codebase-auditor", version }, source: read.source };
+}
+
+function runCompare(args: readonly string[], cwd: string): CliResult {
+  let parsed;
+  try {
+    parsed = parseArgs({ args: [...args], options: { out: { type: "string", short: "o" } }, allowPositionals: true, strict: true });
+  } catch (error) {
+    return usageError([(error as Error).message]);
+  }
+  const { positionals } = parsed;
+  if (positionals.length !== 2) return usageError([`compare needs two saved reports, before and after, got ${positionals.length}`]);
+  const [beforePath = "", afterPath = ""] = positionals;
+  const before = readSavedReport(cwd, beforePath);
+  const after = readSavedReport(cwd, afterPath);
+  if ("exitCode" in before) return before;
+  if ("exitCode" in after) return after;
+  const comparison = compareReports(before.report, after.report);
+  if (!comparison.ok) return usageError(comparison.errors);
+  const text = formatComparison(comparison.value);
+  if (parsed.values.out === undefined) return { exitCode: EXIT_OK, stdout: text, stderr: "" };
+  const outDir = path.resolve(cwd, parsed.values.out);
+  // Never inside the audited repository, when it exists on this machine.
+  const target = comparison.value.target;
+  const inside = existsSync(target) ? checkOutDir(outDir, target) : [];
+  if (inside.length > 0) return usageError(inside);
+  try {
+    const [markdown, json] = writeOutFiles(outDir, [
+      { name: COMPARISON_FILES.markdown, content: renderComparisonMarkdown(comparison.value) },
+      { name: COMPARISON_FILES.json, content: renderComparisonJson(comparison.value) },
+    ]);
+    return { exitCode: EXIT_OK, stdout: `${text}
+Comparison written:
+  ${markdown}
+  ${json}
+`, stderr: "" };
+  } catch (error) {
+    return { exitCode: EXIT_FAILURE, stdout: text, stderr: `error: cannot write the comparison to ${outDir}: ${(error as Error).message}
+` };
+  }
 }
 
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
@@ -449,6 +498,7 @@ export function runCli(args: readonly string[], version: string, cwd: string = p
     return { exitCode: EXIT_OK, stdout: `${version}\n`, stderr: "" };
   }
   if (command === "audit") return runAudit(rest, version, cwd);
+  if (command === "compare") return runCompare(rest, cwd);
   if (command === "mcp") {
     // The server itself runs only as a process (see the main block); here the arguments and report are checked.
     const prepared = prepareMcp(rest, version, cwd);
