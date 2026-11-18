@@ -35,6 +35,7 @@ src/
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red and yellow paths), hotspots.ts (hotspots and test-name matching), decide.ts
   plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)
   report/             model.ts (one AuditReport model), json.ts, markdown.ts, write.ts (--out, target guard)
+  mcp/                server.ts (read-only MCP tools over a saved report, JSON-RPC handling), stdio.ts (line transport)
 config/
   factors.json        factor list, blocking vs. constraining, thresholds
   runtime-eol.json    dated end-of-life table for Node.js, Python, PHP, Ruby, Java
@@ -62,13 +63,14 @@ repository (read-only)
 - `result` and `config` depend on nothing in `src/` but each other; any module may use them (collectors use config types only, and receive loaded config such as the EOL table from `cli`). `target` is used only by `cli`.
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
 - `report` depends on collector, scoring, decision and plan output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target.
+- `mcp` depends on the report model and decision output types only; it answers from a parsed saved report and never audits, reads the target or spawns anything. `server.ts` is pure, and `stdio.ts` is the only transport.
 - The CLI takes one audit date (UTC) and passes the end of that day to every date-based step, so reports are byte-identical for the same repository, configs and date.
 - `decision` depends on `scoring` results, collector output types, `file-kinds` and loaded config (factors, decision); it is pure and never reads the repository.
 - `plan` depends on `scoring` results and helpers (the type-share and band rules, so a roadmap step reuses the factor's own arithmetic), `decision` (the verdict rules, re-run to compute `verdictAfter`), collector output types and loaded config (factors, decision, EOL table, harness requirements). It is pure and never reads the repository. The harness requirements live in their own file, so the audit and the roadmap work without the harness, and another team can supply its own with `--harness`.
 - `scoring` depends on collector output types, `file-kinds` and loaded config (factors with thresholds, deferrals); it is pure and never reads the repository. Every threshold lives in `config/factors.json`; rules hold no default numbers, and `checkThresholds` rejects missing, unused or out-of-order thresholds at startup.
 - Collectors depend on nothing but Node built-ins, `collectors/types.ts`, the shared helpers `collectors/git.ts` and `collectors/tree.ts`, and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
 - A collector that cannot measure returns `not-measured` with a reason; it never throws for an expected condition (missing tool, shallow clone, empty repository) and never substitutes a guess.
-- Only collectors spawn processes, and only collectors, `target` and `config` read the file system. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
+- Only collectors spawn processes, and only collectors, `target` and `config` read the file system, plus `cli`, which reads one saved report for `mcp`. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
 - File content is read only through `readTrackedFile` in `collectors/tree.ts`, and only for regular files inside the target: symlinks and submodules are skipped by their tree mode, and a file whose real path leaves the target is skipped too.
 - Git runs pinned to the target (in `collectors/git.ts`): `GIT_CEILING_DIRECTORIES` stops it from finding an enclosing repository, inherited `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are cleared, optional locks are off, and `core.fsmonitor` is disabled so a target's own config cannot start a program.
 - `src/testing/` is imported only by tests and is excluded from the build.

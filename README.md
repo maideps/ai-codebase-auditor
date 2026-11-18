@@ -61,7 +61,13 @@ Modernization roadmap (by gain against effort):
   ...
 ```
 
-With `--out`, the same content is written as a Markdown report for people and a JSON report for CI or agents.
+With `--out`, the same content is written as a Markdown report for people and a JSON report for CI or agents. Agents can also query a saved report over MCP before they edit a file:
+
+```bash
+node dist/cli.js mcp ../audit-reports/some-legacy-repo/ai-readiness-report.json
+```
+
+It answers `get_zone`, `get_verdict`, `get_factor`, the red and yellow paths and the roadmap, read-only. The [risk-zones skill](config/agent-skills/risk-zones/SKILL.md) tells agents how to use it.
 
 ## Quick Start
 

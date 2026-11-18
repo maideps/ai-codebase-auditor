@@ -435,7 +435,7 @@
     {
       "id": "feat-016",
       "name": "Read-only MCP server over a saved report",
-      "behavior": "`ai-codebase-auditor mcp <report.json>` starts a stdio MCP server that answers from a saved JSON report only: the verdict and its rule, one factor's score and evidence, the zone of a given path with its reason (red paths win over their module), the red paths, and the roadmap. It never re-audits, reads the audited repository or runs anything, and it refuses a report whose schemaVersion it does not support. A skill file in templates/ tells agents to ask for a path's zone before editing it.",
+      "behavior": "`ai-codebase-auditor mcp <report.json>` starts a stdio MCP server that answers from a saved JSON report only: the verdict and its rule, one factor's score and evidence, the zone of a given path with its reason (red paths win over their module), the red paths, and the roadmap. It never re-audits, reads the audited repository or runs anything, and it refuses a report whose schemaVersion it does not support. A skill file in config/agent-skills/ (templates/ is harness-owned) tells agents to ask for a path's zone before editing it.",
       "verification": "Unit tests call every tool against a fixture report, including a red path inside a green module, an unknown path and an unsupported schemaVersion. An e2e test starts the built server, lists its tools and calls each one over stdio.",
       "dependencies": [
         "feat-008",

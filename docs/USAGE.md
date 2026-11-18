@@ -11,6 +11,7 @@ node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js audit <repo-path> --deferrals deferrals.json
 node dist/cli.js audit <repo-path> --harness my-harness.json  # another harness's requirements
 node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown and JSON report
+node dist/cli.js mcp ../audit-reports/<name>/ai-readiness-report.json  # serve the report to agents over MCP
 node dist/cli.js --help
 ```
 
@@ -204,6 +205,20 @@ Steps are ordered by **priority = gain × weight ÷ effort**:
 - **effort** counts S as 1, M as 2 and L as 3.
 
 Ties go to blocking factors, then config order. `verdictAfter` is the verdict the decision rules give with only that step applied, shown when it differs from today's.
+
+### MCP server for agents
+
+`mcp <report.json>` serves a saved JSON report to agents over MCP (stdio), read-only: it never audits again, reads the audited repository or runs anything. It accepts reports of `schemaVersion` 7 and exits with code 2 for anything else. Tools:
+
+| Tool | Answers |
+|---|---|
+| `get_verdict` | verdict, rule, triggers, readiness, audit date and commit |
+| `get_factor` (`id`) | one factor's score, rule and evidence |
+| `get_zone` (`path`) | a path's zone and reason: a red path wins over a yellow path, which wins over its module's zone; unzoned paths get none |
+| `list_red_paths`, `list_yellow_paths` | the paths where agents may only propose, or must write characterization tests first |
+| `get_roadmap` | the modernization roadmap |
+
+Reports hold no per-file lists, so a test file inside a module directory gets that module's zone. The protocol is implemented without dependencies (versions 2025-06-18, 2025-03-26 and 2024-11-05; D-021). Register it in Claude Code with `claude mcp add ai-codebase-auditor -- node <clone>/dist/cli.js mcp <report.json>`. The skill [config/agent-skills/risk-zones/SKILL.md](../config/agent-skills/risk-zones/SKILL.md) tells agents to call `get_zone` before every edit.
 
 ### Report files
 

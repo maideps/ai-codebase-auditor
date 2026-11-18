@@ -146,3 +146,35 @@ describe("audit", () => {
     expect(result.stderr).toContain("is not the root of a git working tree");
   });
 });
+
+describe("mcp", () => {
+  it("serves a saved report over stdio: initialize, list the tools and call each one", () => {
+    const out = path.join(scratch, "report-mcp");
+    expect(run("audit", repo, "--out", out).status).toBe(0);
+    const before = snapshot(repo);
+    const messages = [
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e", version: "1" } } },
+      { jsonrpc: "2.0", method: "notifications/initialized" },
+      { jsonrpc: "2.0", id: 2, method: "tools/list" },
+      { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "get_verdict", arguments: {} } },
+      { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "get_factor", arguments: { id: "test-feedback" } } },
+      { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_zone", arguments: { path: "src/app.js" } } },
+      { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "list_red_paths", arguments: {} } },
+      { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "list_yellow_paths", arguments: {} } },
+      { jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "get_roadmap", arguments: {} } },
+    ];
+    const result = spawnSync(process.execPath, [cli, "mcp", path.join(out, "ai-readiness-report.json")], {
+      encoding: "utf8",
+      input: messages.map((m) => JSON.stringify(m)).join("\n") + "\n",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("read-only over stdio");
+    const responses = result.stdout.trim().split("\n").map((line) => JSON.parse(line) as { id: number; result?: { tools?: { name: string }[]; isError?: boolean; content?: { text: string }[]; protocolVersion?: string } });
+    expect(responses.map((r) => r.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(responses[0]?.result?.protocolVersion).toBe("2025-06-18");
+    expect(responses[1]?.result?.tools?.map((t) => t.name)).toEqual(["get_verdict", "get_factor", "get_zone", "list_red_paths", "list_yellow_paths", "get_roadmap"]);
+    for (const response of responses.slice(2)) expect(response.result?.isError).toBe(false);
+    expect(JSON.parse(responses[4]?.result?.content?.[0]?.text ?? "{}")).toMatchObject({ path: "src/app.js", module: "src" });
+    expect(snapshot(repo)).toEqual(before);
+  });
+});

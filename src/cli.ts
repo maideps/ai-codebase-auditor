@@ -35,6 +35,9 @@ import { checkThresholds, scoreFactors } from "./scoring/score.js";
 import type { CollectorResults, Scoring } from "./scoring/types.js";
 import type { Result } from "./result.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
+import { parseSavedReport, type ServerInfo } from "./mcp/server.js";
+import { serveStdio } from "./mcp/stdio.js";
+import type { AuditReport } from "./report/model.js";
 
 export interface CliResult {
   exitCode: number;
@@ -47,6 +50,7 @@ const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
 export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>]
+       ai-codebase-auditor mcp <report.json>
        ai-codebase-auditor --help | --version
 
 Audits a local git repository for AI-agent readiness. The repository is only
@@ -54,6 +58,7 @@ read, never modified or executed.
 
 Commands:
   audit <repo-path>      Audit the git working tree at <repo-path>
+  mcp <report.json>      Serve a saved JSON report read-only to agents over MCP (stdio)
 
 Options:
   -c, --config <file>    Factor configuration (default: config/factors.json)
@@ -390,6 +395,36 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
   }
 }
 
+export interface McpStart {
+  report: AuditReport;
+  info: ServerInfo;
+  source: string;
+}
+
+/** Validates `mcp <report.json>` and loads the report; the caller serves it over stdio. */
+export function prepareMcp(args: readonly string[], version: string, cwd: string): McpStart | CliResult {
+  const [reportPath, ...extra] = args;
+  if (reportPath === undefined || reportPath.startsWith("-")) return usageError(["mcp needs the path of a saved ai-readiness-report.json"]);
+  if (extra.length > 0) return usageError([`mcp takes one report path, got ${args.length}`]);
+  const source = path.resolve(cwd, reportPath);
+  let text: string;
+  try {
+    text = readFileSync(source, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return usageError([`${source}: ${code === "ENOENT" ? "file not found" : `cannot read file (${code ?? "unknown error"})`}`]);
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    return usageError([`${source}: invalid JSON (${(error as Error).message})`]);
+  }
+  const report = parseSavedReport(raw, source);
+  if (!report.ok) return usageError(report.errors);
+  return { report: report.value, info: { name: "ai-codebase-auditor", version }, source };
+}
+
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
   const [command, ...rest] = args;
   if (command === undefined || command === "-h" || command === "--help") {
@@ -399,6 +434,12 @@ export function runCli(args: readonly string[], version: string, cwd: string = p
     return { exitCode: EXIT_OK, stdout: `${version}\n`, stderr: "" };
   }
   if (command === "audit") return runAudit(rest, version, cwd);
+  if (command === "mcp") {
+    // The server itself runs only as a process (see the main block); here the arguments and report are checked.
+    const prepared = prepareMcp(rest, version, cwd);
+    return "exitCode" in prepared ? prepared : { exitCode: EXIT_OK, stdout: "", stderr: `${prepared.source}: a valid report; the MCP server runs over stdio when started as a process
+` };
+  }
   return usageError([command.startsWith("-") ? `unknown option ${command}` : `unknown command ${command}`]);
 }
 
@@ -421,8 +462,17 @@ function isMainModule(): boolean {
 }
 
 if (isMainModule()) {
-  const result = runCli(process.argv.slice(2), readVersion());
-  process.stdout.write(result.stdout);
-  process.stderr.write(result.stderr);
-  process.exitCode = result.exitCode;
+  const args = process.argv.slice(2);
+  const prepared = args[0] === "mcp" ? prepareMcp(args.slice(1), readVersion(), process.cwd()) : null;
+  if (prepared && !("exitCode" in prepared)) {
+    // stdout carries the protocol, so the start-up note goes to stderr.
+    process.stderr.write(`ai-codebase-auditor mcp: serving ${prepared.source} read-only over stdio
+`);
+    void serveStdio(prepared.report, prepared.info, process.stdin, process.stdout);
+  } else {
+    const result = prepared ?? runCli(args, readVersion());
+    process.stdout.write(result.stdout);
+    process.stderr.write(result.stderr);
+    process.exitCode = result.exitCode;
+  }
 }

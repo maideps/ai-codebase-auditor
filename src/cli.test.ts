@@ -331,3 +331,30 @@ describe("readVersion", () => {
     expect(readVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
+
+describe("runCli: mcp", () => {
+  const sample = path.resolve("src/report/__snapshots__/sample-report.json");
+
+  it.each([
+    [[], "error: mcp needs the path of a saved ai-readiness-report.json"],
+    [["a.json", "b.json"], "error: mcp takes one report path, got 2"],
+    [["missing.json"], "missing.json: file not found"],
+  ])("exits 2 for %j", (args, message) => {
+    const result = runCli(["mcp", ...args], "0.1.0", root);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(message);
+  });
+
+  it("exits 2 for invalid JSON and for a report of an unsupported version", () => {
+    const bad = path.join(root, "bad.json");
+    writeFileSync(bad, "{");
+    expect(runCli(["mcp", bad], "0.1.0", root).stderr).toContain(`${bad}: invalid JSON`);
+    const old = path.join(root, "old.json");
+    writeFileSync(old, JSON.stringify({ ...JSON.parse(readFileSync(sample, "utf8")), schemaVersion: 6 }));
+    expect(runCli(["mcp", old], "0.1.0", root)).toMatchObject({ exitCode: 2, stderr: expect.stringContaining("schemaVersion 6 is not supported") });
+  });
+
+  it("accepts a valid report, which it serves only when run as a process", () => {
+    expect(runCli(["mcp", sample], "0.1.0", root)).toEqual({ exitCode: 0, stdout: "", stderr: `${sample}: a valid report; the MCP server runs over stdio when started as a process\n` });
+  });
+});

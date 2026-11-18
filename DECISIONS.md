@@ -403,3 +403,23 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: no zone rule that mostly measures commit workflow; the backlog is one feature shorter.
 - Negative: code whose authors have all left is still not flagged. Doing that reliably would need rename following, bulk-commit filtering and an author model beyond `.mailmap`, which this tool does not have.
+
+### D-021: A dependency-free, read-only MCP server over a saved report
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, because the user asked for the remaining features to be built without stopping for review. Recorded in docs/sprints/feat-016.md.
+**Context:** agents should check a file's zone before editing it. The answers are already in the saved JSON report, and every other readiness tool in the November survey ships an MCP server or skill (D-018).
+**Decision:**
+- `ai-codebase-auditor mcp <report.json>` serves six tools from the saved report: `get_verdict`, `get_factor`, `get_zone`, `list_red_paths`, `list_yellow_paths` and `get_roadmap`. It never audits, reads the target or runs anything.
+- JSON-RPC 2.0 over stdio is implemented in `src/mcp/` without the MCP SDK: `initialize`, `ping`, `tools/list`, `tools/call` and notifications. Protocol versions 2025-06-18, 2025-03-26 and 2024-11-05 are supported.
+- Only report `schemaVersion` 7 is accepted. Other versions exit with code 2 and the version found.
+- `get_zone` ranks a red path above a yellow path above the module's zone. Unzoned paths get no zone, with the reason.
+- The agent skill lives at `config/agent-skills/risk-zones/SKILL.md`, which ships with the package. `templates/` is harness-owned and replaced on upgrade, so the feat-016 declaration was changed to name the new location.
+- `cli` reads the report file. That is the second file read outside collectors, `target` and `config`, and docs/ARCHITECTURE.md lists it.
+**Alternatives considered:**
+- The official MCP SDK — Rejected: it would be the product's first runtime dependency, for five messages.
+- Auditing on demand from the server — Rejected: it would run collectors from an agent session, and answers would change under the agent.
+- Accepting older report versions — Rejected: zones before version 7 have no yellow paths, and answers would silently differ.
+**Consequences:**
+- Positive: agents can check zones at edit time with no new dependency, and the package stays dependency-free.
+- Negative: protocol changes must be tracked by hand. Answers are only as current as the report, so `get_verdict` returns the audit date and commit, and the skill says to check them.
