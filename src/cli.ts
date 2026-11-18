@@ -25,6 +25,8 @@ import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig } from "./config/decis
 import { decide } from "./decision/decide.js";
 import { renderJson } from "./report/json.js";
 import { renderMarkdown } from "./report/markdown.js";
+import { renderSarif } from "./report/sarif.js";
+import { FAIL_ON_VALUES, isFailOn, verdictGate } from "./decision/gate.js";
 import { buildReport } from "./report/model.js";
 import { checkOutDir, writeReports } from "./report/write.js";
 import type { Decision } from "./decision/types.js";
@@ -49,7 +51,7 @@ const EXIT_OK = 0;
 const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
-export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>]
+export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>] [--fail-on <verdict>]
        ai-codebase-auditor mcp <report.json>
        ai-codebase-auditor --help | --version
 
@@ -64,7 +66,8 @@ Options:
   -c, --config <file>    Factor configuration (default: config/factors.json)
   -d, --deferrals <file> Documented, dated deferrals that raise a gap's score by one level, up to 3
       --harness <file>   Harness requirements for the adaptation plan (default: config/harness-requirements.json)
-  -o, --out <dir>        Write ai-readiness-report.md and .json there (never inside the target)
+  -o, --out <dir>        Write ai-readiness-report.md, .json and .sarif there (never inside the target)
+      --fail-on <verdict> Exit 1 when the verdict is at or below adapt or prepare-first (for CI)
   -h, --help             Show this help
   -v, --version          Show the version
 `;
@@ -313,6 +316,7 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
         deferrals: { type: "string", short: "d" },
         out: { type: "string", short: "o" },
         harness: { type: "string" },
+        "fail-on": { type: "string" },
         help: { type: "boolean", short: "h" },
       },
       allowPositionals: true,
@@ -338,7 +342,10 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
   const deferralsPath = parsed.values.deferrals === undefined ? null : path.resolve(cwd, parsed.values.deferrals);
   const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
   const outDir = parsed.values.out === undefined ? null : path.resolve(cwd, parsed.values.out);
+  const failOnValue = parsed.values["fail-on"];
+  const failOn = failOnValue !== undefined && isFailOn(failOnValue) ? failOnValue : null;
   const errors = [
+    ...(failOnValue !== undefined && failOn === null ? [`--fail-on must be ${FAIL_ON_VALUES.join(" or ")}, got ${failOnValue}`] : []),
     ...(target.ok ? [] : target.errors),
     ...(target.ok && outDir ? checkOutDir(outDir, target.value.path) : []),
     ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
@@ -367,8 +374,12 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
   const decision = decide(scoring, collected, config.value, decisionConfig.value);
   const plan = buildPlan({ scoring, decision, results: collected, requirements: requirements.value, weakMax: decisionConfig.value.weakMax });
   const roadmap = buildRoadmap({ scoring, results: collected, factors: config.value, decisionConfig: decisionConfig.value, eolTable: eolTable.value, auditDate });
-  const summary = formatSummary(target.value, configPath, config.value, collected, scoring, decision, plan, roadmap);
-  if (outDir === null) return { exitCode: EXIT_OK, stdout: summary, stderr: "" };
+  const gate = failOn === null ? null : verdictGate(decision.verdict, failOn);
+  const summary = formatSummary(target.value, configPath, config.value, collected, scoring, decision, plan, roadmap) + (gate ? `\n${gate.line}\n` : "");
+  // Without --fail-on, exit codes are unchanged; with it, a failed gate exits 1 after any report is written.
+  const gated = (result: CliResult): CliResult =>
+    gate?.failed && result.exitCode === EXIT_OK ? { ...result, exitCode: EXIT_FAILURE, stderr: `${result.stderr}error: ${gate.line}\n` } : result;
+  if (outDir === null) return gated({ exitCode: EXIT_OK, stdout: summary, stderr: "" });
 
   const report = buildReport({
     tool: { name: "ai-codebase-auditor", version },
@@ -388,8 +399,8 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     roadmap,
   });
   try {
-    const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report) });
-    return { exitCode: EXIT_OK, stdout: `${summary}\nReport written:\n  ${written.markdown}\n  ${written.json}\n`, stderr: "" };
+    const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report), sarif: renderSarif(report, decisionConfig.value.weakMax) });
+    return gated({ exitCode: EXIT_OK, stdout: `${summary}\nReport written:\n  ${written.markdown}\n  ${written.json}\n  ${written.sarif}\n`, stderr: "" });
   } catch (error) {
     return { exitCode: EXIT_FAILURE, stdout: summary, stderr: `error: cannot write the report to ${outDir}: ${(error as Error).message}\n` };
   }

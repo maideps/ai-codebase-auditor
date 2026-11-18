@@ -107,7 +107,7 @@ describe("audit", () => {
     const second = path.join(scratch, "report-2");
     expect(run("audit", repo, "--out", first).status).toBe(0);
     expect(run("audit", repo, "--out", second).status).toBe(0);
-    for (const name of ["ai-readiness-report.md", "ai-readiness-report.json"]) {
+    for (const name of ["ai-readiness-report.md", "ai-readiness-report.json", "ai-readiness-report.sarif"]) {
       const a = readFileSync(path.join(first, name));
       expect(a.length).toBeGreaterThan(0);
       expect(a.equals(readFileSync(path.join(second, name)))).toBe(true);
@@ -176,5 +176,19 @@ describe("mcp", () => {
     for (const response of responses.slice(2)) expect(response.result?.isError).toBe(false);
     expect(JSON.parse(responses[4]?.result?.content?.[0]?.text ?? "{}")).toMatchObject({ path: "src/app.js", module: "src" });
     expect(snapshot(repo)).toEqual(before);
+  });
+});
+
+describe("verdict gate", () => {
+  it("exits 1 with --fail-on at or below the verdict, 0 above it or without the option, and 2 for a bad value", () => {
+    const verdict = (JSON.parse(readFileSync(path.join(scratch, "report-1", "ai-readiness-report.json"), "utf8")) as { verdict: { verdict: string } }).verdict.verdict;
+    const rank: Record<string, number> = { adopt: 3, adapt: 2, "prepare-first": 1 };
+    expect(run("audit", repo).status).toBe(0);
+    for (const level of ["adapt", "prepare-first"]) {
+      const result = run("audit", repo, "--fail-on", level);
+      expect(result.status).toBe((rank[verdict] ?? 0) <= (rank[level] ?? 0) ? 1 : 0);
+      expect(result.stdout).toContain(`Verdict gate (--fail-on ${level}):`);
+    }
+    expect(run("audit", repo, "--fail-on", "never").status).toBe(2);
   });
 });

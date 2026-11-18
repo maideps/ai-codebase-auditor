@@ -61,7 +61,7 @@ Modernization roadmap (by gain against effort):
   ...
 ```
 
-With `--out`, the same content is written as a Markdown report for people and a JSON report for CI or agents. Agents can also query a saved report over MCP before they edit a file:
+With `--out`, the same content is written as a Markdown report for people, a JSON report for CI or agents, and a SARIF file for code-scanning tools. Agents can also query a saved report over MCP before they edit a file:
 
 ```bash
 node dist/cli.js mcp ../audit-reports/some-legacy-repo/ai-readiness-report.json
@@ -85,10 +85,11 @@ Clone the repositories you audit outside this one. The tool refuses an `--out` d
 
 | Option | Purpose |
 |---|---|
-| `--out <dir>` | Write `ai-readiness-report.md` and `ai-readiness-report.json` |
+| `--out <dir>` | Write `ai-readiness-report.md`, `.json`, and `.sarif` for code-scanning tools |
 | `--config <file>` | Use your own factor list and thresholds instead of `config/factors.json` |
 | `--deferrals <file>` | Record a known gap with a reason and a revisit date (raises that factor by one level, up to 3) |
 | `--harness <file>` | Plan for another harness instead of `config/harness-requirements.json` |
+| `--fail-on <verdict>` | Exit 1 when the verdict is at or below `adapt` or `prepare-first`, to stop a CI pipeline |
 
 [scc](https://github.com/boyter/scc) is used for language and complexity data when it is installed; without it, the audit still runs. The full guide is [docs/USAGE.md](docs/USAGE.md).
 

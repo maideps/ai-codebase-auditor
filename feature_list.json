@@ -467,8 +467,8 @@
     {
       "id": "feat-017",
       "name": "SARIF output and a verdict gate for CI",
-      "behavior": "With --out, the audit also writes ai-readiness-report.sarif (SARIF 2.1.0): one result per weak factor, yellow module and red path, each with its rule id, level, location and the evidence text from the JSON report. `--fail-on <adapt|prepare-first>` exits with code 1 when the verdict is at or below that level, and a provisional verdict is reported as such. Without --fail-on, exit codes are unchanged. Output stays deterministic.",
-      "verification": "Unit tests validate the SARIF output against the 2.1.0 schema for the calibration-like fixtures and cover each --fail-on level, the provisional case and invalid values (exit code 2). The e2e smoke test checks the exit codes of the built CLI.",
+      "behavior": "With --out, the audit also writes ai-readiness-report.sarif (SARIF 2.1.0): one result per weak factor, yellow module, yellow path and red path, each with its rule id, level, location (zone results) and the evidence text from the JSON report. `--fail-on <adapt|prepare-first>` exits with code 1 when the verdict is at or below that level, and a provisional verdict is reported as such. Without --fail-on, exit codes are unchanged. Output stays deterministic.",
+      "verification": "Unit tests check the SARIF output against the SARIF 2.1.0 schema's required structure (version, runs, tool driver, unique rule ids, result messages, levels, rule indexes, URIs) without downloading the schema, and cover each --fail-on level, the provisional case and invalid values (exit code 2). The e2e smoke test checks the exit codes of the built CLI.",
       "dependencies": [
         "feat-008"
       ],

@@ -33,18 +33,19 @@ describe("checkOutDir", () => {
 });
 
 describe("writeReports", () => {
-  it("creates the directory and writes both files with the given content", () => {
+  it("creates the directory and writes the three files with the given content", () => {
     const out = path.join(scratch, "out", "nested");
-    const written = writeReports(out, { markdown: "# r\n", json: "{}\n" });
-    expect(written).toEqual({ markdown: path.join(out, REPORT_FILES.markdown), json: path.join(out, REPORT_FILES.json) });
+    const written = writeReports(out, { markdown: "# r\n", json: "{}\n", sarif: '{"version":"2.1.0"}\n' });
+    expect(written).toEqual({ markdown: path.join(out, REPORT_FILES.markdown), json: path.join(out, REPORT_FILES.json), sarif: path.join(out, "ai-readiness-report.sarif") });
     expect(readFileSync(written.markdown, "utf8")).toBe("# r\n");
     expect(readFileSync(written.json, "utf8")).toBe("{}\n");
+    expect(readFileSync(written.sarif, "utf8")).toBe('{"version":"2.1.0"}\n');
   });
 
   it("overwrites an earlier report of the same name", () => {
     const out = path.join(scratch, "again");
-    writeReports(out, { markdown: "old\n", json: "{}\n" });
-    writeReports(out, { markdown: "new\n", json: "{}\n" });
+    writeReports(out, { markdown: "old\n", json: "{}\n", sarif: "{}\n" });
+    writeReports(out, { markdown: "new\n", json: "{}\n", sarif: "{}\n" });
     expect(readFileSync(path.join(out, REPORT_FILES.markdown), "utf8")).toBe("new\n");
   });
 });

@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "ai-codebase-auditor",
+          "version": "0.1.0",
+          "informationUri": "https://github.com/maideps/ai-codebase-auditor",
+          "rules": [
+            {
+              "id": "factor/type-strictness",
+              "name": "Type strictness",
+              "shortDescription": {
+                "text": "Weak constraining factor: Type strictness"
+              },
+              "fullDescription": {
+                "text": "type-strictness scores at or below 2 of 5. A weak blocking factor limits readiness; a weak constraining factor needs an adaptation."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/maideps/ai-codebase-auditor/blob/main/docs/USAGE.md"
+            },
+            {
+              "id": "factor/direct-api-calls",
+              "name": "Direct calls (visible at call site)",
+              "shortDescription": {
+                "text": "Weak blocking factor: Direct calls (visible at call site)"
+              },
+              "fullDescription": {
+                "text": "direct-api-calls scores at or below 2 of 5. A weak blocking factor limits readiness; a weak constraining factor needs an adaptation."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://github.com/maideps/ai-codebase-auditor/blob/main/docs/USAGE.md"
+            },
+            {
+              "id": "factor/documented-intent",
+              "name": "Documented intent",
+              "shortDescription": {
+                "text": "Weak constraining factor: Documented intent"
+              },
+              "fullDescription": {
+                "text": "documented-intent scores at or below 2 of 5. A weak blocking factor limits readiness; a weak constraining factor needs an adaptation."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/maideps/ai-codebase-auditor/blob/main/docs/USAGE.md"
+            },
+            {
+              "id": "factor/dependency-currency",
+              "name": "Dependency and runtime currency",
+              "shortDescription": {
+                "text": "Weak constraining factor: Dependency and runtime currency"
+              },
+              "fullDescription": {
+                "text": "dependency-currency scores at or below 2 of 5. A weak blocking factor limits readiness; a weak constraining factor needs an adaptation."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/maideps/ai-codebase-auditor/blob/main/docs/USAGE.md"
+            },
+            {
+              "id": "zone/yellow-path",
+              "name": "YellowPath",
+              "shortDescription": {
+                "text": "Hotspot with no test named after it"
+              },
+              "fullDescription": {
+                "text": "A long, often-changed file inside a green module with no test named after it; write characterization tests before agents edit it."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/maideps/ai-codebase-auditor/blob/main/docs/USAGE.md"
+            },
+            {
+              "id": "zone/red-path",
+              "name": "RedPath",
+              "shortDescription": {
+                "text": "Agents may only propose changes here"
+              },
+              "fullDescription": {
+                "text": "Auth, billing, permission, secret or similar code: every change needs human review, so agents propose diffs instead of editing."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "helpUri": "https://github.com/maideps/ai-codebase-auditor/blob/main/docs/USAGE.md"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "factor/type-strictness",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "type-strictness 1 (constraining): weighted typed share 0.00. Evidence: typed share 0.00 of 790 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 790); type checkers: none."
+          }
+        },
+        {
+          "ruleId": "factor/direct-api-calls",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "direct-api-calls 2 (blocking): 20.00% of 10 covered files have a computed-target call (3 sites). Evidence: 2 of 10 covered product files (20.00%) have computed-target calls: 3 sites; by construct: computed call 2, eval or Function 1; top files: src/f0.js (2), src/auth/login.js (1); sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call; covered languages hold 100.00% of 790 source lines."
+          }
+        },
+        {
+          "ruleId": "factor/documented-intent",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "documented-intent 2 (constraining): a README without written rules. Evidence: README: README.md; contributing: none; architecture: none; decision records: 0; conventions: none; stated rules: 2 in 1 file; agent context files (presence alone scores nothing): AGENTS.md."
+          }
+        },
+        {
+          "ruleId": "factor/dependency-currency",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "dependency-currency 1 (constraining): worst runtime is end-of-life since 2023-04-30. Evidence: node >=14 (package.json, engines.node): cycle 14 end-of-life since 2023-04-30."
+          }
+        },
+        {
+          "ruleId": "zone/yellow-path",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "src/engine.js (in green src/(files)): hotspot: 6 commits in 12 months (module cut 6) and 400 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/engine.js",
+                  "uriBaseId": "%SRCROOT%"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "zone/red-path",
+          "ruleIndex": 5,
+          "level": "note",
+          "message": {
+            "text": "src/auth/ is red (auth): agents may only propose changes"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/auth/",
+                  "uriBaseId": "%SRCROOT%"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "verdict": "adapt",
+        "provisional": false,
+        "readiness": 2,
+        "auditDate": "2026-10-22",
+        "commit": "0123456789abcdef0123456789abcdef01234567"
+      }
+    }
+  ]
+}

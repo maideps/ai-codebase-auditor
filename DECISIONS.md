@@ -423,3 +423,23 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: agents can check zones at edit time with no new dependency, and the package stays dependency-free.
 - Negative: protocol changes must be tracked by hand. Answers are only as current as the report, so `get_verdict` returns the audit date and commit, and the skill says to check them.
+
+### D-022: SARIF for code scanning and a --fail-on verdict gate
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, because the user asked for the remaining features to be built without stopping for review. Recorded in docs/sprints/feat-017.md.
+**Context:** CI pipelines and code-scanning tools need the audit in a standard format, and a way to stop on a weak verdict.
+**Decision:**
+- `--out` also writes `ai-readiness-report.sarif` (SARIF 2.1.0). It has one result per weak factor, yellow module, yellow path and red path, with rule ids `factor/<id>` and `zone/<kind>`.
+- Levels: error for a weak blocking factor; warning for a weak constraining factor and for yellow zones; note for a red path.
+- Zone results point at their path. Factor results have no location: they describe the repository as a whole.
+- `--fail-on <adapt|prepare-first>` exits 1 when the verdict ranks at or below the level, or when there is no verdict. It is checked after the reports are written, and the summary names the gate's result, provisional verdicts included. Without the option, exit codes are unchanged.
+- The SARIF tests check the 2.1.0 schema's required structure instead of the full schema, so that no file is downloaded. The feat-017 declaration's verification was reworded to say so.
+**Alternatives considered:**
+- Giving factor results a stand-in location such as `README.md` — Rejected: it would point a reader at a file that is not the finding.
+- Every red path as an error — Rejected: a red path is guidance for agents, not a defect, and errors would fail code-scanning gates on healthy code.
+- Using exit code 3 for the gate — Rejected: CI tools treat any non-zero exit as failure, and 1 is the existing failure code.
+- Vendoring the SARIF schema for full validation — Deferred: it needs a download and a JSON-schema validator dependency.
+**Consequences:**
+- Positive: findings can show in code-scanning views, and pipelines can gate on the verdict.
+- Negative: tools that need a location for every result may drop the factor results. Exit 1 also covers a failed report write, so the message on stderr tells the two apart.

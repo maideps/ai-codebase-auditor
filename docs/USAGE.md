@@ -10,7 +10,8 @@ node dist/cli.js audit <repo-path>                  # default factors from confi
 node dist/cli.js audit <repo-path> --config my.json # a tuned factor list
 node dist/cli.js audit <repo-path> --deferrals deferrals.json
 node dist/cli.js audit <repo-path> --harness my-harness.json  # another harness's requirements
-node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown and JSON report
+node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown, JSON and SARIF report
+node dist/cli.js audit <repo-path> --fail-on adapt  # exit 1 unless the verdict is adopt
 node dist/cli.js mcp ../audit-reports/<name>/ai-readiness-report.json  # serve the report to agents over MCP
 node dist/cli.js --help
 ```
@@ -220,11 +221,15 @@ Ties go to blocking factors, then config order. `verdictAfter` is the verdict th
 
 Reports hold no per-file lists, so a test file inside a module directory gets that module's zone. The protocol is implemented without dependencies (versions 2025-06-18, 2025-03-26 and 2024-11-05; D-021). Register it in Claude Code with `claude mcp add ai-codebase-auditor -- node <clone>/dist/cli.js mcp <report.json>`. The skill [config/agent-skills/risk-zones/SKILL.md](../config/agent-skills/risk-zones/SKILL.md) tells agents to call `get_zone` before every edit.
 
+### Verdict gate for CI
+
+`--fail-on <adapt|prepare-first>` exits with code 1 when the verdict is at or below that level (adopt > adapt > prepare first), or when no verdict could be reached. The summary ends with a line such as `Verdict gate (--fail-on adapt): FAIL, verdict adapt (provisional: direct-api-calls not measured)`. The gate is checked after the report files are written. Any other value is an input error (exit code 2), and without the option exit codes are unchanged (D-022).
+
 ### Report files
 
-`--out <dir>` writes `ai-readiness-report.md` and `ai-readiness-report.json` to `<dir>`, creating it if needed and overwriting earlier reports there. Without `--out`, nothing is written. An out directory inside the audited repository (directly or through a link) is an input error.
+`--out <dir>` writes `ai-readiness-report.md`, `ai-readiness-report.json` and `ai-readiness-report.sarif` to `<dir>`, creating it if needed and overwriting earlier reports there. Without `--out`, nothing is written. An out directory inside the audited repository (directly or through a link) is an input error.
 
-Both files come from one report model, so they hold the same content:
+The Markdown and JSON files come from one report model, so they hold the same content:
 - the verdict with its rule and triggers;
 - the readiness level;
 - every factor with its rule, evidence, partial coverage and any deferral;
@@ -233,6 +238,8 @@ Both files come from one report model, so they hold the same content:
 - everything not measured, in one list;
 - signal summaries (the ten most changed files, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls, co-change, observability);
 - the method: inputs, every read-only command run, collector notes.
+
+The SARIF file (2.1.0) is for code-scanning tools. It has one result per weak factor (`factor/<id>`: error when blocking, warning when constraining), yellow module and yellow path (warning), and red path (note), each with the report's rule and evidence. Zone results point at their file or directory; factor results describe the whole repository and have no location. The run's properties hold the verdict, readiness, audit date and commit.
 
 Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 7`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015). Version 5 added `signals.coChange` ([sprints/feat-012.md](sprints/feat-012.md), D-016). Version 6 added `signals.observability` ([sprints/feat-013.md](sprints/feat-013.md), D-017). Version 7 added `zones.yellowPaths`, `zones.hotspotNote` and `hotspots` on each module, and renamed `signals.gitHistory.hotspots` to `mostChanged` ([sprints/feat-014.md](sprints/feat-014.md), D-019).
 

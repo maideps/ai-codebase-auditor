@@ -32,9 +32,9 @@ src/
     co-change.ts        source files changed together in recent commits (one read-only git log)
     observability.ts    logging calls, console output, logging configuration, observability imports
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
-  decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red and yellow paths), hotspots.ts (hotspots and test-name matching), decide.ts
+  decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red and yellow paths), hotspots.ts (hotspots and test-name matching), gate.ts (--fail-on verdict gate), decide.ts
   plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)
-  report/             model.ts (one AuditReport model), json.ts, markdown.ts, write.ts (--out, target guard)
+  report/             model.ts (one AuditReport model), json.ts, markdown.ts, sarif.ts (SARIF 2.1.0 for code scanning), write.ts (--out, target guard)
   mcp/                server.ts (read-only MCP tools over a saved report, JSON-RPC handling), stdio.ts (line transport)
 config/
   factors.json        factor list, blocking vs. constraining, thresholds

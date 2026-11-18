@@ -4,7 +4,9 @@
 import { existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-export const REPORT_FILES = { markdown: "ai-readiness-report.md", json: "ai-readiness-report.json" } as const;
+export const REPORT_FILES = { markdown: "ai-readiness-report.md", json: "ai-readiness-report.json", sarif: "ai-readiness-report.sarif" } as const;
+
+export type ReportContents = Record<keyof typeof REPORT_FILES, string>;
 
 // The real path of a directory that may not exist yet: resolve its nearest
 // existing ancestor, then add back the missing part.
@@ -27,10 +29,13 @@ export function checkOutDir(outDir: string, targetPath: string): string[] {
   return inside ? [`out directory ${outDir} is inside the audited repository ${targetPath}`] : [];
 }
 
-export function writeReports(outDir: string, contents: { markdown: string; json: string }): { markdown: string; json: string } {
+export function writeReports(outDir: string, contents: ReportContents): ReportContents {
   mkdirSync(outDir, { recursive: true });
-  const written = { markdown: path.join(outDir, REPORT_FILES.markdown), json: path.join(outDir, REPORT_FILES.json) };
-  writeFileSync(written.markdown, contents.markdown, "utf8");
-  writeFileSync(written.json, contents.json, "utf8");
+  const written = {
+    markdown: path.join(outDir, REPORT_FILES.markdown),
+    json: path.join(outDir, REPORT_FILES.json),
+    sarif: path.join(outDir, REPORT_FILES.sarif),
+  };
+  for (const kind of ["markdown", "json", "sarif"] as const) writeFileSync(written[kind], contents[kind], "utf8");
   return written;
 }

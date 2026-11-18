@@ -298,18 +298,44 @@ describe("runCli: report files", () => {
     { author: "a@example.com", date: "2026-01-01T00:00:00Z", files: { "README.md": "# r\n", "src/a.js": "a\n", "src/a.test.js": "t\n" } },
   ]);
 
-  it("writes the Markdown and JSON report to --out and says where", () => {
+  it("writes the Markdown, JSON and SARIF report to --out and says where", () => {
     const out = path.join(root, "reports");
     const result = runCli(["audit", target, "--out", out], "1.2.3");
     expect(result.exitCode).toBe(0);
     const markdown = path.join(out, "ai-readiness-report.md");
     const json = path.join(out, "ai-readiness-report.json");
-    expect(result.stdout).toContain(`Report written:\n  ${markdown}\n  ${json}\n`);
+    const sarif = path.join(out, "ai-readiness-report.sarif");
+    expect(result.stdout).toContain(`Report written:\n  ${markdown}\n  ${json}\n  ${sarif}\n`);
+    expect(JSON.parse(readFileSync(sarif, "utf8"))).toMatchObject({ version: "2.1.0", runs: [{ tool: { driver: { name: "ai-codebase-auditor", version: "1.2.3" } } }] });
     expect(readFileSync(markdown, "utf8")).toMatch(/^# AI-readiness audit: /);
     const report = JSON.parse(readFileSync(json, "utf8")) as { tool: { version: string }; target: { path: string; head: string } };
     expect(report.tool.version).toBe("1.2.3");
     expect(report.target.path).toBe(target);
     expect(report.target.head).toMatch(/^[0-9a-f]{40}$/);
+  });
+
+  it("gates on --fail-on: exit 1 at or below the level, after writing the report; exit codes unchanged without it", () => {
+    const plain = runCli(["audit", target], "1.2.3", root);
+    const verdict = /Verdict: (adopt|adapt|prepare first)/.exec(plain.stdout)?.[1]?.replace(" ", "-");
+    expect(plain.stdout).not.toContain("Verdict gate");
+    expect(plain.exitCode).toBe(0);
+    const rank: Record<string, number> = { adopt: 3, adapt: 2, "prepare-first": 1 };
+    for (const level of ["adapt", "prepare-first"]) {
+      const out = path.join(root, `gated-${level}`);
+      const result = runCli(["audit", target, "--fail-on", level, "--out", out], "1.2.3");
+      const fails = (rank[verdict ?? ""] ?? 0) <= (rank[level] ?? 0);
+      expect(result.exitCode).toBe(fails ? 1 : 0);
+      expect(result.stdout).toContain(`Verdict gate (--fail-on ${level}): ${fails ? "FAIL" : "pass"}, verdict ${verdict}`);
+      if (fails) expect(result.stderr).toContain("error: Verdict gate");
+      else expect(result.stderr).toBe("");
+      expect(existsSync(path.join(out, "ai-readiness-report.sarif"))).toBe(true);
+    }
+  });
+
+  it("rejects a --fail-on value other than adapt or prepare-first", () => {
+    const result = runCli(["audit", target, "--fail-on", "adopt"], "1.2.3", root);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("error: --fail-on must be adapt or prepare-first, got adopt");
   });
 
   it("writes no files without --out", () => {
