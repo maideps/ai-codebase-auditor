@@ -30,6 +30,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 | mcp (`src/mcp/`, `config/agent-skills/`) | A | A | A | A | A |
 | compare (`src/compare/`) | A | A | A | A | A |
 | batch (`src/batch/`) | A | A | A | A | B |
+| validate (`src/validate/`) | A | A | A | A | A |
 | testing (`src/testing/git-fixture.ts`) | n/a | A | B | A | A |
 
 - `cli`: unit tests cover every command and error path, and the e2e smoke run covers the built binary, including that the audited repository is left unchanged. No coverage tool is configured, hence B.
@@ -56,11 +57,12 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - `mcp`: 15 tests cover report validation, zone lookup (red over yellow over module, `(root)`, `<dir>/(files)`, longest module, Windows separators, unzoned paths), every tool, the handshake per protocol version, notifications, and each JSON-RPC error. The stdio loop is tested with streams, and the e2e test drives the built server through every tool.
 - `compare`: 4 tests cover a report against itself, every kind of factor change, zone moves, red and yellow path changes, completed roadmap steps, different repositories and the three renderings; CLI tests cover argument and version errors and `--out`; an e2e test compares audits of a fixture at two commits.
 - `batch`: 6 tests cover list parsing, folder names that repeat, entry summaries, sorting and counts, and renderings with failures. CLI tests run a healthy repository beside a missing path, a non-git directory and a repository whose write throws; the e2e test checks every folder and that the repositories are unchanged. Performance B: repositories are audited one after another, about 90 seconds for the five calibration clones.
+- `validate`: 14 tests cover the outcomes schema and every error, Wilson intervals, ordered, unordered and too-few cases, red tasks, unzoned and unknown paths, mixed models and the renderings; CLI tests cover the outputs and input errors; an e2e test validates a fresh report.
 - `testing`: test-only, excluded from the build.
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-023 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-024 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -75,6 +77,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-11-18: feat-024 added `validate` (`src/validate/`) and moved path-to-zone lookup to `src/report/zone-of.ts` (D-029). Modules touched: validate (new), report, mcp, cli.
 - 2026-11-18: feat-023 added direct-call rules and a stripper for C and C++ (D-028); DOOM is measured (7 sites, all true positives) and no longer provisional. Modules touched: collectors/dynamic-calls, file-kinds; ratings unchanged. The case study was regenerated.
 - 2026-11-18: feat-022 added direct-call rules and strippers for C# and Go, which now count toward the covered share (D-027). Module touched: collectors/dynamic-calls; rating unchanged. Precision on a real C# or Go repository is not yet measured: none was cloned.
 - 2026-11-18: feat-021 added `audit-batch` (`src/batch/`) and split the CLI's audit into `loadAuditInputs`, `auditOne` and `writeAuditFiles` (D-026). Modules touched: batch (new), cli.
