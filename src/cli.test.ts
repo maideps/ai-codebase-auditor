@@ -462,3 +462,33 @@ describe("runCli: audit-batch", () => {
     expect(runCli(["audit-batch", empty, "--out", path.join(root, "o2")], "1.2.3", root).stderr).toContain(`${empty}: lists no repository paths`);
   });
 });
+
+describe("runCli: validate", () => {
+  const sample = path.resolve("src/report/__snapshots__/sample-report.json");
+  const outcomesFile = (name: string, value: unknown) => {
+    const file = path.join(root, name);
+    writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value));
+    return file;
+  };
+  const good = { schema: "ai-codebase-auditor/outcomes", schemaVersion: 1, runner: "probe", tasks: [{ id: "t1", filesChanged: ["src/f1.js"], passed: true }, { id: "t2", filesChanged: ["src/auth/login.js"], passed: false }] };
+
+  it("prints the agreement, and writes Markdown and JSON with --out", () => {
+    const file = outcomesFile("outcomes.json", good);
+    const plain = runCli(["validate", sample, file], "0.1.0", root);
+    expect(plain).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(plain.stdout).toContain("against 2 recorded tasks from probe");
+    expect(plain.stdout).toContain("Tasks touching red paths: t2 (failed)");
+    const out = path.join(root, "validation");
+    const written = runCli(["validate", sample, file, "--out", out], "0.1.0", root);
+    expect(written.stdout).toContain(`Validation written:\n  ${path.join(out, "ai-readiness-validation.md")}\n  ${path.join(out, "ai-readiness-validation.json")}\n`);
+    expect(JSON.parse(readFileSync(path.join(out, "ai-readiness-validation.json"), "utf8"))).toMatchObject({ schema: "ai-codebase-auditor/validation", overall: { tasks: 2, passed: 1 } });
+  });
+
+  it("exits 2 for a wrong argument count, a missing or invalid outcomes file, and a schema error", () => {
+    expect(runCli(["validate", sample], "0.1.0", root).stderr).toContain("error: validate needs a saved report and an outcomes file, got 1");
+    expect(runCli(["validate", sample, "missing.json"], "0.1.0", root).stderr).toContain("missing.json: file not found");
+    expect(runCli(["validate", sample, outcomesFile("broken.json", "{")], "0.1.0", root).stderr).toContain("broken.json: invalid JSON");
+    const bad = runCli(["validate", sample, outcomesFile("bad.json", { ...good, schemaVersion: 9 })], "0.1.0", root);
+    expect(bad).toMatchObject({ exitCode: 2, stderr: expect.stringContaining("schemaVersion must be 1") });
+  });
+});

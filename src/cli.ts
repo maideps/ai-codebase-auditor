@@ -40,6 +40,7 @@ import type { Result } from "./result.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
 import type { ServerInfo } from "./mcp/server.js";
 import { parseSavedReport } from "./report/saved.js";
+import { formatValidation, parseOutcomes, renderValidationJson, renderValidationMarkdown, validateZones, VALIDATION_FILES } from "./validate/validate.js";
 import { auditedEntry, buildPortfolio, formatPortfolio, parseRepoList, PORTFOLIO_FILES, renderPortfolioJson, renderPortfolioMarkdown, type PortfolioEntry } from "./batch/batch.js";
 import { COMPARISON_FILES, compareReports, formatComparison, renderComparisonJson, renderComparisonMarkdown } from "./compare/compare.js";
 import { serveStdio } from "./mcp/stdio.js";
@@ -58,6 +59,7 @@ const EXIT_USAGE = 2;
 export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>] [--fail-on <verdict>]
        ai-codebase-auditor audit-batch <list-file> --out <dir> [--config <file>] [--deferrals <file>] [--harness <file>]
        ai-codebase-auditor compare <before.json> <after.json> [--out <dir>]
+       ai-codebase-auditor validate <report.json> <outcomes.json> [--out <dir>]
        ai-codebase-auditor mcp <report.json>
        ai-codebase-auditor --help | --version
 
@@ -68,6 +70,7 @@ Commands:
   audit <repo-path>      Audit the git working tree at <repo-path>
   audit-batch <list>     Audit every repository path in <list> (one per line) into <dir>/<name>/, plus a portfolio summary
   compare <a> <b>        Show what changed between two saved JSON reports of one repository
+  validate <r> <o>       Compare a report's zones with agent task outcomes recorded by another tool
   mcp <report.json>      Serve a saved JSON report read-only to agents over MCP (stdio)
 
 Options:
@@ -621,6 +624,45 @@ Portfolio written:
   }
 }
 
+function runValidate(args: readonly string[], cwd: string): CliResult {
+  let parsed;
+  try {
+    parsed = parseArgs({ args: [...args], options: { out: { type: "string", short: "o" } }, allowPositionals: true, strict: true });
+  } catch (error) {
+    return usageError([(error as Error).message]);
+  }
+  const { positionals } = parsed;
+  if (positionals.length !== 2) return usageError([`validate needs a saved report and an outcomes file, got ${positionals.length}`]);
+  const [reportPath = "", outcomesPath = ""] = positionals;
+  const read = readSavedReport(cwd, reportPath);
+  if ("exitCode" in read) return read;
+  const outcomesSource = path.resolve(cwd, outcomesPath);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(outcomesSource, "utf8"));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return usageError([`${outcomesSource}: ${code === "ENOENT" ? "file not found" : code ? `cannot read file (${code})` : `invalid JSON (${(error as Error).message})`}`]);
+  }
+  const outcomes = parseOutcomes(raw, outcomesSource);
+  if (!outcomes.ok) return usageError(outcomes.errors);
+  const validation = validateZones(read.report, outcomes.value);
+  const text = formatValidation(validation);
+  if (parsed.values.out === undefined) return { exitCode: EXIT_OK, stdout: text, stderr: "" };
+  const outDir = path.resolve(cwd, parsed.values.out);
+  const inside = existsSync(validation.target) ? checkOutDir(outDir, validation.target) : [];
+  if (inside.length > 0) return usageError(inside);
+  try {
+    const [markdown, json] = writeOutFiles(outDir, [
+      { name: VALIDATION_FILES.markdown, content: renderValidationMarkdown(validation) },
+      { name: VALIDATION_FILES.json, content: renderValidationJson(validation) },
+    ]);
+    return { exitCode: EXIT_OK, stdout: `${text}\nValidation written:\n  ${markdown}\n  ${json}\n`, stderr: "" };
+  } catch (error) {
+    return { exitCode: EXIT_FAILURE, stdout: text, stderr: `error: cannot write the validation to ${outDir}: ${(error as Error).message}\n` };
+  }
+}
+
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
   const [command, ...rest] = args;
   if (command === undefined || command === "-h" || command === "--help") {
@@ -632,6 +674,7 @@ export function runCli(args: readonly string[], version: string, cwd: string = p
   if (command === "audit") return runAudit(rest, version, cwd);
   if (command === "compare") return runCompare(rest, cwd);
   if (command === "audit-batch") return runBatch(rest, version, cwd);
+  if (command === "validate") return runValidate(rest, cwd);
   if (command === "mcp") {
     // The server itself runs only as a process (see the main block); here the arguments and report are checked.
     const prepared = prepareMcp(rest, version, cwd);

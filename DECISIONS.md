@@ -551,3 +551,21 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: DOOM is measured (direct-api-calls 5, 7 sites in 2 of 146 files, all true positives) and its verdict is no longer provisional. Every calibration repository now has both blocking factors measured.
 - Negative: function pointers stored in variables and called by name are invisible to this factor, even when they were picked at run time.
+
+### D-029: validate measures zones against outcomes that another runner recorded
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-024.md.
+**Context:** the biggest gap in the November survey: no evidence that the zones predict agent outcomes (D-018). Measuring that means running agents, which the auditor must never do.
+**Decision:**
+- `validate <report.json> <outcomes.json>` reads tasks recorded by a separate runner, in the documented `ai-codebase-auditor/outcomes` schema (`id`, `filesChanged`, `passed`; optional `model`, `harness`, `runner`).
+- Each task counts in the riskiest zone it touched, using the same lookup as `get_zone` (now `src/report/zone-of.ts`).
+- It reports pass counts and rates with 95% Wilson intervals per zone and overall. A zone needs at least 5 tasks for a rate.
+- It also reports whether green ≥ yellow ≥ red holds, the tasks that touched red paths, the unzoned paths, and a note on mixed models or harnesses.
+**Alternatives considered:**
+- Running a pinned agent from the auditor — Rejected: it would execute untrusted code and agents (PRODUCT.md non-goals).
+- A significance test between zones — Deferred: intervals are honest at small sample sizes, and a test needs a pre-registered design.
+- Counting a task in every zone it touched — Rejected: one task would count several times, and the riskiest file is what decides the guardrail.
+**Consequences:**
+- Positive: any runner that writes the documented file can test the zones, and the result is reproducible from two files.
+- Negative: the zones are not validated until someone runs agents and records outcomes, and small samples give wide intervals.

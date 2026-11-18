@@ -34,9 +34,10 @@ src/
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red and yellow paths), hotspots.ts (hotspots and test-name matching), gate.ts (--fail-on verdict gate), decide.ts
   plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort), files.ts (copy-ready harness files for --out/harness/)
-  report/             model.ts (one AuditReport model), saved.ts (reading saved reports back), json.ts, markdown.ts, sarif.ts (SARIF 2.1.0 for code scanning), write.ts (--out, target guard)
+  report/             model.ts (one AuditReport model), saved.ts (reading saved reports back), zone-of.ts (a path's zone, for mcp and validate), json.ts, markdown.ts, sarif.ts (SARIF 2.1.0 for code scanning), write.ts (--out, target guard)
   batch/              batch.ts (list parsing, per-repository folders, the portfolio summary)
   compare/            compare.ts (what changed between two saved reports; text, Markdown and JSON)
+  validate/           validate.ts (the outcomes schema, zone agreement with Wilson intervals, renderings)
   mcp/                server.ts (read-only MCP tools over a saved report, JSON-RPC handling), stdio.ts (line transport)
 config/
   factors.json        factor list, blocking vs. constraining, thresholds
@@ -68,6 +69,7 @@ repository (read-only)
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
 - `report` depends on collector, scoring, decision and plan output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target; generated harness files with an absolute path or `..` are refused.
 - `batch` depends on the report model types only, and is pure; the CLI reads the list file, runs one audit per repository through the same pipeline as `audit` (`auditOne`, `writeAuditFiles`), and isolates each failure.
+- `validate` depends on the report model and `report/zone-of.ts`, and is pure; outcomes come from a separate runner, and the auditor never runs agents.
 - `compare` depends on the report model types only, and is pure; the CLI reads the reports and `report/write.ts` writes the results.
 - `mcp` depends on the report model and decision output types only; it answers from a parsed saved report and never audits, reads the target or spawns anything. `server.ts` is pure, and `stdio.ts` is the only transport.
 - The CLI takes one audit date (UTC) and passes the end of that day to every date-based step, so reports are byte-identical for the same repository, configs and date.
@@ -76,7 +78,7 @@ repository (read-only)
 - `scoring` depends on collector output types, `file-kinds` and loaded config (factors with thresholds, deferrals); it is pure and never reads the repository. Every threshold lives in `config/factors.json`; rules hold no default numbers, and `checkThresholds` rejects missing, unused or out-of-order thresholds at startup.
 - Collectors depend on nothing but Node built-ins, `collectors/types.ts`, the shared helpers `collectors/git.ts` and `collectors/tree.ts`, and external read-only tools (git, scc, Lizard). They never depend on each other, so a new source is a new collector, not a pipeline change.
 - A collector that cannot measure returns `not-measured` with a reason; it never throws for an expected condition (missing tool, shallow clone, empty repository) and never substitutes a guess.
-- Only collectors spawn processes, and only collectors, `target` and `config` read the file system, plus `cli`, which reads saved reports for `mcp` and `compare` and the list file for `audit-batch`. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
+- Only collectors spawn processes, and only collectors, `target` and `config` read the file system, plus `cli`, which reads saved reports for `mcp`, `compare` and `validate`, an outcomes file for `validate`, and the list file for `audit-batch`. Every spawned command is read-only (for example `git log`, never `git checkout`) and runs against the target path, never through the target's own scripts.
 - File content is read only through `readTrackedFile` in `collectors/tree.ts`, and only for regular files inside the target: symlinks and submodules are skipped by their tree mode, and a file whose real path leaves the target is skipped too.
 - Git runs pinned to the target (in `collectors/git.ts`): `GIT_CEILING_DIRECTORIES` stops it from finding an enclosing repository, inherited `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are cleared, optional locks are off, and `core.fsmonitor` is disabled so a target's own config cannot start a program.
 - `src/testing/` is imported only by tests and is excluded from the build.

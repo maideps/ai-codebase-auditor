@@ -218,6 +218,31 @@ Ties go to blocking factors, then config order. `verdictAfter` is the verdict th
 
 A missing path, a directory that is not a git working tree, or an audit that fails is recorded with its reason, and the other repositories still run. The exit code is 1 when any repository failed, and 2 for argument, list or config errors (D-026). `--config`, `--deferrals` and `--harness` apply to every repository.
 
+### Validating zones against agent outcomes
+
+`validate <report.json> <outcomes.json>` checks whether the zones predict how agent tasks went. The auditor never runs agents or the audited code: a separate runner (for example a harness that replays historical bug fixes with a pinned agent) records one entry per task in an outcomes file:
+
+```json
+{
+  "schema": "ai-codebase-auditor/outcomes",
+  "schemaVersion": 1,
+  "runner": "my-replay-runner 0.3",
+  "tasks": [
+    { "id": "fix-1042", "filesChanged": ["app/models/issue.rb"], "passed": true, "model": "claude-opus-5-5", "harness": "ai-harness-framework 0.5.0" },
+    { "id": "fix-1077", "filesChanged": ["app/models/role.rb", "test/unit/role_test.rb"], "passed": false }
+  ]
+}
+```
+
+`id`, `filesChanged` (paths relative to the repository root) and `passed` are required. `runner`, `model` and `harness` are optional. Each task counts in the zone of the riskiest file it changed: red, then yellow (a yellow module or a yellow path), then green, as `get_zone` answers. Files outside every zoned module (tests, docs, unknown paths) do not raise a task's zone, and they are listed.
+
+The command reports, per zone and for all tasks, the tasks and passes, with a rate and a 95% Wilson interval once a zone has at least 5 tasks; below that, it gives the counts and says so. It also reports:
+- whether green ≥ yellow ≥ red holds among the rated zones, or which pair breaks it;
+- the tasks that touched red paths;
+- a note when tasks mix models or harnesses.
+
+With `--out <dir>`, it writes `ai-readiness-validation.md` and `.json` (`schema: ai-codebase-auditor/validation`, version 1). A bad outcomes file exits with code 2 and names every problem (D-029).
+
 ### Comparing two audits
 
 `compare <before.json> <after.json>` prints what changed between two saved reports of the same repository (the same `target.path`). It covers:

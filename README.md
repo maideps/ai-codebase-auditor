@@ -67,7 +67,7 @@ With `--out`, the same content is written as a Markdown report for people, a JSO
 node dist/cli.js mcp ../audit-reports/some-legacy-repo/ai-readiness-report.json
 ```
 
-It answers `get_zone`, `get_verdict`, `get_factor`, the red and yellow paths and the roadmap, read-only. To audit many repositories at once, list their paths in a file and run `audit-batch` on it (for example `node dist/cli.js audit-batch repos.txt --out <dir>`). Each one is audited in its own folder, a failure never stops the rest, and a portfolio summary ranks them worst verdict first. To see what moved after following the roadmap, compare two saved reports of the same repository with `node dist/cli.js compare before.json after.json`. It shows score and verdict changes, zone moves, path changes and the roadmap steps that were completed. The [risk-zones skill](config/agent-skills/risk-zones/SKILL.md) tells agents how to use it.
+It answers `get_zone`, `get_verdict`, `get_factor`, the red and yellow paths and the roadmap, read-only. To audit many repositories at once, list their paths in a file and run `audit-batch` on it (for example `node dist/cli.js audit-batch repos.txt --out <dir>`). Each one is audited in its own folder, a failure never stops the rest, and a portfolio summary ranks them worst verdict first. To check the zones against reality, record agent task outcomes with a separate runner and pass them to `validate`, which reports pass rates per zone with confidence intervals and whether green ≥ yellow ≥ red holds; the auditor itself never runs agents. To see what moved after following the roadmap, compare two saved reports of the same repository with `node dist/cli.js compare before.json after.json`. It shows score and verdict changes, zone moves, path changes and the roadmap steps that were completed. The [risk-zones skill](config/agent-skills/risk-zones/SKILL.md) tells agents how to use it.
 
 ## Quick Start
 
@@ -173,7 +173,7 @@ DOOM's direct-api-calls is measured since the C rules (feat-023): 7 calls throug
 
 ## Status and Limits
 
-Version 2 is complete: the audit, the reports, the harness adaptation plan and the modernization roadmap.
+Version 3 is complete: on top of version 2 (the audit, the reports, the harness adaptation plan and the modernization roadmap), it adds hotspots as yellow paths, the MCP server, SARIF and the verdict gate, the package and GitHub Action, generated harness files, `compare`, `audit-batch`, direct-call rules for C#, Go, C and C++, and `validate`. The zones have not yet been validated against real agent outcomes: that needs outcome data from a separate runner.
 - Observability measures what the repository has for logging and reporting, not whether anyone reads the logs.
 - Module boundaries come from how files changed together, so layouts where co-change is by design count as coupling, such as Rails migrations with their models.
 - Direct calls are detected for Python, PHP, Ruby, Java, JavaScript, TypeScript, C#, Go, C and C++ only, by pattern matching rather than parsing. Dispatch wired through configuration (dependency injection, XML mappings, callbacks by symbol) is not counted.

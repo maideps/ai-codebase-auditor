@@ -232,3 +232,19 @@ describe("audit-batch", () => {
     expect(snapshot(second)).toEqual(beforeSecond);
   });
 });
+
+describe("validate", () => {
+  it("validates a fresh report's zones against a recorded outcomes file", () => {
+    const out = path.join(scratch, "report-validate");
+    expect(run("audit", repo, "--out", out).status).toBe(0);
+    const outcomes = path.join(scratch, "outcomes.json");
+    writeFileSync(outcomes, JSON.stringify({
+      schema: "ai-codebase-auditor/outcomes", schemaVersion: 1, runner: "e2e",
+      tasks: [{ id: "a", filesChanged: ["src/app.js"], passed: true }, { id: "b", filesChanged: ["README.md"], passed: false }],
+    }));
+    const result = run("validate", path.join(out, "ai-readiness-report.json"), outcomes, "--out", path.join(scratch, "validation"));
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("against 2 recorded tasks from e2e");
+    expect(result.stdout).toContain("Ordering green ≥ yellow ≥ red: not enough data");
+  });
+});
