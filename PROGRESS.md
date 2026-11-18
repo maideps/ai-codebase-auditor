@@ -11,10 +11,10 @@ After adding or updating a session note, regenerate this file with `node scripts
 - Primary startup command: `./init.sh`
 - Primary verification command: `make check` (make-free equivalent: `npm run check`)
 - Active feature: none
-- Passing features (21): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap, feat-011 — Direct-api-calls collector, feat-012 — Module-boundaries collector, feat-013 — Observability collector, feat-014 — Hotspots in risk zones, feat-016 — Read-only MCP server over a saved report, feat-017 — SARIF output and a verdict gate for CI, feat-018 — Installable package and GitHub Action, feat-019 — Generated harness files in the output directory, feat-020 — Compare two audits, feat-021 — Portfolio audit of many repositories, feat-022 — Direct-call rules for C# and Go
+- Passing features (22): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap, feat-011 — Direct-api-calls collector, feat-012 — Module-boundaries collector, feat-013 — Observability collector, feat-014 — Hotspots in risk zones, feat-016 — Read-only MCP server over a saved report, feat-017 — SARIF output and a verdict gate for CI, feat-018 — Installable package and GitHub Action, feat-019 — Generated harness files in the output directory, feat-020 — Compare two audits, feat-021 — Portfolio audit of many repositories, feat-022 — Direct-call rules for C# and Go, feat-023 — Direct-call rules for C and C++
 - Failing/blocked features: none
-- Planned features (2): feat-023 — Direct-call rules for C and C++, feat-024 — Agreement between zones and recorded agent outcomes
-- Last evidence: feat-022 — Direct-call rules for C# and Go — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-11-18T20:59:36.049Z)
+- Planned features (1): feat-024 — Agreement between zones and recorded agent outcomes
+- Last evidence: feat-023 — Direct-call rules for C and C++ — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-11-18T21:09:13.214Z)
 
 ## Session Index
 
@@ -43,4 +43,5 @@ After adding or updating a session note, regenerate this file with `node scripts
 - [Session 023 — 2026-11-18 — feat-020 Compare two audits](progress/023-2026-11-18.md)
 - [Session 024 — 2026-11-18 — feat-021 Portfolio audit](progress/024-2026-11-18.md)
 - [Session 025 — 2026-11-18 — feat-022 Direct-call rules for C# and Go](progress/025-2026-11-18.md)
+- [Session 026 — 2026-11-18 — feat-023 Direct-call rules for C and C++](progress/026-2026-11-18.md)
 <!-- END GENERATED PROGRESS -->
