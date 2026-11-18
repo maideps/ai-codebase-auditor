@@ -337,3 +337,22 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
   - the name lists need updates as libraries change;
   - the receiver-name pattern can miss loggers with unusual names;
   - on this calibration set every repository scores 3, so the factor does not yet tell them apart.
+
+### D-018: Version 3 backlog from the November 2026 prior-art refresh
+
+**Date:** 2026-11-18
+**Status:** accepted as a plan (feat-014 to feat-024 declared, none started)
+**Context:** a second prior-art pass (docs/concept-and-architecture.md, "Refresh on 2026-11-18") found new readiness tools from Factory, AWS Transform, CAST and CodeScene, and open-source tools that ship a skill and an MCP server beside the CLI. The gaps against them: no evidence that zones predict agent outcomes; risk zones that ignore the churn, complexity and author data already collected; no way for agents or CI to consume the result; no comparison over time or across a portfolio; no direct-call rules for C#, Go, C or C++.
+**Decision:**
+- Declare eleven features, each completable in one session: hotspots and knowledge risk in zones (feat-014, feat-015); a read-only MCP server over a saved report (feat-016); SARIF and a `--fail-on` gate (feat-017); an installable package and GitHub Action (feat-018); generated harness files under `--out` (feat-019); comparing two audits (feat-020); a portfolio batch audit (feat-021); direct-call rules for C# and Go, then C and C++ (feat-022, feat-023); agreement between zones and recorded agent outcomes (feat-024).
+- Hotspots and knowledge risk change zones only, never factor scores or the verdict. The minimal-pair study (arXiv 2605.20049) found that code cleanliness changed agent cost, not pass rate.
+- Validation stays outside the auditor: feat-024 reads outcomes that a separate runner recorded. Running agents or the audited code would break the PRODUCT.md non-goals.
+- The MCP server and generated harness files read a saved report and write only under `--out`, so the audited repository stays untouched.
+**Alternatives considered:**
+- Adding pillars that check for files (AGENTS.md, devcontainer, pre-commit) like the presence-based tools — Rejected: presence is not readiness (D-008 and arXiv 2602.11988).
+- A weighted 0–100 score to match Factory and CAST — Rejected: the lowest blocking factor sets the level (D-010).
+- Running agents from the auditor to validate zones — Rejected: it would execute untrusted code.
+- COBOL rules — Deferred: no calibration repository.
+**Consequences:**
+- Positive: the tool's differences (legacy focus, per-module zones, harness plan) stay, and it gains the CI, agent and portfolio surfaces the other tools have.
+- Negative: the CLI gains four commands (mcp, compare, audit-batch, validate) that share `src/cli.ts`, so those features conflict when run in parallel lanes; the MCP server would add the product's first runtime dependency (the MCP SDK), unless the protocol is implemented directly; zone rules gain thresholds that need calibration.

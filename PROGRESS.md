@@ -13,7 +13,7 @@ After adding or updating a session note, regenerate this file with `node scripts
 - Active feature: none
 - Passing features (13): feat-001 — CLI skeleton and config loader, feat-002 — Git-history collector, feat-003 — Code-structure collector, feat-004 — Tests and docs detector, feat-005 — Dependency collector, feat-006 — Scoring engine, feat-007 — Decision engine, feat-008 — Markdown and JSON report writers, feat-009 — Calibration run on the five test repos, feat-010 — Version 2: harness adaptation plan and modernization roadmap, feat-011 — Direct-api-calls collector, feat-012 — Module-boundaries collector, feat-013 — Observability collector
 - Failing/blocked features: none
-- Planned features (0): none
+- Planned features (11): feat-014 — Hotspots in risk zones, feat-015 — Knowledge risk in risk zones, feat-016 — Read-only MCP server over a saved report, feat-017 — SARIF output and a verdict gate for CI, feat-018 — Installable package and GitHub Action, feat-019 — Generated harness files in the output directory, feat-020 — Compare two audits, feat-021 — Portfolio audit of many repositories, feat-022 — Direct-call rules for C# and Go, feat-023 — Direct-call rules for C and C++, feat-024 — Agreement between zones and recorded agent outcomes
 - Last evidence: feat-013 — Observability collector — All verification layers passed via node scripts/framework-check.mjs verify-feature (SKIP reported in: Layer 3: System confirmation) (2026-10-23T15:38:43.164Z)
 
 ## Session Index
@@ -32,4 +32,5 @@ After adding or updating a session note, regenerate this file with `node scripts
 - [Session 012 — 2026-10-23 — feat-012 Module-boundaries collector](progress/012-2026-10-23.md)
 - [Session 013 — 2026-10-23 — feat-013 Observability collector](progress/013-2026-10-23.md)
 - [Session 014 — 2026-11-17 — Harness upgrade to ai-harness-framework 7aefd1d](progress/014-2026-11-17.md)
+- [Session 015 — 2026-11-18 — Version 3 backlog from the prior-art refresh](progress/015-2026-11-18.md)
 <!-- END GENERATED PROGRESS -->

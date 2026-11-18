@@ -80,6 +80,23 @@ Not decided yet:
 - **Rework the documented-intent factor:** check that non-standard practices are written down, not that AGENTS.md exists.
 - **Consider policy packs in version 2:** severity profiles such as strict and relaxed, as napetrov/agentready does.
 
+### Refresh on 2026-11-18
+
+A second pass, after version 2 was complete. Vendor claims are unverified.
+
+| Tool or source | What is new | Gap it shows here |
+| --- | --- | --- |
+| [Factory Agent Readiness](https://docs.factory.ai/agent-readiness/overview) | 9 pillars and 5 levels; `/readiness-fix` works through failing criteria; dashboard, API and public reports | Findings turn into fixes; here the roadmap is advice only |
+| [AWS Transform Agentic Readiness Analysis](https://aws.amazon.com/blogs/migration-and-modernization/new-in-aws-transform-analyze-your-code-for-modernization-and-agentic-readiness/) | Preview, 2026; 56 criteria in 5 categories with remediation; runs from a CLI or an MCP-compatible agent | Asks whether agents can *call* an application, not *edit* it |
+| [CAST Highlight Agentic Readiness](https://doc.casthighlight.com/acceleration-insights-agentic-readiness/) | June 2026; 43 criteria, 0–100 per application across a portfolio, plotted against business impact | Portfolios of legacy applications; here one repository at a time |
+| [CodeScene CodeHealth MCP](https://codescene.com/product/mcp-server) | Agents query code health while they edit | Guidance at edit time; hotspots (churn × health) |
+| [agent-next/agent-ready](https://github.com/agent-next/agent-ready), [Luminary agent-readiness](https://github.com/Luminary-AI-Solutions/agent-readiness) | CLI, skill and MCP server together | Agents and CI cannot consume this tool's result directly |
+| [agent-readiness-probe](https://github.com/swaroopv4/agent-readiness-probe) | Rebuilds historical bug-fix tasks and runs a pinned agent in containers; one repository, descriptive results | The only attempt found to check readiness against agent outcomes |
+| [Trivedi and Schmitt, arXiv 2605.20049](https://arxiv.org/abs/2605.20049) | Minimal pairs, 660 Claude Code trials: cleanliness did not change pass rate; cleaner code used about 7–8% fewer tokens and 34% fewer file revisits | Complexity is a cost signal for zones, not a blocking factor |
+| [dvnc.dev](https://dvnc.dev/blog/repository-readiness-score-coding-agent-release-gate) | A readiness score is inventory, not evidence | Calibration here is against human labels, not agent runs |
+
+The resulting backlog is feat-014 to feat-024 in `feature_list.json`, with the reasons in DECISIONS.md D-018.
+
 ## How this differs from existing tools
 
 Existing tools ask whether a repo is set up for AI agents and score the files and settings present. This project asks whether a legacy codebase is safe for agents to change, and what to do about it.

@@ -398,6 +398,352 @@
           "repair": "Resolve cross-layer issues and rerun full verification."
         }
       ]
+    },
+    {
+      "id": "feat-014",
+      "name": "Hotspots in risk zones",
+      "behavior": "Uses the git-history and code-structure signals already collected to mark hotspot files: product files whose commits in the last 12 months and whose complexity (scc) or length are both in the top share of their module. A green module that holds a hotspot without a matching test file becomes yellow, and the hotspot is listed with its commit counts, complexity, length and the missing test as evidence. Thresholds live in config/decision.json. Factor scores and the verdict do not change.",
+      "verification": "Unit tests cover the hotspot rule at each threshold edge, with and without scc data and with and without a matching test file, and the zone change it causes. The five calibration repositories are re-audited and every hotspot that changes a zone is checked against the clone.",
+      "dependencies": [
+        "feat-002",
+        "feat-003",
+        "feat-007"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/decision/hotspots",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-015",
+      "name": "Knowledge risk in risk zones",
+      "behavior": "Marks product files whose whole history has a single author, or whose last commit is older than a configured age while the rest of the module still changes (dormant code). A green module where such files hold more than a configured share of its lines becomes yellow, citing the files, authors and last commit dates. A shallow clone or missing history leaves the rule not measured, never guessed. Thresholds live in config/decision.json. Factor scores and the verdict do not change.",
+      "verification": "Fixture repositories with known authors and dates cover single-author, dormant and shallow cases at each threshold edge. The five calibration repositories are re-audited and every zone change is checked against git log.",
+      "dependencies": [
+        "feat-014"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/decision/knowledge",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-016",
+      "name": "Read-only MCP server over a saved report",
+      "behavior": "`ai-codebase-auditor mcp <report.json>` starts a stdio MCP server that answers from a saved JSON report only: the verdict and its rule, one factor's score and evidence, the zone of a given path with its reason (red paths win over their module), the red paths, and the roadmap. It never re-audits, reads the audited repository or runs anything, and it refuses a report whose schemaVersion it does not support. A skill file in templates/ tells agents to ask for a path's zone before editing it.",
+      "verification": "Unit tests call every tool against a fixture report, including a red path inside a green module, an unknown path and an unsupported schemaVersion. An e2e test starts the built server, lists its tools and calls each one over stdio.",
+      "dependencies": [
+        "feat-008",
+        "feat-015"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/mcp",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-017",
+      "name": "SARIF output and a verdict gate for CI",
+      "behavior": "With --out, the audit also writes ai-readiness-report.sarif (SARIF 2.1.0): one result per weak factor, yellow module and red path, each with its rule id, level, location and the evidence text from the JSON report. `--fail-on <adapt|prepare-first>` exits with code 1 when the verdict is at or below that level, and a provisional verdict is reported as such. Without --fail-on, exit codes are unchanged. Output stays deterministic.",
+      "verification": "Unit tests validate the SARIF output against the 2.1.0 schema for the calibration-like fixtures and cover each --fail-on level, the provisional case and invalid values (exit code 2). The e2e smoke test checks the exit codes of the built CLI.",
+      "dependencies": [
+        "feat-008"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/report/sarif src/cli",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-018",
+      "name": "Installable package and GitHub Action",
+      "behavior": "`npm pack` produces a package that installs and runs with `npx ai-codebase-auditor audit <repo>` on Node.js 18 or newer, holding only dist/, config/, templates the product needs, README.md and LICENSE. A composite GitHub Action (action.yml) runs the audit on the checked-out repository, uploads the SARIF report to code scanning, attaches the Markdown report as the job summary, and passes --fail-on through. Publishing to npm or the Marketplace stays a human step.",
+      "verification": "An e2e test packs the tarball, installs it into a temporary directory and audits a fixture repository with the installed binary, and checks the tarball's file list. The Action is run in this repository's CI against a fixture repository.",
+      "dependencies": [
+        "feat-016",
+        "feat-017"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run --config vitest.e2e.config.ts e2e/package",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-019",
+      "name": "Generated harness files in the output directory",
+      "behavior": "With --out, writes a harness/ folder beside the reports, never into the audited repository: a Claude Code settings fragment with permissions.deny entries for the red paths, AGENTS.md rule snippets for each required and recommended adaptation, and a characterization-test checklist per yellow module listing its hotspots. Every generated item cites the plan item, factor score or zone behind it, and each roadmap step gets a check that re-auditing confirms (the factor and score it should reach). Same input gives identical bytes.",
+      "verification": "Unit tests map each plan item and zone to its generated file content, including a repository with no red paths and no yellow modules. The e2e test audits a fixture repository and checks that the folder exists under --out and that nothing was written to the target.",
+      "dependencies": [
+        "feat-010",
+        "feat-015"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/plan/files",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-020",
+      "name": "Compare two audits",
+      "behavior": "`ai-codebase-auditor compare <before.json> <after.json>` reports what changed between two saved reports of the same repository: the verdict, each factor's score and reason, zone changes per module, red paths added or removed, and roadmap steps completed, with both audited commits. Reports of different repositories or unsupported schemaVersions are refused with exit code 2. With --out, writes the comparison as Markdown and JSON.",
+      "verification": "Unit tests compare fixture reports with no change, a raised and a lowered score, a verdict change, zone moves, a different repository and mismatched schema versions. The e2e test audits a fixture repository at two commits and compares the results.",
+      "dependencies": [
+        "feat-008"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/compare",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-021",
+      "name": "Portfolio audit of many repositories",
+      "behavior": "`ai-codebase-auditor audit-batch <list-file> --out <dir>` audits each repository path in the list into its own subfolder, so one failing repository is reported with its error and never stops the rest. It writes a portfolio summary in Markdown and JSON: each repository's verdict, readiness level, weak factors and red-path count, sorted by verdict, plus counts per verdict. The same safety rules as a single audit apply to every repository.",
+      "verification": "Unit tests cover list parsing, a missing path, a non-git directory and a repository whose audit throws, beside healthy ones. The e2e test runs a batch of fixture repositories, one of them broken, and checks the summary and the per-repository reports.",
+      "dependencies": [
+        "feat-008"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/batch",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-022",
+      "name": "Direct-call rules for C# and Go",
+      "behavior": "Extends the direct-api-calls collector to C# (reflection invokes, Activator.CreateInstance, Type.GetType with a computed name, the dynamic keyword) and Go (reflect.Value.Call, MethodByName, plugin.Lookup), with comments and strings stripped, so repositories in those languages are measured instead of not measured or provisional.",
+      "verification": "Fixture files cover every new detection rule and exclusion in both languages, the coverage rule counts both languages, and a public legacy C# or Go repository is audited with a sample of findings checked against the clone.",
+      "dependencies": [
+        "feat-011"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/dynamic-calls",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-023",
+      "name": "Direct-call rules for C and C++",
+      "behavior": "Extends the direct-api-calls collector to C and C++: symbol lookup by name (dlsym, GetProcAddress) and calls through function-pointer tables indexed by a computed value, with comments and strings stripped, so DOOM's verdict is no longer provisional for lack of direct-call rules.",
+      "verification": "Fixture files cover every new detection rule and exclusion, including function pointers called directly by name, which do not count. DOOM is re-audited, the case study is updated, and a sample of its findings is checked against the clone.",
+      "dependencies": [
+        "feat-022"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/collectors/dynamic-calls",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
+    },
+    {
+      "id": "feat-024",
+      "name": "Agreement between zones and recorded agent outcomes",
+      "behavior": "`ai-codebase-auditor validate <report.json> <outcomes.json>` reads agent task outcomes recorded by a separate runner (task id, files changed, passed or failed, model and harness used) in a documented schema, and reports success counts and rates with confidence intervals per zone and per verdict, whether green ≥ yellow ≥ red holds, and which tasks touched red paths. The auditor never runs agents or the audited code; with too few tasks per zone it says so instead of reporting a rate.",
+      "verification": "Unit tests cover the outcomes schema, a file that names paths missing from the report, ordered and unordered results, and zones with too few tasks. The e2e test validates a fixture outcomes file against a fixture report.",
+      "dependencies": [
+        "feat-015"
+      ],
+      "layers": [
+        {
+          "label": "Layer 1: Static checks",
+          "cmd": "npm run lint",
+          "repair": "Fix static-analysis issues and rerun the layer command."
+        },
+        {
+          "label": "Layer 2: Runtime tests",
+          "cmd": "npm run test",
+          "repair": "Fix failing tests and rerun the layer command."
+        },
+        {
+          "label": "Layer 2b: Feature tests",
+          "cmd": "npx vitest run src/validate",
+          "repair": "Add or fix this feature's own tests; the layer fails when none exist."
+        },
+        {
+          "label": "Layer 3: System confirmation",
+          "cmd": "npm run check",
+          "repair": "Resolve cross-layer issues and rerun full verification."
+        }
+      ]
     }
   ]
 }
