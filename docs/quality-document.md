@@ -56,7 +56,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-017 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-018 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -71,6 +71,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-11-18: feat-018 made the package installable (`prepack` clean build, an e2e test that installs the tarball and audits with it) and added the composite GitHub Action `action.yml` with a CI job (D-023). Modules touched: packaging and CI only; ratings unchanged. The Action's CI job has not run yet: nothing was pushed.
 - 2026-11-18: feat-017 added the SARIF 2.1.0 report (`src/report/sarif.ts`) and the `--fail-on` verdict gate (`src/decision/gate.ts`) (D-022). Modules touched: report, decision, cli; ratings unchanged. SARIF is checked against the schema's required structure, not the full schema.
 - 2026-11-18: feat-016 added the read-only MCP server `mcp <report.json>` (`src/mcp/`, no dependency) and the risk-zones agent skill (D-021). Modules touched: mcp (new), cli.
 - 2026-11-18: feat-014 added hotspots in green modules and yellow paths (`src/decision/hotspots.ts`, `hotspots` in `config/decision.json`), the yellow-paths plan item, and report schemaVersion 7 (D-019). Modules touched: decision, config/decision, plan, report, cli; ratings unchanged. Known limit: tests are matched by name, so 6 of the 14 calibration yellow paths are tested under another name.
