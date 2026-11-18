@@ -30,6 +30,8 @@ function knownRepo(): string {
         "web/index.php": "<?php\n$handler = $_GET['h'];\n$handler();\n",
         "lib/model.rb": "class M\n  def method_missing(sym, *args)\n    super\n  end\nend\n",
         "src/Loader.java": "class Loader {\n  Object load(String n) throws Exception {\n    return Class.forName(n).getDeclaredConstructor().newInstance();\n  }\n}\n",
+        "svc/Factory.cs": "class Factory {\n  object Make(string t) => Activator.CreateInstance(Type.GetType(t));\n}\n",
+        "cmd/run.go": "package main\n\nimport \"reflect\"\n\nfunc call(o any, m string) { reflect.ValueOf(o).MethodByName(m).Call(nil) }\n",
         "ui/app.ts": "export const run = (handlers: Record<string, () => void>, key: string) => handlers[key]();\n",
         "ui/app.min.js": "eval(x);\n",
         "ui/bundle.js": `var a=${"1".repeat(1200)};eval(a);\n`,
@@ -60,8 +62,10 @@ describe("collectDynamicCalls on a repository with every covered language", () =
     expect(value.files).toEqual([
       { path: "app/plain.py", family: "python", lines: 2, sites: [] },
       { path: "app/plugins.py", family: "python", lines: 4, sites: [{ line: 4, construct: "import by name", excerpt: "return importlib.import_module(name)" }] },
+      { path: "cmd/run.go", family: "go", lines: 5, sites: [{ line: 5, construct: "MethodByName", excerpt: "func call(o any, m string) { reflect.ValueOf(o).MethodByName(m).Call(nil) }" }, { line: 5, construct: "reflect Call", excerpt: "func call(o any, m string) { reflect.ValueOf(o).MethodByName(m).Call(nil) }" }] },
       { path: "lib/model.rb", family: "ruby", lines: 5, sites: [{ line: 2, construct: "method_missing", excerpt: "def method_missing(sym, *args)" }] },
       { path: "src/Loader.java", family: "java", lines: 5, sites: [{ line: 3, construct: "Class.forName by name", excerpt: "return Class.forName(n).getDeclaredConstructor().newInstance();" }] },
+      { path: "svc/Factory.cs", family: "csharp", lines: 3, sites: [{ line: 2, construct: "Activator.CreateInstance", excerpt: "object Make(string t) => Activator.CreateInstance(Type.GetType(t));" }, { line: 2, construct: "GetType by name", excerpt: "object Make(string t) => Activator.CreateInstance(Type.GetType(t));" }] },
       { path: "ui/app.ts", family: "javascript", lines: 1, sites: [{ line: 1, construct: "computed call", excerpt: "export const run = (handlers: Record<string, () => void>, key: string) => handlers[key]();" }] },
       { path: "web/index.php", family: "php", lines: 3, sites: [{ line: 3, construct: "variable function", excerpt: "$handler();" }] },
     ]);

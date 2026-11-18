@@ -45,7 +45,7 @@ const EXCERPT_LENGTH = 120;
 
 const NOTES = [
   "files are those tracked at HEAD; content is read from the working tree; nothing is run",
-  "covered languages: Python, PHP, Ruby, Java, JavaScript and TypeScript",
+  "covered languages: Python, PHP, Ruby, Java, JavaScript, TypeScript, C# and Go",
   "comments are removed and strings replaced before matching, so text inside strings never counts",
   "only calls whose target is computed count; a literal target is visible at the call site",
   `vendored and generated paths are skipped, and so are minified files (a line over ${MINIFIED_LINE} characters)`,

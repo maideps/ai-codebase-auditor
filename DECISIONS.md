@@ -515,3 +515,22 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: a portfolio is one command, and calibration runs reuse it (the five repositories: prepare first 1, adapt 2, adopt 2).
 - Negative: the run is sequential, so large portfolios take the sum of their audit times.
+
+### D-027: Direct-call rules for C# and Go; the real-repository check waits for a clone
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-022.md.
+**Context:** legacy .NET and Go services are common targets for agentic modernization (D-018), but direct-api-calls was not measured for them, which left their verdicts provisional.
+**Decision:**
+- C# and Go get their own strippers (C# verbatim, interpolated and raw strings and chars; Go raw strings and runes) and construct lists.
+  - C#: computed `GetType` or `Assembly.Load`, `Activator.CreateInstance`, member lookup by name, `MethodInfo.Invoke` in files using `System.Reflection` but never `?.Invoke`, and `dynamic`.
+  - Go: `reflect` `Call`, `MethodByName`/`FieldByName`, and `plugin` `Lookup`.
+- `typeof(...)` and `nameof(...)` count as visible targets, as string literals and constants already do.
+- Both languages count toward the covered share.
+- The declared verification asked for a public legacy C# or Go repository. None is on this machine, and cloning needs the owner's approval, so that check is a follow-up and the declaration says so.
+**Alternatives considered:**
+- Counting every `.Invoke(` in C# — Rejected: event raising (`Changed?.Invoke(this, e)`) and delegate calls are visible and very common.
+- Counting every `.Call(` in Go — Rejected: only files using `reflect.` are counted, because RPC clients call methods named `Call` with literal names.
+**Consequences:**
+- Positive: C# and Go repositories get a direct-api-calls score.
+- Negative: precision on real code is unmeasured until a C# or Go repository is audited and its findings are labeled.

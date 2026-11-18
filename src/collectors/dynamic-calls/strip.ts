@@ -137,6 +137,86 @@ function stripCLike(text: string, family: "java" | "javascript"): string {
   return state.out;
 }
 
+// Line and block comments, as in every C-like language; true when one was skipped.
+function skipComment(state: State): boolean {
+  const { text } = state;
+  if (text.startsWith("//", state.i)) {
+    while (state.i < text.length && text[state.i] !== "\n") state.i += 1;
+    return true;
+  }
+  if (text.startsWith("/*", state.i)) {
+    const close = text.indexOf("*/", state.i + 2);
+    const end = close === -1 ? text.length : close + 2;
+    state.out += newlinesOf(text.slice(state.i, end));
+    state.i = end;
+    return true;
+  }
+  return false;
+}
+
+// C#: raw strings ("""...""" or a longer run of quotes), verbatim strings (@"..." with "" for a
+// quote, backslashes literal), interpolated strings ($"...{x}...", $@"...", @$"..."), regular
+// strings and char literals.
+const CSHARP_STRING_START = /^(?:\$+@?|@\$*)?"/;
+
+function stripCSharp(text: string): string {
+  const state: State = { text, i: 0, out: "" };
+  while (state.i < text.length) {
+    if (skipComment(state)) continue;
+    const char = text[state.i] ?? "";
+    const prefix = char === '"' || char === "@" || char === "$" ? CSHARP_STRING_START.exec(text.slice(state.i, state.i + 8)) : null;
+    if (prefix) {
+      const marks = prefix[0].slice(0, -1);
+      const interpolated = marks.includes("$");
+      const quoteStart = state.i + marks.length;
+      const run = /^"+/.exec(text.slice(quoteStart))?.[0].length ?? 1;
+      if (run >= 3) {
+        const close = text.indexOf('"'.repeat(run), quoteStart + run);
+        const end = close === -1 ? text.length : close + run;
+        emitString(state, end, interpolated && text.slice(quoteStart, end).includes("{"));
+        continue;
+      }
+      if (marks.includes("@")) {
+        let j = quoteStart + 1;
+        while (j < text.length && !(text[j] === '"' && text[j + 1] !== '"')) j += text[j] === '"' ? 2 : 1;
+        emitString(state, Math.min(text.length, j + 1), interpolated && text.slice(quoteStart, j).includes("{"));
+        continue;
+      }
+      const { end, body } = scanQuoted(text, quoteStart, '"', false, false);
+      emitString(state, end, interpolated && body.includes("{"));
+      continue;
+    }
+    if (char === "'") {
+      emitString(state, scanQuoted(text, state.i, "'", false, false).end, false);
+      continue;
+    }
+    state.out += char;
+    state.i += 1;
+  }
+  return state.out;
+}
+
+// Go: raw strings in backquotes (no escapes, may span lines), interpreted strings and runes.
+function stripGo(text: string): string {
+  const state: State = { text, i: 0, out: "" };
+  while (state.i < text.length) {
+    if (skipComment(state)) continue;
+    const char = text[state.i] ?? "";
+    if (char === "`") {
+      const close = text.indexOf("`", state.i + 1);
+      emitString(state, close === -1 ? text.length : close + 1, false);
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      emitString(state, scanQuoted(text, state.i, char, false, false).end, false);
+      continue;
+    }
+    state.out += char;
+    state.i += 1;
+  }
+  return state.out;
+}
+
 function stripPhp(text: string): string {
   const state: State = { text, i: 0, out: "" };
   let code = false;
@@ -276,5 +356,9 @@ export function stripCode(text: string, family: DynamicFamily): string {
     case "java":
     case "javascript":
       return stripCLike(text, family);
+    case "csharp":
+      return stripCSharp(text);
+    case "go":
+      return stripGo(text);
   }
 }

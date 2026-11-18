@@ -17,6 +17,11 @@ describe("stripCode", () => {
     ["javascript", "a = `x${y}` + `z` + 'q' // c", 'a = "I" + "S" + "S" '],
     ["javascript", "r = /it's/g; eval(x)", 'r = "S"g; eval(x)'],
     ["javascript", "a = b / c; d = e / f", "a = b / c; d = e / f"],
+    ["csharp", 'a = @"C:\\x\\" + @"say ""hi"""; // c\nb', 'a = "S" + "S"; \nb'],
+    ["csharp", 'a = $"{x}" + $@"{y}" + @$"z" + $"plain"', 'a = "I" + "I" + "S" + "S"'],
+    ["csharp", 'a = """\n  raw "quoted" text\n  """; c = \'\\\'\';', 'a = "S"\n\n; c = "S";'],
+    ["csharp", 'a = $$"""{{x}}"""; /* x\n */ b', 'a = "I"; \n b'],
+    ["go", "a := `raw\n\\no escape` + \"s\\\"q\" + 'r' // c\nb", 'a := "S"\n + "S" + "S" \nb'],
   ] as const)("%s: %j", (family, input, expected) => {
     expect(stripCode(input, family)).toBe(expected);
     expect(lines(stripCode(input, family))).toBe(lines(input));

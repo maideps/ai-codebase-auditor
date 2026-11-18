@@ -52,6 +52,23 @@ describe("findSites: computed targets count, literal targets do not", () => {
     ["javascript", "history[fn](obj); callbacks[i](); this[b.type](i);", ["computed call", "computed call", "computed call"]],
     ["javascript", "obj['save'](); list[0](); [a, b].forEach(f); x = arr[i];", []],
     ["javascript", "Reflect.apply(f, t, a); Reflect.construct(C, a);", ["Reflect", "Reflect"]],
+    // C#
+    ["csharp", "var t = Type.GetType(typeName); var a = Assembly.LoadFrom(path); asm.GetType(name);", ["GetType by name", "GetType by name", "GetType by name"]],
+    ["csharp", "Type.GetType(\"My.Type\"); obj.GetType(); Assembly.Load(\"Core\");", []],
+    ["csharp", "Activator.CreateInstance(type); Activator.CreateInstance(typeof(Foo)); Activator.CreateInstance<Foo>();", ["Activator.CreateInstance"]],
+    ["csharp", "t.GetMethod(name); t.GetProperty(prop); t.InvokeMember(member, flags, null, o, args);", ["GetMethod by name", "GetMethod by name", "GetMethod by name"]],
+    ["csharp", "t.GetMethod(\"Run\"); t.GetProperty(nameof(Item.Price)); t.GetField(FIELD_NAME);", []],
+    ["csharp", "dynamic expando = new ExpandoObject(); void F(dynamic arg) {} var dynamicValue = 1;", ["dynamic", "dynamic"]],
+    ["csharp", "// Type.GetType(x)\nvar s = @\"Activator.CreateInstance(t)\"; var r = \"\"\"t.GetMethod(n)\"\"\";", []],
+    ["csharp", "var v = @\"C:\\dir\\\"; Type.GetType(n);", ["GetType by name"]],
+    ["csharp", "var i = $\"{Type.GetType(n)}\"; var c = '\"'; t.GetMethod(m);", ["GetMethod by name"]],
+    // Go
+    ["go", "import \"reflect\"\nfunc f() { v := reflect.ValueOf(o); v.MethodByName(name).Call(args) }", ["MethodByName", "reflect Call"]],
+    ["go", "v.MethodByName(\"Run\"); v.FieldByName(\"ID\"); client.Call(\"Svc.M\", a, r)", []],
+    ["go", "p, _ := plugin.Open(path); sym, _ := p.Lookup(symbolName); m.Lookup(key)", ["plugin.Lookup", "plugin.Lookup"]],
+    ["go", "p, _ := plugin.Open(path); p.Lookup(\"Handler\")", []],
+    ["go", "env.Lookup(name) // no plugin package", []],
+    ["go", "s := `v.MethodByName(name)` // reflect.Call\nx := 'r'", []],
   ])("%s: %s", (family, source, expected) => {
     expect(constructs(source, family)).toEqual(expected);
   });
@@ -63,6 +80,14 @@ describe("findSites: Java Method.invoke", () => {
     expect(findSites(reflective, "java")).toEqual([{ line: 2, construct: "Method.invoke" }]);
     expect(findSites("import java.lang.reflect.*;\nm.invoke(o);", "java")).toEqual([{ line: 2, construct: "Method.invoke" }]);
     expect(findSites("class A { void f() { handler.invoke(x); } }", "java")).toEqual([]);
+  });
+});
+
+describe("findSites: C# MethodInfo.Invoke", () => {
+  it("counts Invoke with arguments only in files using System.Reflection, and never ?.Invoke on events", () => {
+    const reflective = "using System.Reflection;\nclass A { void F() { method.Invoke(target, args); Changed?.Invoke(this, e); action.Invoke(); } }";
+    expect(findSites(reflective, "csharp")).toEqual([{ line: 2, construct: "MethodInfo.Invoke" }]);
+    expect(findSites("class A { void F() { handler.Invoke(x); } }", "csharp")).toEqual([]);
   });
 });
 

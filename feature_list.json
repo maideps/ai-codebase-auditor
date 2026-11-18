@@ -625,7 +625,7 @@
       "id": "feat-022",
       "name": "Direct-call rules for C# and Go",
       "behavior": "Extends the direct-api-calls collector to C# (reflection invokes, Activator.CreateInstance, Type.GetType with a computed name, the dynamic keyword) and Go (reflect.Value.Call, MethodByName, plugin.Lookup), with comments and strings stripped, so repositories in those languages are measured instead of not measured or provisional.",
-      "verification": "Fixture files cover every new detection rule and exclusion in both languages, the coverage rule counts both languages, and a public legacy C# or Go repository is audited with a sample of findings checked against the clone.",
+      "verification": "Fixture files cover every new detection rule and exclusion in both languages, the coverage rule counts both languages, and the collector reads a C# and a Go file in a fixture repository. Auditing a public legacy C# or Go repository with a sample of findings checked against the clone is a follow-up: it needs a clone, which needs the owner's approval (D-027).",
       "dependencies": [
         "feat-011"
       ],

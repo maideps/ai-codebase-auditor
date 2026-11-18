@@ -79,6 +79,7 @@ function isLiteral(arg: string | undefined, family: DynamicFamily): boolean {
   if (family === "ruby") return /^:(?:@{0,2}\w+[?!=]?|"S")$/.test(arg);
   if (family === "javascript") return /^\d+$/.test(arg);
   if (family === "php") return /^(?:array\s*\(|\[)[^,]+,\s*"S"\s*[\])]$/.test(arg);
+  if (family === "csharp") return /^(?:nameof|typeof)\s*\(/.test(arg);
   return false;
 }
 
@@ -120,6 +121,14 @@ const JAVA_DECLARATION = /(?:^|[^\w$.])(?!(?:return|throw|new|else|case|yield)\b
 const javaCall = (code: string, end: number, family: DynamicFamily, start: number) =>
   !JAVA_DECLARATION.test(code.slice(Math.max(0, start - 80), start)) && firstComputed(code, end, family);
 
+// C#: reflection invokes need System.Reflection; event and delegate calls (handler?.Invoke) are visible.
+const CSHARP_REFLECTION = /^\s*using\s+(?:static\s+)?System\.Reflection\s*;/m;
+const csharpInvoke = (code: string, end: number, family: DynamicFamily, start: number) =>
+  CSHARP_REFLECTION.test(code) && code[start - 1] !== "?" && hasArgs(code, end, family);
+// Go: reflection goes through the reflect package, plugins through plugin.Open.
+const goReflect = (code: string, end: number, family: DynamicFamily) => /\breflect\.\w/.test(code) && hasArgs(code, end, family);
+const goPlugin = (code: string, end: number, family: DynamicFamily) => /\bplugin\.Open\b/.test(code) && firstComputed(code, end, family);
+
 const CONSTRUCTS: Readonly<Record<DynamicFamily, readonly Construct[]>> = {
   python: [
     { name: "getattr by name", pattern: /\b(?:getattr|setattr|delattr)(?=\s*\()/g, accept: secondComputed },
@@ -155,6 +164,18 @@ const CONSTRUCTS: Readonly<Record<DynamicFamily, readonly Construct[]>> = {
     { name: "Method.invoke", pattern: /(?<!\b(?:this|super))\.invoke(?=\s*\()/g, accept: (code, end, family) => REFLECT_IMPORT.test(code) && hasArgs(code, end, family) },
     { name: "setAccessible", pattern: /\.setAccessible\s*\(\s*true\b/g },
     { name: "Proxy", pattern: /\bProxy\.newProxyInstance(?=\s*\()/g },
+  ],
+  csharp: [
+    { name: "GetType by name", pattern: /\.GetType(?=\s*\()|\bAssembly\.Load(?:From|File)?(?=\s*\()/g, accept: firstComputed },
+    { name: "Activator.CreateInstance", pattern: /\bActivator\.CreateInstance(?:From)?(?=\s*\()/g, accept: firstComputed },
+    { name: "GetMethod by name", pattern: /\.(?:GetMethod|GetProperty|GetField|GetMember|InvokeMember)(?=\s*\()/g, accept: firstComputed },
+    { name: "MethodInfo.Invoke", pattern: /\.Invoke(?=\s*\()/g, accept: csharpInvoke },
+    { name: "dynamic", pattern: /(?<![\w.])dynamic(?=\s+[A-Za-z_]\w*\s*[=;,)])/g },
+  ],
+  go: [
+    { name: "reflect Call", pattern: /\.(?:Call|CallSlice)(?=\s*\()/g, accept: goReflect },
+    { name: "MethodByName", pattern: /\.(?:MethodByName|FieldByName)(?=\s*\()/g, accept: firstComputed },
+    { name: "plugin.Lookup", pattern: /\.Lookup(?=\s*\()/g, accept: goPlugin },
   ],
   javascript: [
     { name: "eval or Function", pattern: /(?<![.\w$])eval(?=\s*\()|\bnew\s+Function(?=\s*\()/g },
