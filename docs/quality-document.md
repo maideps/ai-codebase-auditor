@@ -60,7 +60,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 
 ## Summary
 
-- **Overall Quality Grade:** A- (feat-001 to feat-021 scope)
+- **Overall Quality Grade:** A- (feat-001 to feat-022 scope)
 - **Blockers:** none
 - **Areas requiring attention:** no coverage measurement yet; module dependency rules from `docs/ARCHITECTURE.md` are not yet encoded in `.harness/arch-rules.json`; scc output format unverified against a real install; known calibration limits (bundled libraries under non-standard names, red-term and doc-name false positives) in docs/case-study/README.md
 
@@ -75,6 +75,7 @@ Rate each module on a scale of A (excellent) / B (good) / C (acceptable) / D (ne
 - 2026-10-21: feat-006 added the scoring engine, thresholds in `config/factors.json`, `--deferrals`, type-checker detection and `src/file-kinds.ts` (D-010).
 - 2026-10-21: feat-007 added the decision engine: verdict rules, module splitting and path-based red zones (D-011).
 - 2026-10-22: feat-009 calibrated on five public repositories: build-tool runners, fixture runtimes, test-path docs, type-strictness constraining, report schemaVersion 2 (D-013); collector performance measured (at most 7.2 s and 205 MB, on phpBB and moin-1.9).
+- 2026-11-18: feat-022 added direct-call rules and strippers for C# and Go, which now count toward the covered share (D-027). Module touched: collectors/dynamic-calls; rating unchanged. Precision on a real C# or Go repository is not yet measured: none was cloned.
 - 2026-11-18: feat-021 added `audit-batch` (`src/batch/`) and split the CLI's audit into `loadAuditInputs`, `auditOne` and `writeAuditFiles` (D-026). Modules touched: batch (new), cli.
 - 2026-11-18: feat-020 added `compare` (`src/compare/`), moved saved-report parsing to `src/report/saved.ts`, and added `writeOutFiles` to the report writer (D-025). Modules touched: compare (new), report, mcp, cli.
 - 2026-11-18: feat-019 added copy-ready harness files under `--out/harness/` (`src/plan/files.ts`) and a path guard in the report writer (D-024). Modules touched: plan, report, cli; ratings unchanged.

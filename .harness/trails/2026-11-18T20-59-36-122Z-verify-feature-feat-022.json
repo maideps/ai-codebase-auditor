@@ -1,0 +1,9 @@
+{
+  "kind": "verify-feature",
+  "recorded_at": "2026-11-18T20:59:36.183Z",
+  "git_commit": "0c108c5",
+  "active_feature": "",
+  "feature": "feat-022",
+  "commit": "0c108c5",
+  "checksHash": "3b8c38f66b469ca5"
+}
