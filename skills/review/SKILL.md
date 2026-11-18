@@ -15,11 +15,13 @@ An adversarial pass on your own work before it goes through the gate. It exists 
 ## Workflow
 
 1. Re-read the feature definition in `feature_list.json` — behavior, verification criteria, dependencies. The diff must implement THAT feature, nothing else, and its tests must check THAT behavior: a test that passes against different behavior makes the gate pass for the wrong reason.
-2. Review the diff file by file: scope creep, unrelated edits, debug artifacts, commented-out code, TODOs without owners.
-3. Confirm the gates actually ran and their output was read — PASS vs SKIP must be reported separately; a SKIP is not evidence.
-4. Check the feature's dependency chain: dependencies must be `passing` or the gate will refuse the transition.
-5. Verify the evidence path: evidence field in `.harness/state/<feature-id>.json` (bound to a commit), the trail `verify-feature` wrote in `.harness/trails/`, state files updated.
-6. Write down anything not verified — say it in the handoff instead of implying it.
+2. Review the diff file by file: scope creep, unrelated edits (including reformatting, renames or style changes to code the feature did not need), debug artifacts, commented-out code, TODOs without owners.
+3. Ask whether the change is bigger than the behavior needs: abstractions with one caller, options or settings nobody asked for, error handling for cases that cannot happen. Anything the change left unused is removed; dead code it did not create is left alone and mentioned in the session note.
+4. Confirm the gates actually ran and their output was read — PASS vs SKIP must be reported separately; a SKIP is not evidence.
+5. Check the feature's dependency chain: dependencies must be `passing` or the gate will refuse the transition.
+6. Verify the evidence path: evidence field in `.harness/state/<feature-id>.json` (bound to a commit), the trail `verify-feature` wrote in `.harness/trails/`, state files updated. If a layer declares `captures`, open each copy the gate listed in its evidence and compare it with the declared behavior yourself; a capture that contradicts the behavior fails the review even though every layer passed. You can read screenshots, not video: if the only evidence of a flow is a recording, say it was not checked.
+7. For each mistake this review finds, fix it, then make it impossible to repeat: a `forbid` rule in `.harness/arch-rules.json` when a pattern describes it, otherwise a test or a lint check. Record each one in the session note's "Mistakes caught" with what it became (`→ rule: <id>`, `→ test: <name>`, `→ lint: <check>`, or `→ no check possible: <reason>`).
+8. Write down anything not verified — say it in the handoff instead of implying it.
 
 ## Rules
 
@@ -31,6 +33,9 @@ An adversarial pass on your own work before it goes through the gate. It exists 
 
 - [ ] Feature definition re-read; diff matches it
 - [ ] No scope creep or debug artifacts
+- [ ] Nothing speculative; untouched code left as it was; own orphans removed
 - [ ] Gates ran; PASS/SKIP reported honestly
 - [ ] Dependencies passing
 - [ ] Evidence recorded and trail present
+- [ ] Captures opened and matching the declared behavior (screenshots; video is not agent evidence)
+- [ ] Each mistake found became a rule, test or lint check, recorded in "Mistakes caught"

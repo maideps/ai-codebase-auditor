@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -108,7 +109,7 @@ test("clean-state-check: scans the directories derived from productRoots, not ha
     write(root, "src/unrelated.js", "debugger;\n");
     const result = run(root, "clean-state-check", [], { DEBUG_SCAN_PATHS: "" });
     assert.match(result.output, /repositories[\\/]app[\\/]debug\.js:1: debugger;/);
-    assert.doesNotMatch(result.output, /src[\/]unrelated\.js/);
+    assert.doesNotMatch(result.output, /src[\\/]unrelated\.js/);
   } finally {
     cleanup(root);
   }
@@ -669,6 +670,272 @@ test("check-arch: fails on an invalid expect regex", () => {
   }
 });
 
+// ---- check-arch "forbid" rules (feat-041) ----------------------------------
+
+function forbidRule(overrides = {}) {
+  return {
+    id: "arch-ban",
+    kind: "forbid",
+    description: "no legacyCall",
+    pattern: "legacyCall\\(",
+    paths: ["src/**/*.{js,mjs}"],
+    what: "legacyCall is banned",
+    why: "it hides errors",
+    fix: "call modernCall instead",
+    ...overrides,
+  };
+}
+
+// A git repository with the given rules and files; untracked files are written after `git add`.
+function forbidFixture(rules, files, untracked = {}) {
+  const root = archRulesFixture(rules);
+  for (const [rel, content] of Object.entries(files)) write(root, rel, content);
+  spawnSync("git", ["init", "-q"], { cwd: root });
+  spawnSync("git", ["add", "."], { cwd: root });
+  for (const [rel, content] of Object.entries(untracked)) write(root, rel, content);
+  return root;
+}
+
+test("check-arch forbid: passes when no tracked file in its paths matches (feat-041)", () => {
+  const root = forbidFixture([forbidRule()], {
+    "src/app.mjs": "modernCall();\n",
+    "docs/notes.md": "legacyCall( is mentioned outside the rule's paths\n",
+  });
+  try {
+    const result = run(root, "check-arch");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /All architecture rules pass/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("check-arch forbid: fails listing every hit as file:line, then what/why/fix (feat-041)", () => {
+  const root = forbidFixture([forbidRule()], {
+    "src/a.js": "ok();\nlegacyCall(1);\n",
+    "src/deep/nested/b.mjs": "legacyCall(2);\r\nok();\r\nlegacyCall(3);\r\n",
+  });
+  try {
+    const result = run(root, "check-arch");
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.stdout, /\[FAIL\] 3 forbidden match\(es\)/);
+    assert.match(result.stdout, /src\/a\.js:2: legacyCall\(1\);/);
+    assert.match(result.stdout, /src\/deep\/nested\/b\.mjs:1: legacyCall\(2\);/);
+    assert.match(result.stdout, /src\/deep\/nested\/b\.mjs:3: legacyCall\(3\);/);
+    assert.match(result.stdout, /What: legacyCall is banned/);
+    assert.match(result.stdout, /Why: it hides errors/);
+    assert.match(result.stdout, /Fix: call modernCall instead/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("check-arch forbid: never reports allowed or untracked paths (feat-041)", () => {
+  const root = forbidFixture(
+    [forbidRule({ allow: ["src/legacy/**"] })],
+    { "src/legacy/old.js": "legacyCall();\n", "src/app.ts": "legacyCall(); // .ts is outside the paths glob\n" },
+    { "src/new.js": "legacyCall();\n" },
+  );
+  try {
+    const result = run(root, "check-arch");
+    assert.equal(result.exit, 0, result.output);
+    assert.doesNotMatch(result.stdout, /forbidden match/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("check-arch forbid: an invalid pattern or missing paths fail naming the rule; outside git it SKIPs (feat-041)", () => {
+  const cases = [
+    [forbidRule({ pattern: "(unclosed" }), /rule arch-ban: invalid pattern/],
+    [forbidRule({ pattern: undefined }), /rule arch-ban: a forbid rule needs a pattern/],
+    [forbidRule({ paths: [] }), /rule arch-ban: a forbid rule needs a non-empty paths list/],
+    [forbidRule({ allow: "src/**" }), /rule arch-ban: allow must be a list of globs/],
+  ];
+  for (const [rule, message] of cases) {
+    const root = forbidFixture([rule], { "src/a.js": "ok();\n" });
+    try {
+      const result = run(root, "check-arch");
+      assert.equal(result.exit, 1, result.output);
+      assert.match(result.stdout, message);
+    } finally {
+      cleanup(root);
+    }
+  }
+  const outside = archRulesFixture([forbidRule()]);
+  try {
+    const result = run(outside, "check-arch", [], { GIT_CEILING_DIRECTORIES: path.dirname(outside) });
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /\[SKIP\] not a git repository — forbid rules search tracked files/);
+    const broken = archRulesFixture([forbidRule({ pattern: "(unclosed" })]);
+    try {
+      const invalid = run(broken, "check-arch", [], { GIT_CEILING_DIRECTORIES: path.dirname(broken) });
+      assert.equal(invalid.exit, 1, invalid.output);
+      assert.match(invalid.stdout, /rule arch-ban: invalid pattern/);
+    } finally {
+      cleanup(broken);
+    }
+  } finally {
+    cleanup(outside);
+  }
+});
+
+// ---- Every MUST names its gate (feat-048) ----------------------------------
+
+function mustRulesFixture(agents) {
+  const root = archRulesFixture([{ id: "arch-001" }]);
+  write(root, "AGENTS.md", agents);
+  return root;
+}
+
+test("lint:must-rules: passes a fully tagged AGENTS.md and reports gate and none counts (feat-048)", () => {
+  const root = mustRulesFixture([
+    "## Constraints",
+    "",
+    "- **MUST** run the check <!-- enforced-by: npm run check -->",
+    "- **MUST NOT** break the layout",
+    "  <!-- source: some template -->",
+    "  <!-- enforced-by: arch-001 -->",
+    "- **MUST** keep features small",
+    "  <!-- enforced-by: none — a judgment call -->",
+    "- A plain rule that mentions MUST in passing needs no tag",
+    "",
+  ].join("\n"));
+  try {
+    const result = run(root, "lint:must-rules");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /MUST rules name what enforces them \(2 by a gate, 1 prose only/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lint:must-rules: fails an untagged rule, an unknown arch rule id and a none without a reason (feat-048)", () => {
+  const root = mustRulesFixture([
+    "- **MUST** do one thing",
+    "",
+    "  <!-- enforced-by: npm run check -->",
+    "- **MUST NOT** do another",
+    "  <!-- enforced-by: arch-001, arch-042 -->",
+    "- **MUST** do a third",
+    "  <!-- enforced-by: none -->",
+    "",
+  ].join("\n"));
+  try {
+    const result = run(root, "lint:must-rules");
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.stderr, /AGENTS\.md:1 "- \*\*MUST\*\* do one thing…" has no <!-- enforced-by/, "a tag after a blank line does not count");
+    assert.match(result.stderr, /AGENTS\.md:4 .* names arch-042, not in \.harness\/arch-rules\.json/);
+    assert.doesNotMatch(result.stderr, /names arch-001/);
+    assert.match(result.stderr, /AGENTS\.md:6 .* says enforced-by: none without a reason/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- Opt-in pre-commit hook (feat-043) -------------------------------------
+
+// A git repository holding a copy of the runner (with scripts/hooks/), a lint script that fails
+// while LINT_FAIL exists, and one forbid rule. Git's global and system config are replaced by a
+// throwaway file, so the developer's own hooksPath or signing settings cannot leak in.
+function hookFixture() {
+  const root = forbidFixture([forbidRule()], { "src/app.mjs": "modernCall();\n" });
+  cpSync(path.dirname(RUNNER), path.join(root, "scripts"), { recursive: true });
+  write(root, "lint.mjs", "import { existsSync } from 'node:fs';\nif (existsSync('LINT_FAIL')) { console.log('lint found a problem'); process.exit(1); }\n");
+  write(root, "package.json", `${JSON.stringify({
+    name: "hooked",
+    private: true,
+    scripts: { lint: "node lint.mjs", "check-arch": "node scripts/framework-check.mjs check-arch" },
+  }, null, 2)}\n`);
+  const globalConfig = path.join(root, "..", `${path.basename(root)}.gitconfig`);
+  writeFileSync(globalConfig, "[user]\n\tname = Test\n\temail = test@example.com\n[commit]\n\tgpgsign = false\n", "utf8");
+  const env = { GIT_CONFIG_GLOBAL: globalConfig, GIT_CONFIG_NOSYSTEM: "1" };
+  const git = (...args) => {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8", env: { ...process.env, ...env } });
+    return { exit: result.status ?? 1, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  };
+  const commit = (message) => {
+    git("add", "-A");
+    return git("commit", "-q", "-m", message);
+  };
+  return { root, env, git, commit, done: () => { cleanup(root); rmSync(globalConfig, { force: true }); } };
+}
+
+test("hooks-install: commits run lint and the architecture rules, and a failing one is blocked (feat-043)", () => {
+  const repo = hookFixture();
+  try {
+    const install = run(repo.root, "hooks-install", [], repo.env);
+    assert.equal(install.exit, 0, install.output);
+    assert.equal(repo.git("config", "--get", "core.hooksPath").output.trim(), "scripts/hooks");
+    assert.equal(run(repo.root, "hooks-install", [], repo.env).exit, 0, "installing twice is a no-op");
+
+    const clean = repo.commit("clean");
+    assert.equal(clean.exit, 0, clean.output);
+    assert.match(clean.output, /lint and architecture rules pass/);
+
+    write(repo.root, "src/bad.js", "legacyCall();\n");
+    const banned = repo.commit("banned pattern");
+    assert.notEqual(banned.exit, 0, banned.output);
+    assert.match(banned.output, /src\/bad\.js:1: legacyCall\(\);/);
+    assert.match(banned.output, /Commit blocked: npm run check-arch failed/);
+
+    rmSync(path.join(repo.root, "src", "bad.js"));
+    write(repo.root, "LINT_FAIL", "x\n");
+    const linted = repo.commit("lint failure");
+    assert.notEqual(linted.exit, 0, linted.output);
+    assert.match(linted.output, /Commit blocked: npm run lint failed/);
+    assert.doesNotMatch(linted.output, /\[pre-commit\] npm run check-arch/, "a failing lint stops before the architecture rules");
+    assert.equal(repo.git("log", "--oneline").output.trim().split("\n").length, 1, "only the clean commit landed");
+  } finally {
+    repo.done();
+  }
+});
+
+test("hooks-install: never replaces a foreign core.hooksPath or switches the user's own hooks off (feat-043)", () => {
+  const repo = hookFixture();
+  try {
+    repo.git("config", "core.hooksPath", ".githooks");
+    const foreign = run(repo.root, "hooks-install", [], repo.env);
+    assert.equal(foreign.exit, 1, foreign.output);
+    assert.match(foreign.stderr, /core\.hooksPath already points at \.githooks, and it will not be replaced/);
+    assert.match(foreign.stderr, /"scripts\/hooks\/pre-commit" \|\| exit 1/);
+    assert.equal(repo.git("config", "--get", "core.hooksPath").output.trim(), ".githooks");
+    assert.match(run(repo.root, "hooks-uninstall", [], repo.env).stdout, /points at \.githooks, not the harness hooks — left unchanged/);
+    assert.equal(repo.git("config", "--get", "core.hooksPath").output.trim(), ".githooks");
+
+    repo.git("config", "--unset", "core.hooksPath");
+    write(repo.root, ".git/hooks/pre-commit", "#!/bin/sh\nexit 0\n");
+    const own = run(repo.root, "hooks-install", [], repo.env);
+    assert.equal(own.exit, 1, own.output);
+    assert.match(own.stderr, /has hooks of your own \(pre-commit\) that core\.hooksPath would switch off/);
+    assert.equal(repo.git("config", "--get", "core.hooksPath").exit, 1, "nothing was set");
+  } finally {
+    repo.done();
+  }
+});
+
+test("hooks-uninstall: restores git's default hooks folder; outside git both commands fail clearly (feat-043)", () => {
+  const repo = hookFixture();
+  try {
+    assert.equal(run(repo.root, "hooks-install", [], repo.env).exit, 0);
+    const uninstall = run(repo.root, "hooks-uninstall", [], repo.env);
+    assert.equal(uninstall.exit, 0, uninstall.output);
+    assert.match(uninstall.stdout, /Removed the harness pre-commit hook/);
+    assert.equal(repo.git("config", "--get", "core.hooksPath").exit, 1);
+    assert.match(run(repo.root, "hooks-uninstall", [], repo.env).stdout, /not installed — nothing to do/);
+  } finally {
+    repo.done();
+  }
+  const outside = fixture();
+  try {
+    const result = run(outside, "hooks-install", [], { GIT_CEILING_DIRECTORIES: path.dirname(outside) });
+    assert.equal(result.exit, 1);
+    assert.match(result.stderr, /not a git repository — run git init first/);
+  } finally {
+    cleanup(outside);
+  }
+});
+
 // ---- Worktree lanes (feat-010, D-017) --------------------------------------
 // Lane commands (lane-new/list/land/drop) and the lane-aware WIP=1 check
 // (ensureLaneWipContract, wired into "arch:wip-contract" and "test") operate
@@ -1066,7 +1333,7 @@ test("typecheck: fails when feature_list.json still declares inline state", () =
 
 test("typecheck: passes a valid shard that matches a declared feature", () => {
   const root = splitFeatureFixture([
-    { id: "feat-001", name: "One", behavior: "b", verification: "v", dependencies: [], layers: [{ label: "L", cmd: "true", repair: "r" }], state: "passing", evidence: "e" },
+    { id: "feat-001", name: "One", behavior: "b", verification: "v", dependencies: [], layers: [{ label: "L", cmd: "true", repair: "r" }], state: "passing", evidence: "All verification layers passed via scripts/verify-feature.sh" },
   ]);
   try {
     const result = run(root, "typecheck");
@@ -1340,6 +1607,194 @@ test("verify-feature: a bound pass records a verify-feature trail; an unbound pa
   }
 });
 
+// ---- feat-052 (D-061): README contrasted with the repository ----------------
+
+const GOOD_README = [
+  "# Greeter",
+  "",
+  "[![CI](https://example.com/badge.svg)](https://example.com/ci)",
+  "",
+  "Greets people by name from the command line.",
+  "",
+  "<!-- a draft link that is not published yet: [demo](docs/demo.gif) -->",
+  "",
+  "## Install",
+  "",
+  "```bash",
+  "npm install",
+  "npm run check   # verify (make check works too; make and npm forms mirror each other)",
+  "```",
+  "",
+  "## Usage",
+  "",
+  "Run `npm start` or `node app/greet.mjs`. Per-feature state lives in `.harness/state/<id>.json`; notes in `progress/NNN-YYYY-MM-DD.md`.",
+  "See the [guide](docs/GUIDE.md#setup) and [the spec](https://example.com/spec).",
+  "",
+  "## License",
+  "",
+  "MIT",
+  "",
+].join("\n");
+
+function readmeRepo(readme, { scripts = { check: "x", start: "x" }, makefile = "check:\n\t@echo ok\n", files = { "app/greet.mjs": "", "docs/GUIDE.md": "# Guide\n" } } = {}) {
+  const root = fixture();
+  write(root, "README.md", readme);
+  write(root, "package.json", `${JSON.stringify({ name: "greeter", scripts }, null, 2)}\n`);
+  if (makefile !== null) write(root, "Makefile", makefile);
+  for (const [rel, content] of Object.entries(files)) write(root, rel, content);
+  return root;
+}
+
+test("lint:readme: passes a conventional README whose commands, links and paths exist (feat-052)", () => {
+  const root = readmeRepo(GOOD_README);
+  try {
+    const result = run(root, "lint:readme");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /README\.md follows the conventional structure and names only what exists/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lint:readme: reports missing sections and claims the repository does not back, by line (feat-052)", () => {
+  const readme = [
+    "Greets people.",
+    "",
+    "## Usage",
+    "",
+    "```bash",
+    "npm run deploy",
+    "make release",
+    "```",
+    "",
+    "Edit `app/missing.mjs`; read [the guide](docs/NOPE.md).",
+    "",
+  ].join("\n");
+  const root = readmeRepo(readme);
+  try {
+    const result = run(root, "lint:readme");
+    assert.equal(result.exit, 1, result.output);
+    for (const expected of [
+      /README\.md:3: start with exactly one level-1 title \(found 0\)/,
+      /add an install section/,
+      /add a License section/,
+      /README\.md:6: "npm run deploy" names a script package\.json does not define/,
+      /README\.md:7: "make release" names a target the Makefile does not define/,
+      /README\.md:10: `app\/missing\.mjs` does not exist in the repository/,
+      /README\.md:10: the link to docs\/NOPE\.md points to a file that does not exist/,
+    ]) {
+      assert.match(result.stderr, expected);
+    }
+    assert.doesNotMatch(result.stderr, /add a usage section/);
+    // A title followed straight by a section (badges alone don't describe anything).
+    write(root, "README.md", GOOD_README.replace("Greets people by name from the command line.\n", ""));
+    assert.match(run(root, "lint:readme").stderr, /README\.md:1: add a short description of what the project does right after the title/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lint:readme: the README template create-harness places passes the contract in the adopter (feat-052)", () => {
+  const root = fixture();
+  try {
+    adopt(root);
+    if (!existsSync(path.join(root, "docs", "HARNESS.md"))) {
+      spawnSync(process.execPath, [path.join(root, "scripts", "harness-docs.mjs")], { cwd: root, encoding: "utf8" });
+    }
+    const result = run(root, "lint:readme");
+    assert.equal(result.exit, 0, result.output);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lint:readme: a README over 100 lines needs a table of contents (feat-052)", () => {
+  const long = `${GOOD_README}${"\nMore detail.".repeat(90)}\n`;
+  const root = readmeRepo(long);
+  try {
+    assert.match(run(root, "lint:readme").stderr, /a README over 100 lines needs a "Table of Contents" section/);
+    write(root, "README.md", long.replace("## Install", "## Table of Contents\n\n- [Install](#install)\n\n## Install"));
+    assert.equal(run(root, "lint:readme").exit, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-051 (D-060): README stays current with the app --------------------
+
+// A git repository where README.md is committed first and feat-001's code later; feat-001 is
+// passing with bound evidence naming the code commit (`at`: "readme" or "code").
+function readmeFixture({ readmeAfter = false, extra = [] } = {}) {
+  const root = gitFeatureFixture([evidenceFeature({ state: "active" }), ...extra]);
+  const gitIn = (...args) => spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", ...args], { cwd: root, encoding: "utf8" });
+  write(root, "README.md", "# App\n\nGreets people.\n");
+  gitIn("add", "-A");
+  gitIn("commit", "-q", "-m", "readme");
+  write(root, "app.mjs", "export const greet = () => 'hi';\n");
+  gitIn("add", "-A");
+  gitIn("commit", "-q", "-m", "code");
+  const codeCommit = gitIn("rev-parse", "--short", "HEAD").stdout.trim();
+  const evidence = JSON.stringify({ summary: "All verification layers passed via node scripts/framework-check.mjs verify-feature", timestamp: "2026-11-17T10:00:00.000Z", commit: codeCommit, dirty: false, bound: true, checksHash: "0123456789abcdef", layers: [] });
+  write(root, ".harness/state/feat-001.json", `${JSON.stringify({ state: "passing", evidence }, null, 2)}\n`);
+  if (readmeAfter) {
+    write(root, "README.md", "# App\n\nGreets people with hi.\n");
+    gitIn("add", "README.md");
+    gitIn("commit", "-q", "-m", "describe hi");
+  }
+  return { root, gitIn, codeCommit };
+}
+
+const readmeLine = (result) => result.output.split(/\r?\n/).find((line) => line.includes("README.md") && /\[(PASS|FAIL|WARN)\]/.test(line)) ?? "";
+
+test("clean-state-check: fails while README.md predates the latest verified feature, passes once it changes (feat-051)", () => {
+  const stale = readmeFixture();
+  try {
+    assert.match(readmeLine(run(stale.root, "clean-state-check")), new RegExp(`\\[FAIL\\] README\\.md was last changed before feat-001 passed \\(${stale.codeCommit}\\)\\. Contrast it with the repository \\(the readme-review skill\\) and update it to describe what the app does now`));
+    write(stale.root, "README.md", "# App\n\nGreets people with hi.\n");
+    assert.match(readmeLine(run(stale.root, "clean-state-check")), /\[PASS\] README\.md has changes since feat-001 passed \(uncommitted\)/);
+  } finally {
+    cleanup(stale.root);
+  }
+  const fresh = readmeFixture({ readmeAfter: true });
+  try {
+    assert.match(readmeLine(run(fresh.root, "clean-state-check")), new RegExp(`\\[PASS\\] README\\.md changed at or after feat-001 passed \\(${fresh.codeCommit}\\)`));
+  } finally {
+    cleanup(fresh.root);
+  }
+});
+
+test("clean-state-check: a feature that declares readme is skipped; an unknown commit warns (feat-051)", () => {
+  const { root } = readmeFixture({ readmeAfter: true });
+  try {
+    // feat-002 passed later with no user-visible change: the README is still judged against feat-001.
+    const declarations = JSON.parse(readFileSync(path.join(root, "feature_list.json"), "utf8"));
+    declarations.features.push({ ...evidenceFeature({ id: "feat-002", name: "Two" }), readme: "internal refactor, nothing users see" });
+    writeDeclarations(root, declarations.features);
+    const evidence = JSON.stringify({ summary: "All verification layers passed via node scripts/framework-check.mjs verify-feature", timestamp: "2026-11-18T10:00:00.000Z", commit: "fffffff", dirty: false, bound: true, checksHash: "0123456789abcdef", layers: [] });
+    write(root, ".harness/state/feat-002.json", `${JSON.stringify({ state: "passing", evidence }, null, 2)}\n`);
+    assert.match(readmeLine(run(root, "clean-state-check")), /\[PASS\] README\.md changed at or after feat-001 passed/);
+
+    delete declarations.features[1].readme;
+    writeDeclarations(root, declarations.features);
+    assert.match(readmeLine(run(root, "clean-state-check")), /\[WARN\] cannot tell whether README\.md changed after feat-002 passed: commit fffffff is not in this clone's history/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("typecheck: a readme opt-out must be a non-empty reason (feat-051)", () => {
+  for (const readme of ["", "  ", true]) {
+    const root = featureListFixture([evidenceFeature({ readme })]);
+    try {
+      const result = run(root, "typecheck");
+      assert.equal(result.exit, 1, `${JSON.stringify(readme)}: ${result.output}`);
+      assert.match(result.stderr, /readme must be a non-empty reason why README\.md needs no change/);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test("clean-state-check: fails until docs/quality-document.md mentions every gate-verified feature (feat-034)", () => {
   const bound = JSON.stringify({ summary: "s", commit: "abc1234", dirty: false, bound: true, checksHash: "0123456789abcdef", layers: [] });
   const legacy = JSON.stringify({ summary: "s", commit: "abc1234", dirty: true, layers: [] });
@@ -1378,13 +1833,175 @@ test("clean-state-check: nothing to rate when no feature has gate evidence (feat
 
 test("typecheck: evidence recorded before feat-030 (no checksHash) is never reported stale", () => {
   const root = featureListFixture([
-    evidenceFeature({ state: "passing", evidence: JSON.stringify({ summary: "old", commit: "abc1234", dirty: true, layers: [] }) }),
-    evidenceFeature({ id: "feat-002", state: "passing", evidence: "Verified by hand on 2026-01-01" }),
+    evidenceFeature({ state: "passing", evidence: JSON.stringify({ summary: "All verification layers passed via node scripts/framework-check.mjs verify-feature", commit: "abc1234", dirty: true, layers: [] }) }),
+    evidenceFeature({ id: "feat-002", state: "passing", evidence: "All verification layers passed via scripts/verify-feature.sh at 2026-01-01" }),
   ]);
   try {
     const result = run(root, "typecheck");
     assert.equal(result.exit, 0, result.output);
     assert.doesNotMatch(result.output, /\[WARN\]/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-044 (D-057): captures collected by verify-feature ----------------
+
+// A committed git fixture whose layer runs shoot.mjs, which writes the named files under
+// shots/; shots/old.png is left over from an earlier run (an hour old). `ignore` decides whether
+// shots/ is gitignored, as the docs require.
+function captureFixture({ writes = ["shots/a.png", "shots/sub/b.png"], captures = ["shots/**/*.png"], ignore = true } = {}) {
+  const root = gitFeatureFixture([
+    evidenceFeature({ state: "active", layers: [{ label: "E2E shots", cmd: `${NODE} shoot.mjs`, repair: "r", captures }] }),
+  ]);
+  write(root, "shoot.mjs", `import { mkdirSync, writeFileSync } from "node:fs";\nimport path from "node:path";\nfor (const file of ${JSON.stringify(writes)}) { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, "png:" + file); }\nconsole.log("[PASS] shots taken");\n`);
+  if (ignore) write(root, ".gitignore", "shots/\n");
+  spawnSync("git", ["add", "-A"], { cwd: root });
+  spawnSync("git", ["commit", "-q", "-m", "shoot"], { cwd: root });
+  write(root, "shots/old.png", "png:old");
+  const hourAgo = new Date(Date.now() - 3600 * 1000);
+  utimesSync(path.join(root, "shots/old.png"), hourAgo, hourAgo);
+  return root;
+}
+
+test("verify-feature: collects the captures a layer wrote this run, copies and hashes them, ignores leftovers (feat-044)", () => {
+  const root = captureFixture();
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /Captures \(2\) — open each one and compare it to the feature's declared behavior/);
+    const { state, evidence } = readEvidence(root);
+    assert.equal(state, "passing");
+    const captures = evidence.layers[0].captures;
+    assert.deepEqual(captures.map((capture) => capture.path), [
+      ".harness/logs/feat-001/captures/01-e2e-shots/shots/a.png",
+      ".harness/logs/feat-001/captures/01-e2e-shots/shots/sub/b.png",
+    ]);
+    for (const capture of captures) {
+      const bytes = readFileSync(path.join(root, capture.path));
+      assert.equal(capture.bytes, bytes.length);
+      assert.equal(capture.sha256, createHash("sha256").update(bytes).digest("hex"));
+    }
+    assert.doesNotMatch(result.stdout, /old\.png/, "a file from an earlier run is not evidence");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: a layer that declares captures but writes none fails (feat-044)", () => {
+  const root = captureFixture({ writes: [] });
+  try {
+    const result = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(result.exit, 1, result.output);
+    assert.match(result.stdout, /declares captures \(shots\/\*\*\/\*\.png\) but this run wrote none/);
+    assert.notEqual(readEvidence(root).state, "passing");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("verify-feature: captures in a folder git tracks fail with the folder to ignore, before or after the layers (feat-044)", () => {
+  const root = captureFixture({ ignore: false });
+  try {
+    const leftover = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(leftover.exit, 1, leftover.output);
+    assert.match(leftover.stdout, /uncommitted change\(s\) outside harness bookkeeping[\s\S]*Declared captures are among them: add shots\/ to \.gitignore/);
+    rmSync(path.join(root, "shots"), { recursive: true, force: true });
+    const fresh = run(root, "verify-feature", ["feat-001"]);
+    assert.equal(fresh.exit, 1, fresh.output);
+    assert.match(fresh.stdout, /The verification layers left[\s\S]*Declared captures are among them: add shots\/ to \.gitignore/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("typecheck: malformed captures fail; declaring captures changes the checks hash only where declared (feat-044)", () => {
+  for (const captures of [[], [""], "shots/*.png"]) {
+    const root = featureListFixture([evidenceFeature({ layers: [{ label: "L", cmd: "true", repair: "r", captures }] })]);
+    try {
+      const result = run(root, "typecheck");
+      assert.equal(result.exit, 1, `${JSON.stringify(captures)}: ${result.output}`);
+      assert.match(result.stderr, /captures must be a non-empty list of globs/);
+    } finally {
+      cleanup(root);
+    }
+  }
+  const root = gitFeatureFixture([evidenceFeature({ state: "active" })]);
+  try {
+    assert.equal(run(root, "verify-feature", ["feat-001"]).exit, 0);
+    assert.doesNotMatch(run(root, "typecheck").output, /\[WARN\]/, "a layer without captures keeps its hash");
+    const declarations = JSON.parse(readFileSync(path.join(root, "feature_list.json"), "utf8"));
+    declarations.features[0].layers[0].captures = ["shots/*.png"];
+    writeDeclarations(root, declarations.features);
+    assert.match(run(root, "typecheck").output, /\[WARN\] feat-001 is passing, but its verification layers changed/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// ---- feat-045: agents look at captures (shipped skills) ---------------------
+
+test("shipped skills tell agents to look at captures before committing and at the gate, screenshots not video (feat-045)", () => {
+  const skill = (name) => readFileSync(path.resolve(path.dirname(RUNNER), "..", "skills", name, "SKILL.md"), "utf8");
+  const verification = skill("verification");
+  assert.match(verification, /During development, before committing/);
+  assert.match(verification, /At the gate/);
+  assert.match(verification, /you can read images but not watch video/);
+  assert.match(skill("review"), /If a layer declares `captures`, open each copy/);
+  assert.match(skill("testing"), /"captures": \["test-results\/\*\*\/\*\.png"\]/);
+  for (const name of ["verification", "review", "testing"]) {
+    assert.match(skill(name), /video/i, `${name} says what video is for`);
+  }
+});
+
+// ---- feat-049 (D-056): a passing state needs gate evidence -----------------
+
+// Default timestamp: after the fixtures' trail (2026-11-10), as for any pass since trails existed.
+function gateEvidence({ commit = "abc1234", bound = true, timestamp = "2026-11-12T00:00:00.000Z", checksHash = "1111222233334444" } = {}) {
+  return JSON.stringify({ summary: "All verification layers passed via node scripts/framework-check.mjs verify-feature", timestamp, commit, dirty: !bound, bound, checksHash, layers: [{ label: "L", result: "PASS" }] });
+}
+
+function writeTrail(root, { feature, commit = "abc1234", checksHash = "1111222233334444", at = "2026-11-10T00:00:01.000Z" }) {
+  write(root, `.harness/trails/${at.replace(/[:.]/g, "-")}-verify-feature-${feature}.json`, `${JSON.stringify({ kind: "verify-feature", recorded_at: at, feature, commit, checksHash }, null, 2)}\n`);
+}
+
+test("typecheck: accepts passing features whose evidence came from the gate, in every format it has written (feat-049)", () => {
+  const root = featureListFixture([
+    evidenceFeature({ id: "feat-001", state: "passing", evidence: gateEvidence() }),
+    evidenceFeature({ id: "feat-002", state: "passing", evidence: gateEvidence({ bound: false }) }),
+    evidenceFeature({ id: "feat-003", state: "passing", evidence: gateEvidence({ commit: "0ld0000", timestamp: "2026-11-01T00:00:00.000Z" }) }),
+    evidenceFeature({ id: "feat-004", state: "passing", evidence: "All verification layers passed via scripts/verify-feature.sh at 2026-08-17" }),
+    evidenceFeature({ id: "feat-005", state: "passing", evidence: JSON.stringify({ summary: "All verification layers passed via node scripts/framework-check.mjs verify-feature", commit: "abc1234", layers: [] }) }),
+    evidenceFeature({ id: "feat-006", state: "planned" }),
+  ]);
+  writeTrail(root, { feature: "feat-001" });
+  try {
+    const result = run(root, "typecheck");
+    assert.equal(result.exit, 0, result.output);
+    assert.match(result.stdout, /Every passing feature carries evidence from verify-feature \(5\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("typecheck: fails a hand-marked passing feature and bound evidence without its trail (feat-049)", () => {
+  const root = featureListFixture([
+    evidenceFeature({ id: "feat-001", state: "passing", evidence: "" }),
+    evidenceFeature({ id: "feat-002", state: "passing", evidence: "Implemented and tested; all checks green" }),
+    evidenceFeature({ id: "feat-003", state: "passing", evidence: JSON.stringify({ summary: "done", commit: "abc1234" }) }),
+    evidenceFeature({ id: "feat-004", state: "passing", evidence: gateEvidence() }),
+    evidenceFeature({ id: "feat-005", state: "passing", evidence: gateEvidence({ commit: "fffffff" }) }),
+  ]);
+  writeTrail(root, { feature: "feat-005", commit: "abc1234" });
+  try {
+    const result = run(root, "typecheck");
+    assert.equal(result.exit, 1, result.output);
+    for (const id of ["feat-001", "feat-002", "feat-003"]) {
+      assert.match(result.stderr, new RegExp(`${id} is passing, but its evidence was not written by verify-feature`));
+    }
+    assert.match(result.stderr, /feat-004 is passing, but its evidence names commit abc1234, but no verify-feature trail/);
+    assert.match(result.stderr, /feat-005 is passing, but its evidence names commit fffffff, but no verify-feature trail/);
+    assert.match(result.stderr, /run node scripts\/framework-check\.mjs verify-feature feat-001 \(npm run verify-feature -- feat-001\)/);
   } finally {
     cleanup(root);
   }
@@ -1603,7 +2220,7 @@ test("migrate-feature-state: moves inline state/evidence into shards and strips 
   write(root, "feature_list.json", `${JSON.stringify(
     {
       features: [
-        { id: "feat-001", name: "One", behavior: "b", verification: "v", dependencies: [], state: "passing", evidence: "old evidence", layers: [{ label: "L", cmd: "true", repair: "r" }] },
+        { id: "feat-001", name: "One", behavior: "b", verification: "v", dependencies: [], state: "passing", evidence: "All verification layers passed via scripts/verify-feature.sh", layers: [{ label: "L", cmd: "true", repair: "r" }] },
         { id: "feat-002", name: "Two", behavior: "b", verification: "v", dependencies: [], status: "not_started", layers: [{ label: "L", cmd: "true", repair: "r" }] },
       ],
     },
@@ -1621,7 +2238,7 @@ test("migrate-feature-state: moves inline state/evidence into shards and strips 
 
     const shard1 = JSON.parse(readFileSync(path.join(root, ".harness/state/feat-001.json"), "utf8"));
     assert.equal(shard1.state, "passing");
-    assert.equal(shard1.evidence, "old evidence");
+    assert.equal(shard1.evidence, "All verification layers passed via scripts/verify-feature.sh");
     const shard2 = JSON.parse(readFileSync(path.join(root, ".harness/state/feat-002.json"), "utf8"));
     assert.equal(shard2.state, "planned");
 
@@ -2158,6 +2775,85 @@ test("progress-new: writes the next note with the exact heading and sections, an
   }
 });
 
+// ---- feat-042 (D-053): every caught mistake becomes a check ----------------
+
+// Session notes 001..n with the given "Mistakes caught" text (null leaves the line out), a rule
+// file declaring arch-001, and a regenerated dashboard.
+function mistakesFixture(sections) {
+  const root = progressFixture([], []);
+  write(root, ".harness/arch-rules.json", `${JSON.stringify({ rules: [{ id: "arch-001" }] })}\n`);
+  sections.forEach((section, index) => {
+    const number = String(index + 1).padStart(3, "0");
+    const body = section === null ? "" : `- Mistakes caught:${section}\n`;
+    write(root, `progress/${number}-2026-10-01.md`, `### Session ${number} — 2026-10-01 — S\n\n- Goal: g\n${body}- Next best step: n\n`);
+  });
+  const update = run(root, "progress-update");
+  assert.equal(update.exit, 0, update.output);
+  return root;
+}
+
+test("progress-new: the skeleton has a Mistakes caught section, and lint still passes right after (feat-042)", () => {
+  const root = progressFixture([], []);
+  try {
+    assert.equal(run(root, "progress-new", ["One"]).exit, 0);
+    const note = readFileSync(path.join(root, "progress", `001-${todayLocal()}.md`), "utf8");
+    assert.match(note, /^- Files or artifacts updated: \n- Mistakes caught: \n- Known risk or unresolved issue: /m);
+    const lint = run(root, "lint:progress-log");
+    assert.equal(lint.exit, 0, lint.output);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lint:progress-log: accepts none and each of the four forms, inline or nested (feat-042)", () => {
+  const root = mistakesFixture([
+    " none",
+    " Skipped the quality doc → rule: arch-001",
+    "\n  - Off-by-one in add → test: add handles zero\n  - Debug print left in -> lint: no-console\n  - Misread the spec → no check possible: a judgment call, not a pattern",
+  ]);
+  try {
+    const lint = run(root, "lint:progress-log");
+    assert.equal(lint.exit, 0, lint.output);
+    assert.match(lint.output, /Session notes record what each caught mistake became/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("lint:progress-log: fails an entry with no check, an undeclared rule, or a later note without the section (feat-042)", () => {
+  const root = mistakesFixture([
+    null,
+    "\n  - Forgot to rerun the tests\n  - Banned call slipped in → rule: arch-999\n  - Wrong layer → test: ",
+    null,
+  ]);
+  try {
+    const lint = run(root, "lint:progress-log");
+    assert.equal(lint.exit, 1, lint.output);
+    assert.doesNotMatch(lint.stderr, /001-2026-10-01/, "notes before the first section are not checked");
+    assert.match(lint.stderr, /002-2026-10-01\.md: "Forgot to rerun the tests" does not say what it became/);
+    assert.match(lint.stderr, /names rule arch-999, which is not in \.harness\/arch-rules\.json/);
+    assert.match(lint.stderr, /"Wrong layer → test:" does not say what it became/);
+    assert.match(lint.stderr, /003-2026-10-01\.md has no "- Mistakes caught:" line/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("clean-state-check: fails while the latest note leaves Mistakes caught blank (feat-042)", () => {
+  const root = mistakesFixture([" none", ""]);
+  try {
+    const blank = run(root, "clean-state-check", [], { DEBUG_SCAN_PATHS: "" });
+    assert.match(blank.output, /\[FAIL\] progress\/002-2026-10-01\.md leaves "- Mistakes caught:" blank/);
+    assert.equal(run(root, "lint:progress-log").exit, 0, "a blank section still passes lint");
+    write(root, "progress/002-2026-10-01.md", "### Session 002 — 2026-10-01 — S\n\n- Mistakes caught: none\n");
+    assert.equal(run(root, "progress-update").exit, 0);
+    const filled = run(root, "clean-state-check", [], { DEBUG_SCAN_PATHS: "" });
+    assert.match(filled.output, /\[PASS\] progress\/002-2026-10-01\.md records the mistakes caught this session/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test("progress-new: refuses a blank or multi-line title, and never overwrites a note (feat-036)", () => {
   const root = progressFixture([], []);
   try {
@@ -2273,6 +2969,40 @@ test("add-feature: Layer 3 runs the check chain without the lint and test steps 
   // This repository's own check script reduces the same way.
   const own = JSON.parse(readFileSync(path.resolve(path.dirname(RUNNER), "..", "package.json"), "utf8")).scripts.check;
   assert.doesNotMatch(addFeatureLayer3(own), /npm run (lint|test)\b/);
+});
+
+test("add-feature: with check-arch in the check chain, new features' Layer 3 runs the architecture rules (feat-040)", () => {
+  assert.equal(
+    addFeatureLayer3("npm run lint && npm run check-arch && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all && npm run quality"),
+    "npm run check-arch && npm run typecheck && npm run build && npm run e2e && npm run verify-all && npm run quality",
+  );
+});
+
+test("check chain: a failing architecture rule stops npm run check before the later layers (feat-040)", () => {
+  const root = featureListFixture([]);
+  try {
+    write(root, ".harness/arch-rules.json", JSON.stringify({
+      rules: [{ id: "arch-x", description: "always fails", check: "node -e \"console.log('nope')\"", expect: "^PASS", what: "w", why: "y", fix: "f" }],
+    }));
+    const runner = RUNNER.replace(/\\/g, "/");
+    write(root, "package.json", `${JSON.stringify({
+      name: "x",
+      scripts: {
+        lint: "node -e \"console.log('lint ran')\"",
+        "check-arch": `node "${runner}" check-arch`,
+        test: "node -e \"console.log('TEST LAYER RAN')\"",
+        check: "npm run lint && npm run check-arch && npm run test",
+      },
+    }, null, 2)}\n`);
+    const result = spawnSync("npm run check", { cwd: root, encoding: "utf8", shell: true });
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(result.status, 0, output);
+    assert.match(output, /lint ran/);
+    assert.match(output, /\[FAIL\] w/);
+    assert.doesNotMatch(output, /TEST LAYER RAN/);
+  } finally {
+    cleanup(root);
+  }
 });
 
 test("add-feature: Layer 3 keeps npm run check whenever the check script is not a plain chain with both steps (feat-038)", () => {

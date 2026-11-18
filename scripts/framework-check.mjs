@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, readdirSync, renameSync } from "node:fs";
+import { readFileSync, existsSync, statSync, writeFileSync, mkdirSync, readdirSync, renameSync, chmodSync, copyFileSync, rmSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -75,6 +75,8 @@ const requiredMakeTargets = [
   "session-start",
   "session-end",
   "clean-check",
+  "hooks-install",
+  "hooks-uninstall",
   "setup",
   "dev",
   "help",
@@ -271,6 +273,7 @@ const SESSION_NOTE_SECTIONS = [
   "Completed",
   "Verification run",
   "Files or artifacts updated",
+  "Mistakes caught",
   "Known risk or unresolved issue",
   "Next best step",
 ];
@@ -476,6 +479,61 @@ function ensureProgressLog() {
     fail(`${progressFile} is out of date; run "node scripts/framework-check.mjs progress-update"`);
   }
   pass(`Progress dashboard is current (${sessions.length} session${sessions.length === 1 ? "" : "s"})`);
+  ensureMistakesCaught(sessions);
+}
+
+// Every mistake caught in a session must become a check, or say why it cannot (feat-042,
+// D-053): "- Mistakes caught: none", or one entry per mistake, inline or as nested bullets,
+// each "<mistake> → rule: <arch rule id> | test: <name> | lint: <check> | no check possible:
+// <reason>". Notes are checked from the first one that has the section, so a project's older
+// notes never fail; from there on, every note needs it.
+const MISTAKE_FORMS = "rule: <arch rule id>, test: <name>, lint: <check>, or no check possible: <reason>";
+
+function mistakesCaughtEntries(text) {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.startsWith("- Mistakes caught:"));
+  if (start === -1) return null;
+  const entries = [];
+  const inline = lines[start].slice("- Mistakes caught:".length).trim();
+  if (inline) entries.push(inline);
+  for (let i = start + 1; i < lines.length && /^\s+- /.test(lines[i]); i += 1) {
+    entries.push(lines[i].trim().slice(2).trim());
+  }
+  return entries;
+}
+
+function mistakeEntryProblem(entry, ruleIds) {
+  const match = entry.match(/(?:→|->)\s*(rule|test|lint|no check possible):\s*(.*)$/i);
+  if (!match || !match[2].trim()) return `"${entry}" does not say what it became (${MISTAKE_FORMS})`;
+  const [, kind, value] = match;
+  if (kind.toLowerCase() === "rule" && !ruleIds.has(value.trim())) {
+    return `"${entry}" names rule ${value.trim()}, which is not in .harness/arch-rules.json`;
+  }
+  return null;
+}
+
+function ensureMistakesCaught(sessions) {
+  const ruleIds = new Set((existsSync(".harness/arch-rules.json") ? readJson(".harness/arch-rules.json").rules ?? [] : []).map((rule) => rule.id));
+  const problems = [];
+  let started = false;
+  for (const session of sessions) {
+    const entries = mistakesCaughtEntries(readText(path.join("progress", session.filename)));
+    if (entries === null) {
+      if (started) problems.push(`progress/${session.filename} has no "- Mistakes caught:" line`);
+      continue;
+    }
+    started = true;
+    // A blank section is a note still being written: progress-new's skeleton must pass lint
+    // (feat-036). clean-check fails on a blank one at session end.
+    if (entries.length === 0) continue;
+    if (entries.length === 1 && /^none\.?$/i.test(entries[0])) continue;
+    for (const entry of entries) {
+      const problem = mistakeEntryProblem(entry, ruleIds);
+      if (problem) problems.push(`progress/${session.filename}: ${problem}`);
+    }
+  }
+  if (problems.length > 0) fail(problems.join("\n       "));
+  if (started) pass("Session notes record what each caught mistake became");
 }
 
 function normalizeEol(text) {
@@ -633,12 +691,19 @@ function ensureFeatureShape() {
     if ("dependencies" in feature && !Array.isArray(feature.dependencies)) {
       fail(`feature ${feature.id} dependencies must be an array`);
     }
+    if ("readme" in feature && (typeof feature.readme !== "string" || !feature.readme.trim())) {
+      fail(`feature ${feature.id} readme must be a non-empty reason why README.md needs no change (feat-051)`);
+    }
     if (!Array.isArray(feature.layers) || feature.layers.length === 0) {
       fail(`feature ${feature.id} must define at least one verification layer`);
     }
     for (const layer of feature.layers) {
       if (!layer.label || !layer.cmd || !layer.repair) {
         fail(`feature ${feature.id} contains an incomplete verification layer`);
+      }
+      const { captures } = layer;
+      if (captures !== undefined && (!Array.isArray(captures) || captures.length === 0 || !captures.every((glob) => typeof glob === "string" && glob.trim()))) {
+        fail(`feature ${feature.id} layer "${layer.label}": captures must be a non-empty list of globs (for example ["test-results/**/*.png"])`);
       }
     }
   }
@@ -948,6 +1013,136 @@ function ensureCommandSurfaces() {
     }
   }
   pass("README links to the current command reference and AGENTS documents every make target");
+}
+
+// Every MUST / MUST NOT rule in AGENTS.md says what enforces it (feat-048, D-055), in an
+// <!-- enforced-by: ... --> comment on the rule's line or the comment lines right below it: a
+// gate (arch rule ids must exist), or "none — <reason>". The none entries are the rules that
+// are still prose only, the backlog for new gates.
+function ensureMustRulesEnforced() {
+  if (!existsSync("AGENTS.md")) return;
+  const ruleIds = new Set((existsSync(".harness/arch-rules.json") ? readJson(".harness/arch-rules.json").rules ?? [] : []).map((rule) => rule.id));
+  const lines = readText("AGENTS.md").split(/\r?\n/);
+  const problems = [];
+  let enforced = 0;
+  let none = 0;
+  lines.forEach((line, index) => {
+    if (!/^\s*- \*\*MUST( NOT)?\*\*/.test(line)) return;
+    const label = `AGENTS.md:${index + 1} "${line.trim().slice(0, 60)}…"`;
+    const block = [line];
+    for (let next = index + 1; next < lines.length && /^\s*<!--.*-->\s*$/.test(lines[next]); next += 1) block.push(lines[next]);
+    const tag = block.map((entry) => entry.match(/<!--\s*enforced-by:\s*(.*?)\s*-->/)).find(Boolean);
+    if (!tag || !tag[1]) {
+      problems.push(`${label} has no <!-- enforced-by: <gate> --> or <!-- enforced-by: none — <reason> --> comment`);
+      return;
+    }
+    const value = tag[1];
+    if (/^none\b/i.test(value)) {
+      if (!value.replace(/^none\b\s*[—:-]?\s*/i, "").trim()) problems.push(`${label} says enforced-by: none without a reason`);
+      else none += 1;
+      return;
+    }
+    const unknown = [...value.matchAll(/\barch-\d+\b/g)].map((match) => match[0]).filter((id) => !ruleIds.has(id));
+    if (unknown.length > 0) problems.push(`${label} names ${unknown.join(", ")}, not in .harness/arch-rules.json`);
+    else enforced += 1;
+  });
+  if (problems.length > 0) fail(problems.join("\n       "));
+  if (enforced + none > 0) pass(`AGENTS.md MUST rules name what enforces them (${enforced} by a gate, ${none} prose only: enforced-by none)`);
+}
+
+// README contract (feat-052, D-061): README.md follows a conventional structure (based on the
+// Standard Readme convention) and names nothing the repository does not have. What a check
+// cannot judge (is each claim true, is each capability mentioned) is the readme-review skill's.
+const README_SECTIONS = [
+  ["an install section (Install, Installation, Getting Started, Quick Start or Setup)", /^(install|installation|getting started|quick ?start|setup)\b/i],
+  ["a usage section (Usage, Examples, How to Use, How It Works or What It Does)", /^(usage|examples?|how to use|how it works|what (it|the [\w -]+) does)\b/i],
+  ["a License section", /^licen[cs]e\b/i],
+];
+const README_PLACEHOLDER = /[<>*{}$]|\.\.\.|\bN{2,}\b|\bY{4}\b|\bX{2,}\b/;
+
+function readmeContractProblems(text, { scripts = null, targets = null, exists = existsSync } = {}) {
+  // Blank out HTML comments, keeping line numbers.
+  const lines = text.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, "")).split(/\r?\n/);
+  const problems = [];
+  const at = (index, message) => problems.push(`README.md:${index + 1}: ${message}`);
+  let fenced = false;
+  const headings = [];
+  const prose = [];
+  const code = [];
+  lines.forEach((line, index) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      return;
+    }
+    if (fenced) {
+      code.push([index, line.replace(/(^|\s)#.*$/, "")]); // a shell comment is not a command
+      return;
+    }
+    const heading = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (heading) headings.push({ index, level: heading[1].length, text: heading[2] });
+    else prose.push([index, line]);
+    for (const span of line.matchAll(/`([^`]+)`/g)) code.push([index, span[1]]);
+  });
+
+  // Structure.
+  const titles = headings.filter((heading) => heading.level === 1);
+  if (titles.length !== 1 || headings[0]?.level !== 1) {
+    at(headings[0]?.index ?? 0, `start with exactly one level-1 title (found ${titles.length})`);
+  }
+  const firstSection = headings.find((heading) => heading.level === 2)?.index ?? lines.length;
+  const described = prose.some(([index, line]) => index > (titles[0]?.index ?? -1) && index < firstSection && line.trim() && !/^\s*!?\[!\[|^\s*!\[/.test(line));
+  if (!described) at(titles[0]?.index ?? 0, "add a short description of what the project does right after the title");
+  const sections = headings.filter((heading) => heading.level === 2);
+  for (const [name, pattern] of README_SECTIONS) {
+    if (!sections.some((section) => pattern.test(section.text))) at(lines.length - 1, `add ${name}`);
+  }
+  if (lines.length > 100 && !sections.some((section) => /^(table of )?contents$/i.test(section.text))) {
+    at(firstSection < lines.length ? firstSection : 0, `a README over 100 lines needs a "Table of Contents" section (${lines.length} lines)`);
+  }
+
+  // Claims: commands, links and paths must exist in the repository.
+  for (const [index, snippet] of code) {
+    if (scripts) {
+      for (const match of snippet.matchAll(/\b(?:npm|pnpm|yarn) run(?: -s| --silent)? ([\w:.-]+)/g)) {
+        if (!scripts.has(match[1])) at(index, `"${match[0]}" names a script package.json does not define`);
+      }
+      for (const match of snippet.matchAll(/\bnpm (test|start)\b/g)) {
+        if (!scripts.has(match[1])) at(index, `"${match[0]}" needs a "${match[1]}" script in package.json`);
+      }
+    }
+    if (targets) {
+      for (const match of snippet.matchAll(/(?:^|[\s;&|(])make ([a-z][\w-]*)/g)) {
+        if (!targets.has(match[1])) at(index, `"make ${match[1]}" names a target the Makefile does not define`);
+      }
+    }
+  }
+  for (const [index, line] of prose) {
+    for (const span of line.matchAll(/`([^`]+)`/g)) {
+      for (const word of span[1].split(/\s+/)) {
+        const candidate = word.replace(/[,;:)]+$/, "");
+        if (!/^\.{0,2}\/?[\w.-]+(\/[\w.-]*)+$/.test(candidate) || README_PLACEHOLDER.test(candidate) || candidate.includes("://")) continue;
+        if (!exists(candidate.replace(/\/$/, ""))) at(index, `\`${candidate}\` does not exist in the repository`);
+      }
+    }
+    for (const link of line.matchAll(/\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+      const target = link[1];
+      if (/^([a-z]+:|#)/i.test(target) || README_PLACEHOLDER.test(target)) continue;
+      const file = decodeURI(target.replace(/[#?].*$/, ""));
+      if (file && !exists(file)) at(index, `the link to ${file} points to a file that does not exist`);
+    }
+  }
+  return problems;
+}
+
+function ensureReadmeContract() {
+  if (!existsSync("README.md")) return;
+  const scripts = existsSync("package.json") ? new Set(Object.keys(readJson("package.json").scripts ?? {})) : null;
+  const targets = existsSync("Makefile") ? new Set([...readText("Makefile").matchAll(/^([A-Za-z][\w-]*):/gm)].map((match) => match[1])) : null;
+  const problems = readmeContractProblems(readText("README.md"), { scripts, targets });
+  if (problems.length > 0) {
+    fail(`README.md does not meet the README contract (see the readme-review skill):\n       ${problems.join("\n       ")}`);
+  }
+  pass("README.md follows the conventional structure and names only what exists");
 }
 
 // The quality config is optional, but a malformed one must fail lint, not surface only
@@ -1344,6 +1539,27 @@ function checkArch() {
 
   for (const rule of rules) {
     console.log(`Rule: ${rule.id} — ${rule.description}`);
+    if (rule.kind === "forbid") {
+      const { error, skip, hits } = findForbiddenPattern(rule);
+      if (skip) {
+        console.log(`  [SKIP] ${skip}`);
+      } else if (error) {
+        console.log(`  [FAIL] rule ${rule.id}: ${error}`);
+        console.log("");
+        passing = false;
+      } else if (hits.length > 0) {
+        console.log(`  [FAIL] ${hits.length} forbidden match(es):`);
+        for (const hit of hits) console.log(`    ${hit.file}:${hit.line}: ${hit.text}`);
+        console.log(`  What: ${rule.what}`);
+        console.log(`  Why: ${rule.why}`);
+        console.log(`  Fix: ${rule.fix}`);
+        console.log("");
+        passing = false;
+      } else {
+        console.log("  [PASS]");
+      }
+      continue;
+    }
     let output = "";
     try {
       output = execSync(rule.check, { encoding: "utf8", shell: true });
@@ -1376,6 +1592,162 @@ function checkArch() {
     console.log("=== Architecture constraint violations found ===");
     process.exit(1);
   }
+}
+
+// A "forbid" rule (feat-041) bans a pattern in code instead of running a command: it searches
+// the tracked files its `paths` globs match, minus its `allow` globs, line by line, with no
+// dependency and no shell, so it behaves the same on Windows, Linux and macOS.
+function findForbiddenPattern(rule) {
+  if (typeof rule.pattern !== "string" || !rule.pattern) return { error: "a forbid rule needs a pattern" };
+  let pattern;
+  try {
+    pattern = new RegExp(rule.pattern);
+  } catch {
+    return { error: `invalid pattern ${JSON.stringify(rule.pattern)}` };
+  }
+  const globList = (value) => Array.isArray(value) && value.every((item) => typeof item === "string" && item);
+  if (!globList(rule.paths) || rule.paths.length === 0) return { error: "a forbid rule needs a non-empty paths list of globs" };
+  if (rule.allow !== undefined && !globList(rule.allow)) return { error: "allow must be a list of globs" };
+  const listed = spawnSync("git", ["ls-files", "-z"], { encoding: "utf8" });
+  // Like arch-005's classification coverage, the search needs git's index; a project that is
+  // not a repository yet (a fresh adopter) reports SKIP instead of failing.
+  if (listed.error || (listed.status ?? 1) !== 0) return { skip: "not a git repository — forbid rules search tracked files" };
+  const included = rule.paths.map(globToRegExp);
+  const allowed = (rule.allow ?? []).map(globToRegExp);
+  const hits = [];
+  for (const file of listed.stdout.split("\0").filter(Boolean).sort()) {
+    if (!included.some((glob) => glob.test(file)) || allowed.some((glob) => glob.test(file))) continue;
+    let text;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      continue; // tracked but deleted from the working tree
+    }
+    if (text.includes("\0")) continue; // binary
+    text.split(/\r?\n/).forEach((line, index) => {
+      if (pattern.test(line)) hits.push({ file, line: index + 1, text: line.trim().slice(0, 160) });
+    });
+  }
+  return { hits };
+}
+
+// Glob to RegExp for repository-relative paths with "/" separators: ** spans directories, *
+// and ? stay within one, {a,b} picks one alternative.
+function globToRegExp(glob) {
+  let source = "";
+  let braces = 0;
+  for (let i = 0; i < glob.length; i += 1) {
+    const char = glob[i];
+    if (char === "*" && glob[i + 1] === "*") {
+      const slash = glob[i + 2] === "/";
+      source += slash ? "(?:.*/)?" : ".*";
+      i += slash ? 2 : 1;
+    } else if (char === "*") source += "[^/]*";
+    else if (char === "?") source += "[^/]";
+    else if (char === "{") { source += "(?:"; braces += 1; }
+    else if (char === "}" && braces > 0) { source += ")"; braces -= 1; }
+    else if (char === "," && braces > 0) source += "|";
+    else source += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${source}$`);
+}
+
+// ---- README stays current (feat-051, D-060) --------------------------------
+// verifiedIds: gate-verified features (bound evidence). The newest one without a "readme"
+// opt-out is the change README.md must postdate: changed in its verified commit, a later commit,
+// or the working tree. A commit git cannot resolve (shallow clone, rewritten history) warns.
+function readmeFreshness(verifiedIds) {
+  const { features } = existsSync("feature_list.json") ? loadFeaturesWithState() : { features: [] };
+  const latest = features
+    .filter((feature) => verifiedIds.includes(feature.id) && !feature.readme)
+    .map((feature) => ({ id: feature.id, evidence: parseEvidence(feature) }))
+    .filter(({ evidence }) => typeof evidence?.commit === "string")
+    .sort((a, b) => String(b.evidence.timestamp ?? "").localeCompare(String(a.evidence.timestamp ?? "")))[0];
+  if (!latest) return { level: "pass", message: "No gate-verified feature asks for a README update yet" };
+  if (!existsSync("README.md")) return { level: "fail", message: "README.md is missing — it describes the app being built" };
+  const { id, evidence } = latest;
+  const pending = gitCapture(["status", "--porcelain", "--", "README.md"]);
+  if (pending) return { level: "pass", message: `README.md has changes since ${id} passed (uncommitted)` };
+  const readmeCommit = gitCapture(["log", "-1", "--format=%H", "--", "README.md"]);
+  if (!readmeCommit) return { level: "fail", message: `README.md has never been committed; describe the app, including what ${id} added, and commit it` };
+  const ancestor = spawnSync("git", ["merge-base", "--is-ancestor", evidence.commit, readmeCommit]);
+  if (ancestor.status === 0) return { level: "pass", message: `README.md changed at or after ${id} passed (${evidence.commit})` };
+  if (ancestor.status === 1) {
+    return {
+      level: "fail",
+      message: `README.md was last changed before ${id} passed (${evidence.commit}). Contrast it with the repository (the readme-review skill) and update it to describe what the app does now, or, if users see no change, declare "readme": "<reason>" on ${id} in feature_list.json`,
+    };
+  }
+  return { level: "warn", message: `cannot tell whether README.md changed after ${id} passed: commit ${evidence.commit} is not in this clone's history` };
+}
+
+// ---- Opt-in pre-commit hook (feat-043, D-054) ------------------------------
+// A git hook works for every agent and human alike. It lives under scripts/ (CORE), so
+// create-harness copies it and harness-upgrade refreshes it. It runs only the fast static
+// checks; the full check before committing stays a step of the workflow.
+
+const HOOKS_DIR = "scripts/hooks";
+const PRE_COMMIT_STEPS = ["lint", "check-arch"];
+
+function preCommit() {
+  for (const step of PRE_COMMIT_STEPS) {
+    console.log(`[pre-commit] npm run ${step}`);
+    const run = spawnSync(`npm run ${step}`, { stdio: "inherit", shell: true });
+    if (run.error || (run.status ?? 1) !== 0) {
+      console.log("");
+      console.log(`[pre-commit] Commit blocked: npm run ${step} failed. Fix what it reports, rerun "npm run ${step}", then commit again.`);
+      process.exit(1);
+    }
+  }
+  console.log("[pre-commit] lint and architecture rules pass (the full npm run check is still yours to run)");
+}
+
+// core.hooksPath relative to the top of the working tree, where git runs hooks from.
+function harnessHooksPath() {
+  const prefix = gitCapture(["rev-parse", "--show-prefix"]);
+  if (prefix === null) fail("hooks: not a git repository — run git init first");
+  return `${prefix}${HOOKS_DIR}`;
+}
+
+function hooksInstall() {
+  const target = harnessHooksPath();
+  const hook = `${HOOKS_DIR}/pre-commit`;
+  if (!existsSync(hook)) fail(`hooks-install: ${hook} is missing — restore it with harness-upgrade`);
+  const chain = `call the harness hook from yours instead: add the line  "${target}/pre-commit" || exit 1  to your pre-commit hook`;
+  const current = gitCapture(["config", "--get", "core.hooksPath"]);
+  if (current === target) {
+    pass(`Pre-commit hook already installed (core.hooksPath = ${target})`);
+    return;
+  }
+  if (current) {
+    fail(`hooks-install: core.hooksPath already points at ${current}, and it will not be replaced. To keep those hooks, ${chain}`);
+  }
+  // With core.hooksPath set, git stops running the default folder's hooks: never switch the
+  // user's own hooks off without saying so.
+  const defaultDir = gitCapture(["rev-parse", "--git-path", "hooks"]);
+  const own = defaultDir && existsSync(defaultDir) ? readdirSync(defaultDir).filter((name) => !name.endsWith(".sample")) : [];
+  if (own.length > 0) {
+    fail(`hooks-install: ${defaultDir} has hooks of your own (${own.join(", ")}) that core.hooksPath would switch off. To keep them, ${chain}`);
+  }
+  chmodSync(hook, 0o755); // git skips a hook that is not executable on Linux and macOS
+  const set = spawnSync("git", ["config", "--local", "core.hooksPath", target], { encoding: "utf8" });
+  if (set.error || (set.status ?? 1) !== 0) fail(`hooks-install: git config failed: ${set.stderr ?? set.error}`);
+  pass(`Installed the pre-commit hook: core.hooksPath = ${target}; every commit now runs npm run lint and npm run check-arch. Remove it with npm run hooks-uninstall`);
+}
+
+function hooksUninstall() {
+  const target = harnessHooksPath();
+  const current = gitCapture(["config", "--local", "--get", "core.hooksPath"]);
+  if (current === null) {
+    pass("The harness pre-commit hook is not installed — nothing to do");
+    return;
+  }
+  if (current !== target) {
+    pass(`core.hooksPath points at ${current}, not the harness hooks — left unchanged`);
+    return;
+  }
+  spawnSync("git", ["config", "--local", "--unset", "core.hooksPath"]);
+  pass("Removed the harness pre-commit hook: git uses its default hooks folder again");
 }
 
 // Files the harness itself writes during a feature cycle (activate, verify-feature,
@@ -1435,6 +1807,9 @@ function featureChecksHash(feature) {
     label: layer.label,
     cmd: layer.cmd,
     required: layer.required !== false,
+    // Captures change what the gate checks (feat-044), but only layers that declare them hash
+    // them, so evidence recorded before captures existed does not go stale.
+    ...(layer.captures !== undefined ? { captures: layer.captures } : {}),
   }));
   return createHash("sha256").update(JSON.stringify(checks)).digest("hex").slice(0, 16);
 }
@@ -1455,6 +1830,54 @@ function hasStaleEvidence(feature) {
   if (getFeatureState(feature) !== "passing") return false;
   const evidence = parseEvidence(feature);
   return typeof evidence?.checksHash === "string" && evidence.checksHash !== featureChecksHash(feature);
+}
+
+// A passing state must come from the gate (feat-049, D-056): "MUST NOT mark a feature as
+// passing manually" was prose only, and a hand-edited shard is valid to arch-006. Accepted:
+// gate evidence (commit, checksHash, layers) backed by its trail when bound, or the gate's
+// older formats. It stops shortcuts, not forgery: a copied old summary or a forged trail passes.
+const LEGACY_EVIDENCE_PREFIX = "All verification layers passed via";
+
+function verifyFeatureTrails() {
+  const dir = ".harness/trails";
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => /-verify-feature-.+\.json$/.test(name))
+    .map((name) => {
+      try {
+        return JSON.parse(readFileSync(path.join(dir, name), "utf8"));
+      } catch {
+        return null;
+      }
+    })
+    .filter((trail) => trail && typeof trail.feature === "string");
+}
+
+function gateEvidenceProblem(feature, trails, oldestTrail) {
+  const evidence = parseEvidence(feature);
+  if (evidence && Array.isArray(evidence.layers) && typeof evidence.checksHash === "string" && typeof evidence.commit === "string") {
+    if (evidence.bound !== true) return null; // --allow-dirty: recorded by the gate, no trail by design
+    if (oldestTrail && typeof evidence.timestamp === "string" && evidence.timestamp < oldestTrail) return null; // before trails existed
+    const backed = trails.some((trail) => trail.feature === feature.id && trail.commit === evidence.commit && trail.checksHash === evidence.checksHash);
+    return backed ? null : `its evidence names commit ${evidence.commit}, but no verify-feature trail in .harness/trails/ records that pass`;
+  }
+  const legacy = typeof evidence?.summary === "string" ? evidence.summary : feature.evidence;
+  if (typeof legacy === "string" && legacy.startsWith(LEGACY_EVIDENCE_PREFIX)) return null; // the gate's older formats
+  return "its evidence was not written by verify-feature";
+}
+
+function ensureGateEvidence() {
+  const { features } = loadFeaturesWithState();
+  const trails = verifyFeatureTrails();
+  const oldestTrail = trails.map((trail) => trail.recorded_at).filter((stamp) => typeof stamp === "string").sort()[0];
+  const problems = features
+    .filter((feature) => getFeatureState(feature) === "passing")
+    .map((feature) => [feature.id, gateEvidenceProblem(feature, trails, oldestTrail)])
+    .filter(([, problem]) => problem)
+    .map(([id, problem]) => `${id} is passing, but ${problem}. Only the gate marks a feature passing: run node scripts/framework-check.mjs verify-feature ${id} (npm run verify-feature -- ${id})`);
+  if (problems.length > 0) fail(problems.join("\n       "));
+  const passing = features.filter((feature) => getFeatureState(feature) === "passing").length;
+  if (passing > 0) pass(`Every passing feature carries evidence from verify-feature (${passing})`);
 }
 
 function warnStaleEvidence() {
@@ -1518,6 +1941,7 @@ function verifyFeature(featureId, { allowDirty = false } = {}) {
     console.log("Commit the feature's code and docs first, then re-run verify-feature. The state shard and");
     console.log("progress notes it writes are bookkeeping: they may stay uncommitted and go in the next commit.");
     console.log("To record evidence for uncommitted code anyway (marked bound: false), add --allow-dirty.");
+    printCaptureFolderHint(feature, uncommittedBefore);
     console.log("");
     console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
     process.exit(1);
@@ -1567,10 +1991,25 @@ function verifyFeature(featureId, { allowDirty = false } = {}) {
     const isRequired = layer.required !== false;
 
     if (!run.error && run.status === 0 && !(isVacuousSkip && isRequired)) {
+      const captured = layer.captures ? collectCaptures(layer.captures, started, `${logDir}/captures/${String(index + 1).padStart(2, "0")}-${slugify(layer.label)}`) : null;
+      if (captured && captured.length === 0) {
+        layerResults.push({ label: layer.label, cmd: layer.cmd, result: "FAIL", skipReported: reportedSkip, durationMs, log: logFile, captures: [] });
+        console.log("");
+        console.log(`  [FAIL] ${layer.label} (${formatDuration(durationMs)}) — it declares captures (${layer.captures.join(", ")}) but this run wrote none`);
+        console.log(`  Full output: ${logFile}`);
+        console.log("  Make the layer's command write its screenshots there (for example Playwright's screenshot: \"on\"), or fix the captures globs.");
+        console.log("");
+        console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
+        process.exit(1);
+      }
       if (reportedSkip) skippedLayers.push(layer.label);
-      layerResults.push({ label: layer.label, cmd: layer.cmd, result: "PASS", skipReported: reportedSkip, durationMs, log: logFile });
+      layerResults.push({ label: layer.label, cmd: layer.cmd, result: "PASS", skipReported: reportedSkip, durationMs, log: logFile, ...(captured ? { captures: captured } : {}) });
       console.log("");
       console.log(`  [PASS] ${layer.label} (${formatDuration(durationMs)})`);
+      if (captured) {
+        console.log(`  Captures (${captured.length}) — open each one and compare it to the feature's declared behavior before reporting it done:`);
+        for (const capture of captured) console.log(`    ${capture.path}`);
+      }
       console.log("");
     } else {
       const tail = `${stdout}${stderr}`.trimEnd().split(/\r?\n/).slice(-30);
@@ -1607,6 +2046,7 @@ function verifyFeature(featureId, { allowDirty = false } = {}) {
     console.log("");
     console.log("The recorded commit would not match the verified tree. Commit the files, add generated");
     console.log("output to .gitignore, or stop the layer from writing them; then re-run verify-feature.");
+    printCaptureFolderHint(feature, uncommittedAfter);
     console.log("");
     console.log(`=== Feature ${featureId}: VERIFICATION FAILED ===`);
     process.exit(1);
@@ -1641,6 +2081,58 @@ function verifyFeature(featureId, { allowDirty = false } = {}) {
   // The trail the end-of-session steps ask for, written by the gate itself: across five
   // passing eval trials agents never ran `npm run vcr` for it (feat-034, D-045).
   if (bound) recordTrail("verify-feature", { feature: featureId, commit, checksHash: featureChecksHash(feature) });
+}
+
+// Captures (feat-044, D-057): the screenshots, videos or other artifacts a layer's command writes,
+// named by globs on the layer. Only files written during this run count (modified at or after
+// the layer started, rounded down to the second for coarse file-system clocks), so leftovers
+// from an earlier run are never taken as evidence. Each is copied into the gate's local logs and
+// recorded by path, sha256 and size. An empty list means the layer wrote none.
+function collectCaptures(globs, started, destination) {
+  const since = Math.floor(started / 1000) * 1000;
+  const patterns = globs.map(globToRegExp);
+  const found = new Set();
+  for (const glob of globs) {
+    const segments = glob.split("/");
+    const firstWild = segments.findIndex((segment) => /[*?{]/.test(segment));
+    const base = firstWild === -1 ? segments.slice(0, -1).join("/") : segments.slice(0, firstWild).join("/");
+    walkFiles(base || ".", (file) => {
+      if (patterns.some((pattern) => pattern.test(file)) && statSync(file).mtimeMs >= since) found.add(file);
+    });
+  }
+  rmSync(destination, { recursive: true, force: true });
+  return [...found].sort().map((file) => {
+    const copy = `${destination}/${file}`;
+    mkdirSync(path.dirname(copy), { recursive: true });
+    copyFileSync(file, copy);
+    const bytes = readFileSync(file);
+    return { path: copy, sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length };
+  });
+}
+
+// Uncommitted files that match a declared capture glob mean the captures folder is not
+// gitignored: name the folder, before the layers (leftovers) or after them (this run's files).
+function printCaptureFolderHint(feature, uncommitted) {
+  const globs = (feature.layers ?? []).flatMap((layer) => layer.captures ?? []).map(globToRegExp);
+  const captures = uncommitted.filter((file) => globs.some((glob) => glob.test(file)));
+  if (captures.length === 0) return;
+  const folders = [...new Set(captures.map((file) => (file.includes("/") ? `${file.slice(0, file.indexOf("/"))}/` : file)))];
+  console.log(`Declared captures are among them: add ${folders.join(", ")} to .gitignore — captures are copied into the gate's logs, never committed.`);
+}
+
+// Every file under dir, as a "/"-separated path relative to the project root; skips dependency
+// and VCS folders and the gate's own logs, where earlier copies of captures live.
+function walkFiles(dir, visit) {
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = dir === "." ? entry.name : `${dir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (["node_modules", ".git"].includes(entry.name) || rel === ".harness/logs") continue;
+      walkFiles(rel, visit);
+    } else if (entry.isFile()) {
+      visit(rel);
+    }
+  }
 }
 
 // Verification logs are local diagnostics, never committed: the folder ignores itself, so
@@ -2245,6 +2737,29 @@ function cleanStateCheck() {
     );
   }
 
+  // A feature passing the gate is a significant change: README.md must describe the app as it
+  // is now (feat-051, D-060). It has to change in the latest verified feature's commit or later
+  // (or in the working tree), unless that feature declares "readme": "<reason>".
+  console.log("");
+  console.log("--- README ---");
+  const readme = readmeFreshness(verified);
+  if (readme.level === "warn") console.log(`  [WARN] ${readme.message}`);
+  else check(readme.level === "pass", readme.message, readme.message);
+
+  // Lint accepts a blank "Mistakes caught" so a fresh skeleton passes (feat-036); the end of
+  // the session is where it must be filled in (feat-042, D-053).
+  const latest = existsSync("progress") ? progressSessions().at(-1) : undefined;
+  const latestMistakes = latest ? mistakesCaughtEntries(readText(path.join("progress", latest.filename))) : null;
+  if (latestMistakes !== null) {
+    console.log("");
+    console.log("--- Mistakes Caught ---");
+    check(
+      latestMistakes.length > 0,
+      `progress/${latest.filename} records the mistakes caught this session`,
+      `progress/${latest.filename} leaves "- Mistakes caught:" blank. Write "none", or one entry per mistake ending in → ${MISTAKE_FORMS}.`,
+    );
+  }
+
   console.log("");
   console.log("--- OS Artifacts ---");
   let staged = "";
@@ -2354,7 +2869,7 @@ function printHelp() {
   console.log("");
   console.log("  setup          Install all dependencies from scratch");
   console.log("  dev            Start local development server");
-  console.log("  check          Full verification: lint → typecheck → test → build → e2e → verify-all → quality");
+  console.log("  check          Full verification: lint → check-arch → typecheck → test → build → e2e → verify-all → quality");
   console.log("  lint           Layer 1: static analysis");
   console.log("  typecheck      Layer 1b: type checking");
   console.log("  test           Layer 2: runtime tests");
@@ -2371,7 +2886,7 @@ function printHelp() {
   console.log("  lane-suggest      List features startable in parallel right now (advisory, creates nothing)");
   console.log("  migrate-feature-state  Move inline state/evidence into .harness/state/<id>.json");
   console.log("  add-feature ID=<id> NAME=<name>  Append a declaration-only feature stub");
-  console.log("  vcr            verify + check-arch + record trail");
+  console.log("  vcr            check (architecture rules included) + record trail");
   console.log("  session-start  Record session start");
   console.log("  session-end    Record session end");
   console.log("  selftest       Harness self-tests (the runner's unit tests); ./init.sh runs them in adopters");
@@ -2380,6 +2895,8 @@ function printHelp() {
   console.log("  progress-update  Regenerate the progress state and session index");
   console.log("  progress-migrate  Move a single-file PROGRESS.md into progress/ and generate the dashboard");
   console.log("  clean-check    Pre-commit clean state verification");
+  console.log("  hooks-install  Opt in to the git pre-commit hook (lint + check-arch on every commit)");
+  console.log("  hooks-uninstall  Remove the harness pre-commit hook (git's default hooks folder again)");
   console.log("  help           Show this help");
   console.log("");
   console.log("Make form:  make <target>            npm form:  npm run <target>");
@@ -2411,6 +2928,8 @@ switch (mode) {
     ensureNoPlaceholders({ warnOnly: process.env.CW_INIT_SH === "1" });
     ensureSkills();
     ensureCommandSurfaces();
+    ensureReadmeContract();
+    ensureMustRulesEnforced();
     ensureProgressLog();
     pass("Harness files, JSON manifests, and framework docs are present");
     break;
@@ -2418,6 +2937,7 @@ switch (mode) {
   case "typecheck": {
     ensureFeatureShape();
     pass("Feature tracker schema is consistent");
+    ensureGateEvidence();
     // A warning, not a failure: re-verifying needs a clean tree, and the commit that changes
     // a feature's layers must itself pass check first (feat-030, D-041).
     warnStaleEvidence();
@@ -2494,6 +3014,14 @@ switch (mode) {
     ensureCommandSurfaces();
     break;
   }
+  case "lint:must-rules": {
+    ensureMustRulesEnforced();
+    break;
+  }
+  case "lint:readme": {
+    ensureReadmeContract();
+    break;
+  }
   case "arch:sharded-state": {
     ensureFeatureShape();
     console.log("PASS");
@@ -2545,6 +3073,18 @@ switch (mode) {
   }
   case "clean-state-check": {
     cleanStateCheck();
+    break;
+  }
+  case "pre-commit": {
+    preCommit();
+    break;
+  }
+  case "hooks-install": {
+    hooksInstall();
+    break;
+  }
+  case "hooks-uninstall": {
+    hooksUninstall();
     break;
   }
   case "setup": {

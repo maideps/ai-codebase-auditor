@@ -33,4 +33,5 @@ After adding or updating a session note, regenerate this file with `node scripts
 - [Session 013 — 2026-10-23 — feat-013 Observability collector](progress/013-2026-10-23.md)
 - [Session 014 — 2026-11-17 — Harness upgrade to ai-harness-framework 7aefd1d](progress/014-2026-11-17.md)
 - [Session 015 — 2026-11-18 — Version 3 backlog from the prior-art refresh](progress/015-2026-11-18.md)
+- [Session 016 — 2026-11-18 — Harness upgrade to ai-harness-framework 368139b](progress/016-2026-11-18.md)
 <!-- END GENERATED PROGRESS -->

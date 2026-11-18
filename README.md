@@ -8,7 +8,20 @@ Can AI coding agents safely work in this codebase, and if not, what has to chang
 
 Most agent tooling assumes a greenfield project with tests, docs and small files. This tool is for the long-lived systems where those assumptions fail.
 
-## What an Audit Looks Like
+## Table of Contents
+
+- [Example: What an Audit Looks Like](#example-what-an-audit-looks-like)
+- [Quick Start](#quick-start)
+- [How It Decides](#how-it-decides)
+- [Safety](#safety)
+- [Calibration](#calibration)
+- [Status and Limits](#status-and-limits)
+- [Development](#development)
+- [Repository layout](#repository-layout)
+- [Documentation](#documentation)
+- [License](#license)
+
+## Example: What an Audit Looks Like
 
 An excerpt from auditing [Redmine](https://github.com/redmine/redmine), from the [case study](docs/case-study/README.md):
 
@@ -42,7 +55,6 @@ Harness adaptation plan (ai-harness-framework 0.5.0): Adopt the harness with the
 
 Modernization roadmap (by gain against effort):
   1. type-strictness 1→3 [M] configure Sorbet or Steep for ruby with a baseline (typed share 0.00 to 0.53) (verdict after: adopt)
-  2. direct-api-calls 3→4 [M] make the computed-target calls explicit in 6 of 47 files (to 4.9% of files), starting with app/models/query.rb (5), ...
   ...
 ```
 
@@ -159,7 +171,7 @@ Project state is kept in files: features in [`feature_list.json`](feature_list.j
 
 ## Repository layout
 
-The product is in `src/` (the CLI, collectors and decision rules, with their Vitest tests), `config/` (factor, decision and runtime end-of-life data) and `e2e/` (smoke tests of the built CLI). The rest of the root is the process record from [ai-harness-framework](https://github.com/maideps/ai-harness-framework), the workflow this project is built with. `AGENTS.md` is the workflow every agent follows, and `CLAUDE.md`, `GEMINI.md` and `codex.md` point each agent to it. `scripts/`, `tools/`, `templates/`, `skills/` and the `.mjs` tests in `tests/` are the harness itself. `feature_list.json`, `PROGRESS.md`, `progress/`, `session-handoff.md` and `DECISIONS.md` record what was built, in what order and why.
+The product is in `src/` (the CLI, collectors and decision rules, with their Vitest tests), `config/` (factor, decision and runtime end-of-life data) and `e2e/` (smoke tests of the built CLI). The rest of the root is the process record from [ai-harness-framework](https://github.com/maideps/ai-harness-framework), the workflow this project is built with. `AGENTS.md` is the workflow every agent follows, and `CLAUDE.md`, `GEMINI.md` and `codex.md` point each agent to it. `scripts/`, `templates/`, `skills/` and the `.mjs` tests in `tests/` are the harness itself. `feature_list.json`, `PROGRESS.md`, `progress/`, `session-handoff.md` and `DECISIONS.md` record what was built, in what order and why.
 
 ## Documentation
 

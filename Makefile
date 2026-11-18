@@ -1,4 +1,4 @@
-.PHONY: check lint typecheck test build e2e quality check-arch verify-feature vcr session-start session-end clean-check setup dev help lane-new lane-list lane-land lane-drop lane-suggest migrate-feature-state add-feature activate backup-list backup-pin backup-unpin backup-restore
+.PHONY: check lint typecheck test build e2e quality check-arch verify-feature vcr session-start session-end clean-check setup dev help lane-new lane-list lane-land lane-drop lane-suggest hooks-install hooks-uninstall migrate-feature-state add-feature activate backup-list backup-pin backup-unpin backup-restore
 
 # Every target delegates to the Node runner (scripts/framework-check.mjs) and is
 # mirrored 1:1 by an npm script, so `make check` ≡ `npm run check`.
@@ -6,7 +6,7 @@
 
 ## Full verification — all layers in order.
 ## Layers that are not configured report SKIP and do not count as verified.
-check: lint typecheck test build e2e verify-all quality
+check: lint check-arch typecheck test build e2e verify-all quality
 	@echo "=== make check: complete ==="
 	@echo "  Any layer that reported SKIP was not configured and does not count as verified."
 
@@ -72,6 +72,14 @@ lane-drop:
 lane-suggest:
 	@node scripts/framework-check.mjs lane-suggest
 
+## Opt-in git pre-commit hook (feat-043): lint + check-arch on every commit
+hooks-install:
+	@node scripts/framework-check.mjs hooks-install
+
+## Remove the harness pre-commit hook (git's default hooks folder again)
+hooks-uninstall:
+	@node scripts/framework-check.mjs hooks-uninstall
+
 ## Sharded feature state (feat-011) — one-time migration: moves inline
 ## state/evidence out of feature_list.json into .harness/state/<id>.json.
 ## Idempotent; safe to run on a repo that has already migrated.
@@ -89,9 +97,9 @@ activate:
 	@node scripts/framework-check.mjs activate $(F)
 
 ## Verify + check-arch + record (writes a verification trail to .harness/trails/)
-vcr: check check-arch
+vcr: check
 	@node scripts/framework-check.mjs record-trail vcr
-	@echo "=== VCR: Verify, Check-arch, Record — COMPLETE ==="
+	@echo "=== VCR: Verify (check-arch included), Record — COMPLETE ==="
 
 ## Session lifecycle
 session-start:

@@ -6,7 +6,7 @@ This guide covers running the harness day-to-day and adopting it in a new projec
 
 ```bash
 ./init.sh        # check prerequisites, detect the project stack, install deps, run verification and the harness self-tests
-make check       # full verification: lint → typecheck → test → build → e2e → optional verify-all → optional quality
+make check       # full verification: lint → check-arch → typecheck → test → build → e2e → optional verify-all → optional quality
 make help        # list all available commands
 ```
 
@@ -34,7 +34,7 @@ The generated [Harness Command Reference](HARNESS.md) lists Makefile targets and
    ```
    The gate runs the feature's own verification layers, refuses to pass a feature whose dependencies are not `passing`, and records evidence in `.harness/state/<feature-id>.json` — `feature_list.json` itself is never rewritten (feat-011, D-017).
 5. The gate writes the trail to `.harness/trails/` itself on a bound pass (feat-034); `npm run vcr` records a full-run trail for work no feature gate covers.
-6. End the session: start the note with `node scripts/framework-check.mjs progress-new "<title>"` and fill it in (or write `progress/NNN-YYYY-MM-DD.md` yourself and run `node scripts/framework-check.mjs progress-update`), update `session-handoff.md` and `docs/quality-document.md`, then run `npm run clean-check` and commit.
+6. End the session: start the note with `node scripts/framework-check.mjs progress-new "<title>"` and fill it in, including "Mistakes caught" (`none`, or each mistake caught this session and the rule, test or lint check it became) (or write `progress/NNN-YYYY-MM-DD.md` yourself and run `node scripts/framework-check.mjs progress-update`), update `session-handoff.md` and `docs/quality-document.md`, update `README.md` so it describes the app as it is now (what it does, how to run it, what a user can do; `clean-check` fails until README.md changes after the latest verified feature, and a feature with no user-visible change declares `"readme": "<reason>"` in `feature_list.json` instead, feat-051), then run `npm run clean-check` and commit.
 
 ## Testing Your Product
 
@@ -44,6 +44,101 @@ The harness runs your tests and makes their results count (SKIP is never PASS; e
 - **Each feature proves its declared behavior**: write the behavior as a checkable statement, write its acceptance test first, and declare it as the feature's own layer (`npm run add-feature -- <id> <name> --behavior "..." --layer "Cart tests=vitest run src/cart"`). Bugs start with a failing test. A test that contradicts the declared behavior is fixed in the same commit, never the other way round (feat-035).
 - **A fast gate**: keep `npm run check` under about two minutes, an agent's default command timeout; move slow suites to `e2e` or a scheduled CI job; treat flaky tests as bugs.
 - **Judge the tests, not only the result**: a coverage floor from `.harness/quality.json`, a mutation score for critical modules, review that each test checks the declared behavior, and human-owned acceptance tests for the features that matter most.
+
+## Visual Evidence
+
+A layer can pass while a page is visibly wrong: overlapping buttons, unreadable text, an empty list where data should be. When a feature has output a test cannot fully assert, have its end-to-end tests take screenshots and declare them as the layer's `captures` (feat-044). `verify-feature` then keeps the ones written during that run, copies them into `.harness/logs/<feature>/captures/` and records their hashes in the evidence; a layer that declares captures and writes none fails.
+
+**Playwright example.** Take a screenshot at each step that matters, into a folder git ignores:
+
+```ts
+// tests/e2e/cart.spec.ts
+test("cart shows the discounted total", async ({ page }) => {
+  await page.goto("/cart");
+  await page.screenshot({ path: "test-results/shots/cart-empty.png" });
+  await page.getByRole("button", { name: "Add item" }).click();
+  await page.screenshot({ path: "test-results/shots/cart-discount.png", fullPage: true });
+});
+```
+
+```js
+// playwright.config.js: video is optional and only for people; agents cannot watch it
+export default { outputDir: "test-results", use: { video: "retain-on-failure" } };
+```
+
+Add `test-results/` to `.gitignore`, then declare the captures on the feature's layer in `feature_list.json`:
+
+```json
+{ "label": "Layer 3: E2E", "cmd": "npm run e2e", "repair": "Fix the failing flow and rerun npm run e2e.", "captures": ["test-results/shots/**/*.png"] }
+```
+
+**When to look.** Twice, and the skills (`verification`, `review`, `testing`) say so:
+
+- While developing, after `npm run e2e` and before committing: open each new screenshot and compare it with the declared behavior. Fixing it now is cheap; `verify-feature` refuses uncommitted code, so a defect first seen at the gate costs another commit.
+- At the gate: open the copies `verify-feature` prints before reporting the feature done, and name them in the session note's "Verification run". A capture that contradicts the behavior means the feature is not done, whatever the layers say.
+
+**Screenshots for agents, video for people.** Agents read images but cannot watch video, so a flow an agent must check needs a screenshot at each step; a recording only helps a human reviewer.
+
+**CLI and API projects.** The layer log `verify-feature` already keeps (`.harness/logs/<feature>/<NN>-<label>.log`) is the evidence of what the command printed. For a terminal interface, a layer can record a [VHS](https://github.com/charmbracelet/vhs) tape that writes a screenshot (`Screenshot out/menu.png`) and declare `"captures": ["out/*.png"]`; this repository's own README demo is recorded with VHS (`docs/demo/demo.tape`).
+
+## Property-based and Formal Checks
+
+Example tests check the cases someone thought of. Two stronger kinds of check fit into the same layers; the harness ships neither, and most features need neither (feat-047, D-058).
+
+**Property-based tests** state a rule that must hold for every input, and the tool generates hundreds of inputs, shrinking any failure to the smallest one. They are ordinary tests: they run in the `test` layer, or in the feature's own layer, like any other.
+
+| Stack | Tool |
+|---|---|
+| JavaScript, TypeScript | fast-check |
+| Python | Hypothesis |
+| Rust | proptest, quickcheck |
+| JVM | jqwik |
+
+For a feature whose declared behavior is "`cartTotal()` applies a 10% discount above $100 and never returns less than $0":
+
+```js
+// cart.property.test.mjs (node --test, fast-check)
+import test from "node:test";
+import fc from "fast-check";
+import { cartTotal } from "./cart.mjs";
+
+test("the discount applies above $100 and the total is never negative", () => {
+  fc.assert(fc.property(fc.array(fc.integer({ min: 0, max: 50_000 })), (cents) => {
+    const subtotal = cents.reduce((sum, c) => sum + c, 0);
+    const total = cartTotal(cents);
+    return total >= 0 && total === (subtotal > 10_000 ? Math.round(subtotal * 0.9) : subtotal);
+  }));
+});
+```
+
+Reach for them when the input space is large and the rule is easy to state: parsers and serializers (decode of encode is the identity), money and date arithmetic, sorting and merging, anything with an invariant.
+
+**Model checking and proofs** check a design, not samples: every reachable state of a model (TLA+ with the TLC checker or Apalache), or a machine-checked proof (Lean). They fit state machines, concurrency, retries and distributed protocols, where a bug needs a rare interleaving that tests almost never produce.
+
+- Run them as a feature's own layer, because the result is pass or fail. A quality gate in `.harness/quality.json` is for a number (coverage, a score), not a verdict.
+- The check must exit non-zero when it finds a violation, or the layer passes whatever it finds; check your tool version's exit codes before trusting a PASS.
+
+```json
+{ "label": "Model check: order workflow", "cmd": "java -cp tools/tla2tools.jar tlc2.TLC -workers auto -config specs/Orders.cfg specs/Orders.tla", "repair": "Read the counterexample trace TLC printed; fix the design or the spec, then rerun." }
+```
+
+```json
+{ "label": "Proofs: rounding lemmas", "cmd": "lake build", "repair": "Fix the proof or the definition Lean rejected, then rerun lake build." }
+```
+
+Weigh the cost first. TLA+ needs Java and a model written by hand; the model describes the design, not the code, so it can drift from the code unless someone owns keeping them in step. Lean proofs take expertise and time, and pay off for small, critical algorithms. Model checks can also be slow: keep the model the gate checks small enough that `verify-feature` stays quick, and run the full state space in a scheduled CI job.
+
+## The README Contract
+
+README.md describes the app being built, and says nothing more and nothing less than the repository does (feat-051, feat-052). Three things keep it that way:
+
+- **`npm run lint` checks it mechanically**, in every project that uses the harness:
+  - a conventional structure, based on the Standard Readme convention: one `#` title, a short description right after it, an install section (Install, Installation, Getting Started, Quick Start or Setup), a usage section (Usage, Examples, How to Use, How It Works or What It Does), a License section, and a Table of Contents section once the README passes 100 lines;
+  - nothing the repository doesn't have: every `npm run` / `pnpm run` / `yarn run` script and `make` target in its code, every relative link and every repository path in its inline code must exist. HTML comments, external links and placeholders (`<id>`, `*`, `{…}`, `NNN`, `YYYY`) are skipped.
+
+  Each problem is reported with its line, for example `README.md:42: "npm run deploy" names a script package.json does not define`.
+- **`npm run clean-check` requires an update after each feature passes the gate**, unless the feature declares `"readme": "<reason>"` because its users see no change.
+- **The `readme-review` skill covers what a check can't:** every claim needs evidence in the code, a test or a passing feature (no "works with" for a platform that is only partly supported, no "enforces" where the code only lets you); every capability users can see appears in the README or a document it links; it is written about the app, in the present tense.
 
 ## Session Lifecycle
 
@@ -61,7 +156,7 @@ Traces are JSON files in `.harness/traces/`. They are runtime records, not evide
 
 Reusable capability packs live in `skills/` — one folder per skill with a `SKILL.md` (frontmatter `name`/`description`, `When to Use`, workflow, quick-reference checklist). The lint layer validates every skill's structure.
 
-Shipped skills: `feature-cycle` (one feature at a time), `verification` (honest gate runs), `session-handoff` (durable session ends), `adopt` (bootstrapping the harness), `release` (final pre-release pass), `commit` (focused commits), `review` (pre-gate independent pass), `update-docs` (docs-drift cleanup), `write-skill` (the meta-skill for authoring new ones).
+Shipped skills: `feature-cycle` (one feature at a time), `verification` (honest gate runs), `session-handoff` (durable session ends), `adopt` (bootstrapping the harness), `release` (final pre-release pass), `commit` (focused commits), `review` (pre-gate independent pass), `testing` (tests per layer, acceptance tests first, visual and property-based checks), `update-docs` (docs-drift cleanup), `readme-review` (README contrasted with the repository), `write-skill` (the meta-skill for authoring new ones).
 
 Project skills may be added under `skills/` — see the `write-skill` skill for the format.
 
@@ -95,6 +190,8 @@ A missing shard means "planned, no evidence yet" — you don't need to create on
 
 **Evidence is tied to a commit (feat-030).** `verify-feature` refuses to run while code is uncommitted, so the commit its evidence names is the code that passed. Commit the feature (after `npm run check`), then run the gate, then commit the shard it wrote with your session notes. Harness bookkeeping never blocks it: `.harness/state/`, `.harness/logs/`, `.harness/traces/`, `.harness/trails/`, `progress/`, `PROGRESS.md`, `claude-progress.md` and `session-handoff.md`. A layer that leaves new files behind (an unignored coverage report, a formatter rewrite) fails the gate too: add the output to `.gitignore` or commit it. `npm run verify-feature -- <id> --allow-dirty` (or `make verify-feature F="<id> --allow-dirty"`) records evidence anyway, marked `"bound": false`; outside a git repository evidence is always unbound. The evidence also stores `checksHash`, a fingerprint of the feature's layers (label, command, `required`; not the repair hint). If you change a passing feature's layers, `npm run typecheck` warns and features that depend on it can't pass until you re-run its gate. Evidence recorded before feat-030 has no `checksHash` and is never reported stale.
 
+**Captures (feat-044).** A layer can name the screenshots, videos or other files its command writes, as globs relative to the project root: `{ "label": "Layer 3: E2E", "cmd": "npx playwright test", "repair": "...", "captures": ["test-results/**/*.png"] }`. After that layer passes, `verify-feature` takes only the matching files written during this run (an older file is never evidence), copies them to `.harness/logs/<feature>/captures/<NN>-<label>/`, records each in the layer's evidence with its path, `sha256` and size, and prints the copies with the instruction to open each one and compare it to the declared behavior. A layer that declares captures but writes none fails the gate. The folder the captures are written to must be gitignored; if it is not, the gate's uncommitted-changes failure names it. Declaring captures changes the layer's `checksHash`; layers without captures keep theirs.
+
 Upgrading a repository from the older inline-state schema (or hand-migrating one): `npm run migrate-feature-state` moves every feature's inline `state`/`status`/`evidence` into its shard and strips those keys from `feature_list.json`. It's idempotent — a feature that already has a shard is left alone, and running it again on an already-migrated repo reports nothing to do.
 
 ## Multi-repo Extension (optional)
@@ -108,6 +205,16 @@ Projects that span multiple repositories can activate the multi-repo component:
 3. Run the root gate: `npm run verify-all` (or `make verify-all`) — it runs every repository's verify script and aggregates the results. `make check` includes this optional layer.
 
 Single-repo projects never need the component: `check` passes without it, and `verify-all` reports `[SKIP] Multi-repo component not activated` when its files are absent. Once activated but still only holding the untouched `example` scaffold (no real repositories added yet), `verify-all` honestly reports `[SKIP] verify-all ran but nothing was verified yet` rather than a silent pass — it only reports success once at least one real repository's verify script actually runs and passes. Repositories without any supported verify script are SKIPped, not passed.
+
+## Pre-commit Hook (opt-in)
+
+`npm run hooks-install` (or `make hooks-install`) makes git run the fast static checks, `npm run lint` and then `npm run check-arch`, before every commit, and block the commit when either fails, naming the failed step and how to rerun it. Because it is a git hook, it applies to every agent (Claude Code, Codex, Gemini) and every human committing in that clone.
+
+- **Fast on purpose.** It never runs the full `npm run check`; tests, build and e2e stay the step you run before committing.
+- **Local and opt-in.** It sets `core.hooksPath` to `scripts/hooks` in this clone's git config only. Nothing installs it automatically, and each clone opts in on its own. `npm run hooks-uninstall` restores git's default hooks folder.
+- **Never replaces your hooks.** If `core.hooksPath` already points elsewhere, or the default hooks folder holds hooks of your own, `hooks-install` stops and prints the line to add to your own pre-commit hook instead: `"scripts/hooks/pre-commit" || exit 1`.
+- **Upgrades include it.** The hook lives in `scripts/hooks/`, so `harness-upgrade` refreshes it with the other CORE scripts.
+- It checks the working tree, not only the staged changes, so an unstaged violation also blocks the commit.
 
 ## Quality Gates (opt-in)
 
@@ -276,7 +383,7 @@ Customization points (from the manifest):
 
 ### Replacing `lint`, `typecheck`, `test`, or `build` without losing the harness's own checks (#25)
 
-For a Node project, `lint`, `typecheck`, `test`, and `build` ship pointing at `node scripts/framework-check.mjs <layer>` — which is also how the harness checks itself: `lint` validates skills structure, the generated progress dashboard, and framework docs for unfilled template placeholders; `typecheck` validates `feature_list.json`'s shape; `test` validates the feature dependency graph and the WIP=1/lane contract (the runner's own unit tests run from `./init.sh` instead, see below); `build` validates Make targets and shell shims. `npm run check-arch` (arch-001..006) does **not** duplicate any of this — replacing one of these four script values with your product tool entirely, instead of chaining it, silently drops that layer's harness checks from both `npm run check` and every `npm run verify-feature` run, with nothing to catch the gap.
+For a Node project, `lint`, `typecheck`, `test`, and `build` ship pointing at `node scripts/framework-check.mjs <layer>` — which is also how the harness checks itself: `lint` validates skills structure, the generated progress dashboard, and framework docs for unfilled template placeholders; `typecheck` validates `feature_list.json`'s shape; `test` validates the feature dependency graph and the WIP=1/lane contract (the runner's own unit tests run from `./init.sh` instead, see below); `build` validates Make targets and shell shims. `npm run check-arch` (arch-001..008) does **not** duplicate any of this — replacing one of these four script values with your product tool entirely, instead of chaining it, silently drops that layer's harness checks from both `npm run check` and every `npm run verify-feature` run, with nothing to catch the gap.
 
 **Chain the two instead of replacing:**
 
@@ -301,9 +408,35 @@ Forgot to chain one? `node scripts/harness-audit.mjs` warns, by layer name, the 
 - **The default `e2e` layer reports SKIP until you wire your own end-to-end tests.** Point the `e2e` script at them; until then a SKIP is the honest answer, and it does not count as verified. The framework's adoption matrix (throwaway adopter repos across five stacks, a simulated upgrade, the multi-repo component) tests the harness, not your product, so it runs only in the framework's own repository (feat-029, D-040).
 - **The harness self-tests run once per session, not on every check.** They are the runner's unit tests in `tests/`, which test CORE files you don't edit and that only change on `harness-upgrade`. `./init.sh` runs them at the start of each session, which catches a Node version or platform that breaks the harness; `node scripts/framework-check.mjs selftest` runs them on demand, for example right after an upgrade. Keeping them out of `test` and `e2e` keeps the harness's own share of a `verify-feature` run to a second or two.
 
-`npm run check-arch` enforces six rules: required harness surfaces exist, the feature tracker preserves WIP=1, dependency order, and lane ownership, framework docs contain no template placeholders, the manifest is valid, every tracked file is classified by the manifest, and feature declarations carry no leftover inline state (sharded state stays consistent).
+`npm run check-arch` enforces eight rules: required harness surfaces exist, the feature tracker preserves WIP=1, dependency order, and lane ownership, framework docs contain no template placeholders, the manifest is valid, every tracked file is classified by the manifest, feature declarations carry no leftover inline state (sharded state stays consistent), and two banned patterns in the harness's own code (`os.EOL` in scripts, the `[\/]` separator class in regexes — both behind a Windows bug).
+
+### Banning a pattern
+
+Most product rules are "never write X here": no `useEffect` in components, no direct database import from the UI layer, no `console.log` in library code. Declare them as `forbid` rules instead of writing a grep, which behaves differently on Windows and doesn't report locations:
+
+```json
+{
+  "id": "arch-101",
+  "kind": "forbid",
+  "description": "Components never call useEffect",
+  "pattern": "\\buseEffect\\(",
+  "paths": ["src/components/**/*.{ts,tsx}"],
+  "allow": ["src/components/legacy/**"],
+  "what": "A component calls useEffect.",
+  "why": "Effects in components caused the double-fetch bugs; data loading lives in loaders.",
+  "fix": "Move the side effect into the route loader or an event handler."
+}
+```
+
+- `pattern` is a JavaScript regular expression tested against each line (escape backslashes for JSON).
+- `paths` lists the globs to search (`**` spans folders, `*` stays inside one, `{a,b}` picks one); `allow` lists exceptions. Only files git tracks are searched; outside a git repository the rule reports SKIP.
+- A violation fails `check-arch` (and therefore `npm run check`) with each match as `file:line: text`, then the rule's what/why/fix — the lines an agent needs to fix it without asking.
+- An invalid `pattern`, an empty `paths` list or a malformed `allow` fails the rule with a message naming it.
+- When review catches a mistake that a pattern can describe, add a `forbid` rule in the same commit as the fix, so the mistake can't come back.
 
 Two more checks worth knowing about, neither a numbered arch rule:
 
 - **`check-arch` warns (does not fail) on untracked files.** Coverage rules like arch-005 only see what `git ls-files` already tracks — a brand-new file silently passes coverage until it's `git add`ed, then fails once it is. `check-arch` prints a heads-up (`[WARN] N untracked file(s) exist…`) before evaluating rules, so a rule result you're about to read isn't misread as covering a file it can't see yet.
-- **`npm run lint` checks the generated `PROGRESS.md` dashboard and `progress/` archive.** The dashboard must match feature declarations/state shards and the dated session files; filenames/headings must agree, and session numbers must be unique and contiguous (file creation order does not matter). Run `node scripts/framework-check.mjs progress-update` to regenerate it; `progress-new "<title>"` starts a note with a heading lint accepts (`### Session NNN — YYYY-MM-DD — <title>`, three `#` and em dashes).
+- **`npm run lint` checks the generated `PROGRESS.md` dashboard and `progress/` archive.** The dashboard must match feature declarations/state shards and the dated session files; filenames/headings must agree, and session numbers must be unique and contiguous (file creation order does not matter). Run `node scripts/framework-check.mjs progress-update` to regenerate it; `progress-new "<title>"` starts a note with a heading lint accepts (`### Session NNN — YYYY-MM-DD — <title>`, three `#` and em dashes). From the first note that has a "- Mistakes caught:" line, every note needs one, and each entry must end in what the mistake became: `→ rule: <arch rule id>` (a rule that exists), `→ test: <name>`, `→ lint: <check>`, or `→ no check possible: <reason>`; `none` is fine. A blank section passes lint, so the skeleton does, but `clean-check` fails while the latest note leaves it blank (feat-042).
+- **`npm run lint` checks that every MUST rule in `AGENTS.md` says what enforces it** (feat-048): an `<!-- enforced-by: ... -->` comment on the rule's line or the comment lines right below it, naming the gate (an arch rule id must exist in `.harness/arch-rules.json`) or `none — <reason>`. The PASS line counts both; the `none` rules are the ones still enforced only by prose, the list to turn into gates next.
+- **`npm run typecheck` fails a `passing` feature whose evidence did not come from `verify-feature`** (feat-049): gate evidence (a commit, `checksHash` and layers) backed by its trail in `.harness/trails/` when bound, unbound evidence from `--allow-dirty`, or the gate's older formats (beginning "All verification layers passed via"). Empty, free-text or hand-built evidence fails with the `verify-feature` command to run instead. It stops shortcuts, not forgery: a copied old summary or a forged trail still passes.

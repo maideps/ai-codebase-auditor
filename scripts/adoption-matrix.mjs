@@ -48,7 +48,7 @@ export function normalizeFixtureScripts(root) {
   for (const layer of LAYERS) {
     pkg.scripts[layer] = `node scripts/framework-check.mjs ${layer}`;
   }
-  pkg.scripts.check = "npm run lint && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all && npm run quality";
+  pkg.scripts.check = "npm run lint && npm run check-arch && npm run typecheck && npm run test && npm run build && npm run e2e && npm run verify-all && npm run quality";
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
 }
 
@@ -69,7 +69,7 @@ function fillDocs(root, stack) {
   };
   write(
     "README.md",
-    `# Adopted Project (${stack})\n\nThrowaway adoption-matrix fixture for the ${stack} cell.\n\nSee [Harness Command Reference](docs/HARNESS.md).\n\n## Quick Start\n\n\`\`\`bash\n./init.sh\nmake check\n\`\`\`\n`,
+    `# Adopted Project (${stack})\n\nThrowaway adoption-matrix fixture for the ${stack} cell.\n\nSee [Harness Command Reference](docs/HARNESS.md).\n\n## Quick Start\n\n\`\`\`bash\n./init.sh\nmake check\n\`\`\`\n\n## Usage\n\nIt has no product behavior yet; \`npm run check\` verifies the harness wiring.\n\n## License\n\nMIT\n`,
   );
   write(
     "docs/PRODUCT.md",

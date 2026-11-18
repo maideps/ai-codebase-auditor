@@ -23,6 +23,8 @@ If baseline verification is failing, repair that first before adding new scope.
 - **Verification required**: Don't claim done without running verification commands
 - **Update artifacts**: Before ending a session, add `progress/NNN-YYYY-MM-DD.md`, regenerate `PROGRESS.md`, and update the active feature's `.harness/state/<id>.json`
 - **Stay in scope**: Don't modify files unrelated to the current feature
+- **Keep edits surgical**: Inside a file you do touch, change only what the feature needs. Don't reformat, rename or "improve" nearby code, and match the file's existing style even where you would write it differently. Remove imports, functions and files that your own change left unused; mention other dead code in the session note instead of deleting it
+- **Build only what the behavior asks for**: No speculative features, options or settings, no abstraction with a single caller, no error handling for cases that cannot happen. Write the smallest change that meets the declared behavior. If you see a simpler design than the one the feature implies, say so in the session note rather than building the larger one
 - **The declared behavior is the spec**: a feature's `behavior` in `feature_list.json` defines done. A test that contradicts it is a bug in the test — fix the test in the same commit and say so in the commit message and session note. Stop and ask only when the declared behavior itself looks wrong
 - **Leave clean state**: Next session must be able to run `./init.sh` immediately
 - **One logical operation per commit**: The repo must be in a consistent state after every commit
@@ -33,19 +35,28 @@ If baseline verification is failing, repair that first before adding new scope.
 <!-- source: harness-engineering-template L03 — consistent-state predicate must be verifiable -->
 <!-- why: without explicit MUST/MUST NOT rules, agents drift from the prescribed workflow -->
 
-- **MUST** run `make check` (or equivalent verification) before every commit
+- **MUST** run `make check` (or equivalent verification) before every commit. `npm run hooks-install` (opt-in) makes git block a commit whose lint or architecture rules fail; it runs only those fast checks, so the full check stays this step
+  <!-- enforced-by: pre-commit hook (opt-in; lint and check-arch only) and CI after push — nothing enforces the full check before each commit -->
   <!-- source: harness-engineering-template L03 — repo must have a verifiable consistent-state predicate -->
 - **MUST NOT** mark a feature as `passing` manually — use `make verify-feature F=<id>` or the documented verification path
+  <!-- enforced-by: typecheck (a passing feature needs evidence from verify-feature, backed by its trail when bound) — stops shortcuts, not forgery: a copied old-format summary or a forged trail still passes -->
 - **MUST** commit the feature's code and docs before `verify-feature` — it refuses uncommitted changes outside harness bookkeeping, so its evidence names the commit that passed; the state shard it writes goes in the next commit
+  <!-- enforced-by: verify-feature (refuses uncommitted changes outside harness bookkeeping, before and after the layers) -->
   <!-- source: feat-030, D-041 — evidence recorded on a dirty tree named a commit that did not hold the verified code -->
   <!-- source: harness-engineering-template L08 — state transitions must go through the harness gate -->
 - **MUST** add session notes under `progress/` and regenerate `PROGRESS.md` at session end
+  <!-- enforced-by: lint:progress-log (PROGRESS.md must match progress/) and clean-check (the latest note's Mistakes caught is filled in) — nothing checks that a new note was written this session -->
   <!-- source: harness-engineering-template L05 — durable cross-session continuity requires written handoff -->
+- **MUST** update `README.md` after a feature passes the gate, so it describes the app being built as it is now (what it does, how to run it, what a user can do) — not the harness. A feature whose users see no change declares `"readme": "<reason>"` in `feature_list.json` instead
+  <!-- enforced-by: clean-check (README.md must change in or after the latest verified feature's commit, unless that feature declares readme) — what the README says is not checked -->
 - **MUST NOT** skip verification layers (Layer 1 → Layer 2 → Layer 3 in order)
+  <!-- enforced-by: verify-feature (runs every declared layer in order, stops at the first failure) and npm run check (a failing layer stops the chain) -->
   <!-- source: harness-engineering-template L09 — each layer gates the next; skipping produces false confidence -->
 - **MUST** keep features completable in a single session — if a feature spans multiple sessions, split it
+  <!-- enforced-by: none — how much fits in a session is a judgment; nothing records which sessions worked on a feature -->
   <!-- source: harness-engineering-template L08 — multi-session features lose context and degrade VCR -->
 - **MUST** follow dual-mode cleanup: immediate cleanup at every session end + periodic (weekly/monthly) full-system sweep for structural drift
+  <!-- enforced-by: clean-check (session-end cleanup) — the periodic sweep (npm run sweep) is run by hand; nothing schedules or checks it -->
   <!-- source: harness-engineering-template L12 — structural drift accumulates silently without periodic sweeps -->
 
 ## State Files
@@ -89,16 +100,16 @@ Required checks (each with its npm mirror):
 - `make e2e` / `npm run e2e` — End-to-end tests (required for cross-component changes)
 - `make quality` / `npm run quality` — Opt-in metric gates from `.harness/quality.json` (coverage, mutation score, …); SKIP while disabled
 
-Other mirrors: `check-arch`, `verify-feature` (`npm run verify-feature -- <id>`), `activate` (`npm run activate -- <id>`), `verify-all`, `lane-new` (`-- <id>`), `lane-list`, `lane-land` (`-- <id>`), `lane-drop` (`-- <id>`), `lane-suggest`, `migrate-feature-state`, `add-feature` (`-- <id> <name>`), `vcr`, `harness-docs`, `create-harness`, `harness-upgrade`, `harness-audit`, `backup-list`, `backup-pin` (`-- <id>`), `backup-unpin` (`-- <id>`), `backup-restore` (`-- <id>`), `report`, `sweep`, `session-start`, `session-end`, `clean-check`, `setup`, `dev`, `help`.
+Other mirrors: `check-arch`, `verify-feature` (`npm run verify-feature -- <id>`), `activate` (`npm run activate -- <id>`), `verify-all`, `lane-new` (`-- <id>`), `lane-list`, `lane-land` (`-- <id>`), `lane-drop` (`-- <id>`), `lane-suggest`, `migrate-feature-state`, `add-feature` (`-- <id> <name>`), `vcr`, `harness-docs`, `create-harness`, `harness-upgrade`, `harness-audit`, `backup-list`, `backup-pin` (`-- <id>`), `backup-unpin` (`-- <id>`), `backup-restore` (`-- <id>`), `report`, `sweep`, `session-start`, `session-end`, `clean-check`, `hooks-install`, `hooks-uninstall`, `setup`, `dev`, `help`.
 
-`make check` runs all layers in order (lint → typecheck → test → build → e2e → optional verify-all → optional quality). The multi-repo layer reports SKIP when its markers are absent, and the quality layer while `.harness/quality.json` is disabled; other unconfigured layers also report SKIP and do not count as verified. A failing layer stops the chain. Both surfaces delegate to the same Node runner (`scripts/framework-check.mjs`); `npm run check` is the make-free entrypoint.
+`make check` runs all layers in order (lint → check-arch → typecheck → test → build → e2e → optional verify-all → optional quality); the architecture rules run right after lint, so a rule violation fails the check before the slower layers start. The multi-repo layer reports SKIP when its markers are absent, and the quality layer while `.harness/quality.json` is disabled; other unconfigured layers also report SKIP and do not count as verified. A failing layer stops the chain. Both surfaces delegate to the same Node runner (`scripts/framework-check.mjs`); `npm run check` is the make-free entrypoint.
 
 ## Architecture Boundaries
 
 - Document architectural constraints in `.harness/arch-rules.json`
 - The reusability seam contract lives in `.harness/manifest.json` and `docs/ARCHITECTURE.md` — keep both accurate in the same commit as any repository layout change
 - Run `make check-arch` to enforce layer dependencies and invariants
-- Every new error category caught in review becomes a rule in `.harness/arch-rules.json`
+- Every new error category caught in review becomes a rule in `.harness/arch-rules.json` (a `forbid` rule when a pattern describes it), and the session note's "Mistakes caught" names it
 - See [Architecture Docs](docs/ARCHITECTURE.md) for the full layer model
 
 ## Observability
@@ -129,6 +140,7 @@ Skills are reusable capability packs in `skills/` — one folder per skill, each
 - `review` — an independent verification pass before the feature gate
 - `testing` — which tests go in which layer, acceptance tests from the declared behavior, a fast gate, judging test quality
 - `update-docs` — the docs-drift pass (same-commit rule)
+- `readme-review` — contrast README.md with the repository: a conventional structure, nothing more and nothing less than the app does
 - `write-skill` — authoring new skills (project skills may be added under `skills/`)
 
 Skill structure is validated by the lint layer; see the `write-skill` skill for the format.
@@ -140,10 +152,12 @@ Before ending a session:
 1. Run `make clean-check` — confirms build passes, no debug artifacts, progress updated
 2. Start the session note with `node scripts/framework-check.mjs progress-new "<title>"` (it picks the number, date and heading lint requires, writes the sections and refreshes `PROGRESS.md`), then fill in every section; after any later state change run `node scripts/framework-check.mjs progress-update`
 3. Keep `feature_list.json` declaration-only; feature state belongs in `.harness/state/<id>.json`
-4. Update `docs/quality-document.md`: name each feature that passed this session (its id, what changed, which modules) and rate those modules A/B/C/D — `clean-check` fails until every gate-verified feature is mentioned
-5. Record any unresolved risks or blockers
-6. Commit with descriptive message explaining WHY, not just what
-7. Leave repo clean enough for next session to run `./init.sh` immediately
+4. Fill in the note's "Mistakes caught": `none`, or one entry per mistake you or review caught this session, ending in what it became — `→ rule: <arch rule id>`, `→ test: <name>`, `→ lint: <check>`, or `→ no check possible: <reason>`. Turn the mistake into that check in this session when you can. Lint rejects an entry without one, and `clean-check` fails while the section is blank
+5. Update `README.md` for each feature that passed this session, following the `readme-review` skill: it describes the app being built — what it does, how to run it, what a user can do now — and says nothing more or less than the repository does. Write for a reader of the app, not of the harness. `npm run lint` checks its structure and that every command, link and path it names exists. `clean-check` fails until README.md changes after the latest verified feature; a feature with no user-visible change declares `"readme": "<reason>"` in `feature_list.json` instead
+6. Update `docs/quality-document.md`: name each feature that passed this session (its id, what changed, which modules) and rate those modules A/B/C/D — `clean-check` fails until every gate-verified feature is mentioned
+7. Record any unresolved risks or blockers
+8. Commit with descriptive message explaining WHY, not just what
+9. Leave repo clean enough for next session to run `./init.sh` immediately
 
 **If running low on context**: Do NOT rush to finish — stop, add a concise note under `progress/`, regenerate `PROGRESS.md`, and commit a clean checkpoint.
 
