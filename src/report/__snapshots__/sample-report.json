@@ -1,6 +1,6 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
@@ -57,11 +57,11 @@
       "name": "Test presence and feedback speed",
       "class": "blocking",
       "status": "scored",
-      "score": 5,
-      "baseScore": 5,
-      "rule": "ratio 0.30 ≥ 0.3 with a runner config and CI",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "ratio 0.27 ≥ 0.15 with a runner config and CI",
       "evidence": [
-        "3 test files for 10 source files: ratio 0.30",
+        "3 test files for 11 source files: ratio 0.27",
         "test runner configs: jest.config.js",
         "CI: .github/workflows/ci.yml"
       ],
@@ -78,7 +78,7 @@
       "baseScore": 1,
       "rule": "weighted typed share 0.00",
       "evidence": [
-        "typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)",
+        "typed share 0.00 of 790 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 790)",
         "type checkers: none"
       ],
       "partial": null,
@@ -98,7 +98,7 @@
         "by construct: computed call 2, eval or Function 1",
         "top files: src/f0.js (2), src/auth/login.js (1)",
         "sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call",
-        "covered languages hold 100.00% of 390 source lines"
+        "covered languages hold 100.00% of 790 source lines"
       ],
       "partial": "configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected",
       "reason": null,
@@ -113,8 +113,8 @@
       "baseScore": 5,
       "rule": "lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5)",
       "evidence": [
-        "10 source files: p90 40 lines, 0 over 1000 lines (0.00%)",
-        "largest: src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines), src/f4.js (40 lines)"
+        "11 source files: p90 40 lines, 0 over 1000 lines (0.00%)",
+        "largest: src/engine.js (400 lines), src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines)"
       ],
       "partial": null,
       "reason": null,
@@ -214,16 +214,26 @@
       {
         "module": "src/(files)",
         "zone": "green",
-        "reason": "test-feedback 5 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines)",
-        "sourceFiles": 9,
-        "redFiles": 0
+        "reason": "test-feedback 4 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines)",
+        "sourceFiles": 10,
+        "redFiles": 0,
+        "hotspots": [
+          {
+            "path": "src/engine.js",
+            "commitsLastYear": 6,
+            "lines": 400,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "src/auth",
         "zone": "red",
         "reason": "every source file is on a red path: agents may only propose changes",
         "sourceFiles": 1,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       }
     ],
     "redPaths": [
@@ -233,6 +243,14 @@
         "term": "auth"
       }
     ],
+    "yellowPaths": [
+      {
+        "path": "src/engine.js",
+        "module": "src/(files)",
+        "reason": "hotspot: 6 commits in 12 months (module cut 6) and 400 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      }
+    ],
+    "hotspotNote": null,
     "unzoned": [
       "test"
     ],
@@ -261,7 +279,7 @@
           "score": 1
         },
         "details": [
-          "main dynamic language: javascript (390 source lines); suggested checker: TypeScript checkJs"
+          "main dynamic language: javascript (790 source lines); suggested checker: TypeScript checkJs"
         ]
       },
       {
@@ -331,7 +349,7 @@
         "trigger": {
           "kind": "factor",
           "factor": "test-feedback",
-          "score": 5
+          "score": 4
         },
         "details": [
           "the harness would detect none, but the main language is javascript"
@@ -353,6 +371,23 @@
         },
         "details": [
           "src/auth/ (auth): deny Edit(src/auth/**), Write(src/auth/**)"
+        ]
+      },
+      {
+        "id": "yellow-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 1
+        },
+        "details": [
+          "src/engine.js (in green src/(files)): hotspot: 6 commits in 12 months (module cut 6) and 400 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
         ]
       },
       {
@@ -397,7 +432,7 @@
         "by construct: computed call 2, eval or Function 1",
         "top files: src/f0.js (2), src/auth/login.js (1)",
         "sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call",
-        "covered languages hold 100.00% of 390 source lines"
+        "covered languages hold 100.00% of 790 source lines"
       ]
     },
     {
@@ -412,6 +447,22 @@
       "verdictAfter": null,
       "evidence": [
         "node >=14 (package.json, engines.node): cycle 14 end-of-life since 2023-04-30"
+      ]
+    },
+    {
+      "factor": "test-feedback",
+      "class": "blocking",
+      "from": 4,
+      "to": 5,
+      "action": "add 1 test files (to ratio 0.3)",
+      "effort": "S",
+      "gain": 1,
+      "priority": 2,
+      "verdictAfter": null,
+      "evidence": [
+        "3 test files for 11 source files: ratio 0.27",
+        "test runner configs: jest.config.js",
+        "CI: .github/workflows/ci.yml"
       ]
     },
     {
@@ -441,7 +492,7 @@
       "priority": 1.5,
       "verdictAfter": null,
       "evidence": [
-        "typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)",
+        "typed share 0.00 of 790 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 790)",
         "type checkers: none"
       ]
     },
@@ -486,19 +537,34 @@
         "until": "2026-10-21T00:00:00.000Z"
       },
       "totals": {
-        "commits": 1,
-        "commitsLastYear": 1,
+        "commits": 8,
+        "commitsLastYear": 8,
         "authors": 1,
         "firstCommit": null,
         "lastCommit": null,
-        "trackedFiles": 0
+        "trackedFiles": 2
       },
-      "hotspots": []
+      "mostChanged": [
+        {
+          "path": "src/engine.js",
+          "commits": 6,
+          "commitsLastYear": 6,
+          "authors": 1,
+          "lastCommit": "2026-06-01T00:00:00.000Z"
+        },
+        {
+          "path": "src/f0.js",
+          "commits": 2,
+          "commitsLastYear": 2,
+          "authors": 1,
+          "lastCommit": "2026-06-01T00:00:00.000Z"
+        }
+      ]
     },
     "codeStructure": {
       "status": "measured",
       "distribution": {
-        "files": 13,
+        "files": 14,
         "totalLines": 0,
         "totalBytes": 0,
         "p50Lines": 0,

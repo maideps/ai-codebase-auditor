@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\moin-1.9` at commit `8c6341e92bce` |
-| Audit date | 2026-10-23 |
+| Audit date | 2026-11-18 |
 | Verdict | **adapt** |
 | Readiness level | **3 of 5**, set by test-feedback |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -186,6 +186,18 @@ Red paths:
 - `MoinMoin/userform/login.py` (login)
 - `contrib/auth_externalcookie/` (auth)
 
+Yellow paths (hotspots in green modules with no test named after them):
+
+- `MoinMoin/action/info.py` (in `MoinMoin/action`): hotspot: 6 commits in 12 months (module cut 6) and 397 lines (module cut 397); no test is named after it: add characterization tests before agents edit
+- `MoinMoin/macro/MonthCalendar.py` (in `MoinMoin/macro`): hotspot: 4 commits in 12 months (module cut 4) and 498 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+
+Hotspots (long and often changed, in green modules):
+
+| File | Module | Commits (12 months) | Lines | Complexity | Tests named after it |
+|---|---|---|---|---|---|
+| `MoinMoin/action/info.py` | `MoinMoin/action` | 6 | 397 | not measured | none |
+| `MoinMoin/macro/MonthCalendar.py` | `MoinMoin/macro` | 4 | 498 | not measured | none |
+
 Not zoned (no source files): .github, docs, scripts.
 
 ## Harness adaptation plan
@@ -200,6 +212,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | detected-stack | test-feedback 3 | package.json layer scripts |
 | required | red-paths | red zone: 7 paths | AGENTS.md, .claude/settings.json |
 | required | yellow-modules | yellow zone: 9 modules | AGENTS.md |
+| required | yellow-paths | yellow zone: 2 paths | AGENTS.md |
 | recommended | verifiable-changes | test-feedback 3 | feature_list.json layers, package.json test script, AGENTS.md |
 | recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | legible-context | file-size 3 | AGENTS.md |
@@ -268,7 +281,7 @@ Why: Auth, billing, permission and secret code needs human review of every chang
 
 Trigger: yellow zone: 9 modules. Surfaces: `AGENTS.md`.
 
-Change: List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
 
 Why: Agents may only edit autonomously where their changes can be verified.
 
@@ -281,6 +294,17 @@ Why: Agents may only edit autonomously where their changes can be verified.
 - MoinMoin/theme: files too large for unsupervised edits: p90 1959 lines > 800; 16.7% of files over 1000 lines > 7%
 - MoinMoin/xmlrpc: files too large for unsupervised edits: p90 1201 lines > 800; 14.3% of files over 1000 lines > 7%
 - jabberbot: files too large for unsupervised edits: p90 1686 lines > 800; 11.1% of files over 1000 lines > 7%
+
+### required: yellow-paths
+
+Trigger: yellow zone: 2 paths. Surfaces: `AGENTS.md`.
+
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- MoinMoin/action/info.py (in green MoinMoin/action): hotspot: 6 commits in 12 months (module cut 6) and 397 lines (module cut 397); no test is named after it: add characterization tests before agents edit
+- MoinMoin/macro/MonthCalendar.py (in green MoinMoin/macro): hotspot: 4 commits in 12 months (module cut 4) and 498 lines (module cut 300); no test is named after it: add characterization tests before agents edit
 
 ### recommended: verifiable-changes
 
@@ -346,7 +370,7 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | # | Factor | Score | Effort | Priority | Step | Verdict after |
 |---|---|---|---|---|---|---|
 | 1 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
-| 2 | dependency-currency | 1 → 5 | L | 1.67 | upgrade python from 2.7 to 3.11 | unchanged |
+| 2 | dependency-currency | 1 → 5 | L | 1.67 | upgrade python from 2.7 to 3.12 | unchanged |
 | 3 | type-strictness | 1 → 3 | M | 1.5 | configure mypy or Pyright for python with a baseline (typed share 0.06 to 0.50) | unchanged |
 | 4 | test-feedback | 3 → 4 | M | 1 | add 88 test files (to ratio 0.15) | unchanged |
 | 5 | direct-api-calls | 3 → 4 | L | 0.67 | make the computed-target calls explicit in 36 of 96 files (to 5% of files), starting with MoinMoin/config/multiconfig.py (15), MoinMoin/user.py (15), MoinMoin/support/passlib/utils/handlers.py (12) | unchanged |
@@ -363,9 +387,9 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ### Git history
 
-5901 non-merge commits (12 in the 12 months to 2026-10-23), 46 authors, first 2005-09-22, last 2026-07-28, 2087 tracked files.
+5901 non-merge commits (12 in the 12 months to 2026-11-18), 46 authors, first 2005-09-22, last 2026-07-28, 2087 tracked files.
 
-Hotspots (most commits in the last 12 months):
+Most changed files (most commits in the last 12 months):
 
 | File | Commits (12 months) | Commits | Authors | Last commit |
 |---|---|---|---|---|
@@ -471,7 +495,7 @@ Logging calls in 83 of 1314 source files, tests included (logging module 296, lo
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (28 days before the audit)
 - Deferrals: none
 - Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 

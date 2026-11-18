@@ -100,6 +100,18 @@ function zonesSection(report: AuditReport): string[] {
   lines.push(...table(["Zone", "Module", "Source files", "Red files", "Reason"], zones.modules.map((m) => [m.zone, code(m.module), String(m.sourceFiles), String(m.redFiles), m.reason])));
   lines.push("", "Red paths:", "");
   lines.push(...(zones.redPaths.length > 0 ? zones.redPaths.map((red) => `- ${code(`${red.path}${red.kind === "directory" ? "/" : ""}`)} (${red.term})`) : ["- none"]));
+  lines.push("", "Yellow paths (hotspots in green modules with no test named after them):", "");
+  lines.push(...(zones.yellowPaths.length > 0 ? zones.yellowPaths.map((yellow) => `- ${code(yellow.path)} (in ${code(yellow.module)}): ${yellow.reason}`) : ["- none"]));
+  const hotspots = zones.modules.flatMap((m) => m.hotspots.map((h) => ({ ...h, module: m.module })));
+  lines.push("", "Hotspots (long and often changed, in green modules):", "");
+  if (zones.hotspotNote) lines.push(`${zones.hotspotNote}.`);
+  else if (hotspots.length === 0) lines.push("None.");
+  else {
+    lines.push(...table(
+      ["File", "Module", "Commits (12 months)", "Lines", "Complexity", "Tests named after it"],
+      hotspots.map((h) => [code(h.path), code(h.module), String(h.commitsLastYear), String(h.lines), h.complexity === null ? "not measured" : String(h.complexity), h.testedBy.length > 0 ? h.testedBy.map(code).join(", ") : "none"]),
+    ));
+  }
   if (zones.unzoned.length > 0) lines.push("", `Not zoned (no source files): ${zones.unzoned.join(", ")}.`);
   return lines;
 }
@@ -107,7 +119,7 @@ function zonesSection(report: AuditReport): string[] {
 function triggerText(item: AuditReport["plan"]["items"][number]): string {
   return item.trigger.kind === "factor"
     ? `${item.trigger.factor} ${item.trigger.score}`
-    : `${item.trigger.zone} zone: ${count(item.trigger.count, item.trigger.zone === "red" ? "path" : "module")}`;
+    : `${item.trigger.zone} zone: ${count(item.trigger.count, item.id === "yellow-modules" ? "module" : "path")}`;
 }
 
 function planSection(report: AuditReport): string[] {
@@ -152,9 +164,9 @@ function signalsSection(report: AuditReport): string[] {
     lines.push(
       `${count(t.commits, "non-merge commit")} (${t.commitsLastYear} in the 12 months to ${gitHistory.window.until.slice(0, 10)}), ${count(t.authors, "author")}, first ${t.firstCommit?.slice(0, 10) ?? "none"}, last ${t.lastCommit?.slice(0, 10) ?? "none"}, ${count(t.trackedFiles, "tracked file")}.`,
       "",
-      "Hotspots (most commits in the last 12 months):",
+      "Most changed files (most commits in the last 12 months):",
       "",
-      ...table(["File", "Commits (12 months)", "Commits", "Authors", "Last commit"], gitHistory.hotspots.map((h) => [code(h.path), String(h.commitsLastYear), String(h.commits), String(h.authors), h.lastCommit?.slice(0, 10) ?? "none"])),
+      ...table(["File", "Commits (12 months)", "Commits", "Authors", "Last commit"], gitHistory.mostChanged.map((h) => [code(h.path), String(h.commitsLastYear), String(h.commits), String(h.authors), h.lastCommit?.slice(0, 10) ?? "none"])),
     );
   } else lines.push(`Not measured: ${gitHistory.reason}.`);
 

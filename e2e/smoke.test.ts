@@ -118,7 +118,7 @@ describe("audit", () => {
       plan: { framing: string; items: { trigger: { kind: string } }[] };
       roadmap: { factor: string }[];
     };
-    expect(report.schemaVersion).toBe(6);
+    expect(report.schemaVersion).toBe(7);
     expect(report.plan.framing.length).toBeGreaterThan(0);
     for (const item of report.plan.items) expect(["factor", "zone"]).toContain(item.trigger.kind);
     expect(Array.isArray(report.roadmap)).toBe(true);

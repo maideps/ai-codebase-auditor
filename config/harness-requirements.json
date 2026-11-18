@@ -103,7 +103,7 @@
     },
     "yellow": {
       "surfaces": ["AGENTS.md"],
-      "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+      "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
       "why": "Agents may only edit autonomously where their changes can be verified."
     }
   }

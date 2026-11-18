@@ -14,7 +14,7 @@ if (!requirementsLoaded.ok || !decisionLoaded.ok) throw new Error("default confi
 const requirements = requirementsLoaded.value;
 const decisionConfig = decisionLoaded.value;
 
-const noZones: Zones = { modules: [], redPaths: [], unzoned: [], note: null };
+const noZones: Zones = { modules: [], redPaths: [], yellowPaths: [], hotspotNote: null, unzoned: [], note: null };
 const allGood = { "test-feedback": 5, "type-strictness": 5, "direct-api-calls": 5, "file-size": 5, "module-boundaries": 5, observability: 5, "documented-intent": 5, "dev-deploy-simplicity": 5, "dependency-currency": 5 };
 
 function plan(scores: Record<string, number | null>, options: { zones?: Zones; results?: CollectorResults; evidence?: Record<string, string[]> } = {}): Plan {
@@ -61,8 +61,10 @@ describe("buildPlan requirement levels", () => {
 
 describe("buildPlan framing by verdict", () => {
   const zones: Zones = {
-    modules: [{ module: "src", zone: "yellow", reason: "test-feedback 2 < 3: add characterization tests before agents edit", sourceFiles: 5, redFiles: 0 }],
+    modules: [{ module: "src", zone: "yellow", reason: "test-feedback 2 < 3: add characterization tests before agents edit", sourceFiles: 5, redFiles: 0, hotspots: [] }],
     redPaths: [{ path: "src/auth", kind: "directory", term: "auth" }],
+    yellowPaths: [],
+    hotspotNote: null,
     unzoned: [],
     note: null,
   };
@@ -106,9 +108,20 @@ describe("buildPlan details", () => {
   });
 
   it("lists yellow modules with their reasons", () => {
-    const zones: Zones = { ...noZones, modules: [{ module: "lib", zone: "yellow", reason: "files too large", sourceFiles: 3, redFiles: 0 }, { module: "src", zone: "green", reason: "ok", sourceFiles: 3, redFiles: 0 }] };
+    const zones: Zones = { ...noZones, modules: [{ module: "lib", zone: "yellow", reason: "files too large", sourceFiles: 3, redFiles: 0, hotspots: [] }, { module: "src", zone: "green", reason: "ok", sourceFiles: 3, redFiles: 0, hotspots: [] }] };
     const item = plan(allGood, { zones }).items.find((i) => i.id === "yellow-modules");
     expect(item).toMatchObject({ trigger: { kind: "zone", zone: "yellow", count: 1 }, details: ["lib: files too large"] });
+  });
+
+  it("lists yellow paths inside green modules as a required item of their own", () => {
+    const zones: Zones = { ...noZones, yellowPaths: [{ path: "src/engine.ts", module: "src", reason: "hotspot: no test is named after it" }] };
+    const p = plan(allGood, { zones });
+    expect(p.items.find((i) => i.id === "yellow-paths")).toMatchObject({
+      level: "required",
+      trigger: { kind: "zone", zone: "yellow", count: 1 },
+      details: ["src/engine.ts (in green src): hotspot: no test is named after it"],
+    });
+    expect(p.items.some((i) => i.id === "yellow-modules")).toBe(false);
   });
 
   it("names a checker for the main dynamic language", () => {

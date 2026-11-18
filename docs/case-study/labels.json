@@ -24,7 +24,8 @@
         { "finding": "dev-deploy-simplicity", "score": 1, "label": "TP", "note": "partial: two Makefiles are not detected as build scripts" },
         { "finding": "dependency-currency", "score": null, "label": "NO", "note": "C with no manifests or declared runtime" },
         { "finding": "git-history", "score": null, "label": "NO", "note": "4 commits from a source drop" },
-        { "finding": "zones", "score": null, "label": "TP", "note": "4 yellow modules" }
+        { "finding": "zones", "score": null, "label": "TP", "note": "4 yellow modules" },
+        { "finding": "hotspots", "score": null, "label": "NO", "note": "no commits in the 12 months to 2026-11-18 (feat-014, reviewed 2026-11-18)" }
       ]
     },
     {
@@ -43,7 +44,9 @@
         { "finding": "documented-intent", "score": 2, "label": "TP" },
         { "finding": "dependency-currency", "score": 1, "label": "TP", "note": "Python 2.7 classifiers" },
         { "finding": "source-file-population", "score": null, "label": "FP", "note": "known limit: bundled libraries under MoinMoin/support/ count as product source; no score change" },
-        { "finding": "red-paths", "score": null, "label": "TP", "note": "7 paths" }
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "7 paths" },
+        { "finding": "yellow-path MoinMoin/action/info.py", "score": null, "label": "TP", "note": "no test references it (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path MoinMoin/macro/MonthCalendar.py", "score": null, "label": "TP", "note": "no test references it (feat-014, reviewed 2026-11-18)" }
       ]
     },
     {
@@ -61,7 +64,11 @@
         { "finding": "documented-intent", "score": 3, "label": "TP" },
         { "finding": "dev-deploy-simplicity", "score": 5, "label": "TP" },
         { "finding": "dependency-currency", "score": 4, "label": "TP", "note": "first run scored 1 from test-fixture manifests (FP), fixed in D-013" },
-        { "finding": "red-paths", "score": null, "label": "TP", "note": "40 paths; 1 FP known limit: build/doctum-checkout.conf.php" }
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "40 paths; 1 FP known limit: build/doctum-checkout.conf.php" },
+        { "finding": "yellow-path build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php", "score": null, "label": "TP", "note": "no test references it (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path phpBB/language/en/common.php", "score": null, "label": "FP", "note": "a string table: changes with translations, little to characterize (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path phpBB/language/en/install.php", "score": null, "label": "FP", "note": "a string table: changes with translations, little to characterize (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path phpBB/phpbb/storage/controller/attachment.php", "score": null, "label": "FP", "note": "tested under another name: 1 test file references its class (feat-014, reviewed 2026-11-18)" }
       ]
     },
     {
@@ -81,7 +88,11 @@
         { "finding": "dev-deploy-simplicity", "score": 4, "label": "TP", "note": "partial: no lock file is normal for Maven" },
         { "finding": "dependency-currency", "score": 5, "label": "TP" },
         { "finding": "module-boundaries", "score": null, "label": "NO", "note": "multi-module layout not measured" },
-        { "finding": "red-paths", "score": null, "label": "TP", "note": "13 paths; 5 FP known limit: Password* form-field classes" }
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "13 paths; 5 FP known limit: Password* form-field classes" },
+        { "finding": "yellow-path core/src/main/java/org/apache/struts2/StrutsConstants.java", "score": null, "label": "FP", "note": "tested under another name: 28 test files reference it (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java", "score": null, "label": "FP", "note": "tested under another name: 8 test files reference it (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java", "score": null, "label": "FP", "note": "tested under another name: 6 test files reference it; authorization logic that is not red (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java", "score": null, "label": "FP", "note": "tested under another name: 1 test file references it (feat-014, reviewed 2026-11-18)" }
       ]
     },
     {
@@ -100,7 +111,11 @@
         { "finding": "dev-deploy-simplicity", "score": 5, "label": "TP" },
         { "finding": "dependency-currency", "score": 4, "label": "TP" },
         { "finding": "git-authors", "score": null, "label": "NO", "note": "Subversion mirror: 12 committers" },
-        { "finding": "red-paths", "score": null, "label": "TP", "note": "78 paths" }
+        { "finding": "red-paths", "score": null, "label": "TP", "note": "78 paths" },
+        { "finding": "yellow-path app/assets/javascripts/application-legacy.js", "score": null, "label": "TP", "note": "no test references it (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path app/controllers/application_controller.rb", "score": null, "label": "FP", "note": "tested under another name: 6 test files reference ApplicationController (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path app/javascript/controllers/gantt/chart_controller.js", "score": null, "label": "TP", "note": "no test references it (feat-014, reviewed 2026-11-18)" },
+        { "finding": "yellow-path lib/redmine/preparation.rb", "score": null, "label": "TP", "note": "no test references it (feat-014, reviewed 2026-11-18)" }
       ]
     }
   ]

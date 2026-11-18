@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig, type DecisionConfig } from "../config/decision.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig } from "../config/factors.js";
 import type { Scoring } from "../scoring/types.js";
-import { collected, notMeasured, structureOf, testsDocsOf } from "../testing/collected.js";
+import { collected, historyOf, notMeasured, structureOf, testsDocsOf } from "../testing/collected.js";
 import { assignZones, redTermIn } from "./zones.js";
 
 const decisionLoaded = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
@@ -54,13 +54,15 @@ describe("assignZones", () => {
     });
     expect(assignZones(scoringWithTests(3), results, factors, decision)).toEqual({
       modules: [
-        { module: "lib", zone: "green", reason: "test-feedback 3 ≥ 3 and files are legible (p90 10 lines, 0% over 1000 lines)", sourceFiles: 4, redFiles: 1 },
-        { module: "src", zone: "green", reason: "test-feedback 3 ≥ 3 and files are legible (p90 10 lines, 0% over 1000 lines)", sourceFiles: 3, redFiles: 2 },
+        { module: "lib", zone: "green", reason: "test-feedback 3 ≥ 3 and files are legible (p90 10 lines, 0% over 1000 lines)", sourceFiles: 4, redFiles: 1, hotspots: [] },
+        { module: "src", zone: "green", reason: "test-feedback 3 ≥ 3 and files are legible (p90 10 lines, 0% over 1000 lines)", sourceFiles: 3, redFiles: 2, hotspots: [] },
       ],
       redPaths: [
         { path: "lib/billing.rb", kind: "file", term: "billing" },
         { path: "src/auth", kind: "directory", term: "auth" },
       ],
+      yellowPaths: [],
+      hotspotNote: null,
       unzoned: ["(root)"],
       note: null,
     });
@@ -89,7 +91,7 @@ describe("assignZones", () => {
   it("makes a module red when all its source files are red", () => {
     const results = collected({ structure: structureOf(files(["auth/a.ts", "auth/b.ts", "src/c.ts"])), testsDocs: testsDocsOf() });
     expect(assignZones(scoringWithTests(4), results, factors, decision).modules.find((m) => m.module === "auth")).toEqual({
-      module: "auth", zone: "red", reason: "every source file is on a red path: agents may only propose changes", sourceFiles: 2, redFiles: 2,
+      module: "auth", zone: "red", reason: "every source file is on a red path: agents may only propose changes", sourceFiles: 2, redFiles: 2, hotspots: [],
     });
   });
 
@@ -131,6 +133,63 @@ describe("assignZones", () => {
 
   it("explains when zones cannot be assigned", () => {
     const zones = assignZones(scoringWithTests(4), collected({ structure: notMeasured("git failed: x") }), factors, decision);
-    expect(zones).toEqual({ modules: [], redPaths: [], unzoned: [], note: "no zones: code structure not measured (git failed: x)" });
+    expect(zones).toEqual({ modules: [], redPaths: [], yellowPaths: [], hotspotNote: null, unzoned: [], note: "no zones: code structure not measured (git failed: x)" });
+  });
+});
+
+describe("assignZones hotspots", () => {
+  // src: eight quiet 50-line files and two long, busy ones; tests score 5, so src is green.
+  const quiet = Array.from({ length: 8 }, (_, i) => ({ path: `src/q${i}.ts`, lines: 50 }));
+  const structure = structureOf([...quiet, { path: "src/engine.ts", lines: 600 }, { path: "src/parser.ts", lines: 500 }, { path: "lib/x.ts", lines: 50 }]);
+  const history = historyOf([
+    ...quiet.map((file) => ({ path: file.path, commitsLastYear: 1 })),
+    { path: "src/engine.ts", commitsLastYear: 12 },
+    { path: "src/parser.ts", commitsLastYear: 9 },
+  ], 30);
+
+  it("lists an untested hotspot as a yellow path and keeps its module green, with scores untouched", () => {
+    const scoring = scoringWithTests(5);
+    const zones = assignZones(scoring, collected({ structure, history, testsDocs: testsDocsOf({ testFiles: ["test/parser.test.ts"] }) }), factors, decision);
+    const src = zones.modules.find((m) => m.module === "src");
+    expect(src?.zone).toBe("green");
+    expect(src?.hotspots).toEqual([
+      { path: "src/engine.ts", commitsLastYear: 12, lines: 600, complexity: null, testedBy: [] },
+      { path: "src/parser.ts", commitsLastYear: 9, lines: 500, complexity: null, testedBy: ["test/parser.test.ts"] },
+    ]);
+    expect(zones.yellowPaths).toEqual([{
+      path: "src/engine.ts",
+      module: "src",
+      reason: "hotspot: 12 commits in 12 months (module cut 9) and 600 lines (module cut 500); no test is named after it: add characterization tests before agents edit",
+    }]);
+    expect(zones.hotspotNote).toBeNull();
+    expect(scoring.factors[0]?.score).toBe(5);
+  });
+
+  it("looks for hotspots in green modules only", () => {
+    const zones = assignZones(scoringWithTests(2), collected({ structure, history, testsDocs: testsDocsOf() }), factors, decision);
+    expect(zones.modules.every((m) => m.zone === "yellow" && m.hotspots.length === 0)).toBe(true);
+    expect(zones.yellowPaths).toEqual([]);
+  });
+
+  it("never makes a red file a hotspot or a yellow path", () => {
+    const red = structureOf([...quiet, { path: "src/login.ts", lines: 600 }, { path: "src/parser.ts", lines: 500 }]);
+    const redHistory = historyOf([...quiet.map((f) => ({ path: f.path, commitsLastYear: 1 })), { path: "src/login.ts", commitsLastYear: 12 }, { path: "src/parser.ts", commitsLastYear: 9 }], 30);
+    const zones = assignZones(scoringWithTests(5), collected({ structure: red, history: redHistory, testsDocs: testsDocsOf() }), factors, decision);
+    expect(zones.redPaths.map((r) => r.path)).toEqual(["src/login.ts"]);
+    expect(zones.yellowPaths.map((y) => y.path)).toEqual(["src/parser.ts"]);
+  });
+
+  it("says why when history is not measured, and zones stay as before", () => {
+    const zones = assignZones(scoringWithTests(5), collected({ structure, history: notMeasured("shallow clone"), testsDocs: testsDocsOf() }), factors, decision);
+    expect(zones.hotspotNote).toBe("hotspots not looked for: git history not measured (shallow clone)");
+    expect(zones.yellowPaths).toEqual([]);
+    expect(zones.modules.map((m) => [m.module, m.zone, m.hotspots])).toEqual([["lib", "green", []], ["src", "green", []]]);
+  });
+
+  it("says when nothing changed in the 12-month window", () => {
+    const dormant = historyOf(quiet.map((f) => ({ path: f.path, commitsLastYear: 0 })), 0);
+    const zones = assignZones(scoringWithTests(5), collected({ structure, history: dormant, testsDocs: testsDocsOf() }), factors, decision);
+    expect(zones.hotspotNote).toBe("no hotspots: no commits in the 12 months to 2026-10-21");
+    expect(zones.yellowPaths).toEqual([]);
   });
 });

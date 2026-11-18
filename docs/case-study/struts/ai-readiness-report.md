@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\struts` at commit `f2ea51ac3e3c` |
-| Audit date | 2026-10-23 |
+| Audit date | 2026-11-18 |
 | Verdict | **adopt** |
 | Readiness level | **4 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -28,7 +28,7 @@ Triggered by: test-feedback 5, direct-api-calls 4.
 | documented-intent | constraining | 3 | docs with 34 stated rules |
 | observability | constraining | 3 | logging present (calls in 20.30% of files), no error reporting, metrics or tracing |
 | dev-deploy-simplicity | constraining | 4 | 3 of 4 signals: CI configured, test runner configured, runtime version declared |
-| dependency-currency | constraining | 5 | every runtime is supported past 12 months |
+| dependency-currency | constraining | 4 | a runtime reaches end of life on 2027-10-31, within 12 months |
 
 Scores are never averaged; the lowest scored blocking factor sets the readiness level.
 
@@ -129,7 +129,7 @@ Partial: build scripts and containers are not detected yet.
 
 ### dependency-currency: Dependency and runtime currency
 
-Score **5** (constraining). Rule: every runtime is supported past 12 months.
+Score **4** (constraining). Rule: a runtime reaches end of life on 2027-10-31, within 12 months.
 
 Evidence:
 
@@ -164,6 +164,31 @@ Red paths:
 - `plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java` (permission)
 - `plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java` (password)
 
+Yellow paths (hotspots in green modules with no test named after them):
+
+- `core/src/main/java/org/apache/struts2/StrutsConstants.java` (in `core/src/main`): hotspot: 18 commits in 12 months (module cut 4) and 865 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- `core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java` (in `core/src/main`): hotspot: 9 commits in 12 months (module cut 4) and 739 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- `core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java` (in `core/src/main`): hotspot: 5 commits in 12 months (module cut 4) and 391 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- `core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java` (in `core/src/main`): hotspot: 4 commits in 12 months (module cut 4) and 935 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+
+Hotspots (long and often changed, in green modules):
+
+| File | Module | Commits (12 months) | Lines | Complexity | Tests named after it |
+|---|---|---|---|---|---|
+| `core/src/main/java/org/apache/struts2/StrutsConstants.java` | `core/src/main` | 18 | 865 | not measured | none |
+| `core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java` | `core/src/main` | 9 | 739 | not measured | none |
+| `core/src/main/java/org/apache/struts2/config/StrutsBeanSelectionProvider.java` | `core/src/main` | 7 | 499 | not measured | `core/src/test/java/org/apache/struts2/config/StrutsBeanSelectionProviderTest.java` |
+| `core/src/main/java/org/apache/struts2/components/UIBean.java` | `core/src/main` | 6 | 1552 | not measured | `core/src/test/java/org/apache/struts2/components/UIBeanTest.java` |
+| `core/src/main/java/org/apache/struts2/interceptor/parameter/ParametersInterceptor.java` | `core/src/main` | 6 | 814 | not measured | `core/src/test/java/org/apache/struts2/interceptor/ActionMappingParametersInterceptorTest.java`, `core/src/test/java/org/apache/struts2/interceptor/StaticParametersInterceptorTest.java`, `core/src/test/java/org/apache/struts2/interceptor/parameter/ParametersInterceptorTest.java` |
+| `core/src/main/java/org/apache/struts2/ognl/SecurityMemberAccess.java` | `core/src/main` | 6 | 624 | not measured | `core/src/test/java/org/apache/struts2/ognl/SecurityMemberAccessTest.java`, `core/src/test/java/org/test/ExternalSecurityMemberAccess.java`, `core/src/test/java/org/test/ExternalSecurityMemberAccessTest.java` |
+| `core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java` | `core/src/main` | 5 | 391 | not measured | none |
+| `core/src/main/java/org/apache/struts2/dispatcher/multipart/AbstractMultiPartRequest.java` | `core/src/main` | 4 | 628 | not measured | `core/src/test/java/org/apache/struts2/dispatcher/multipart/AbstractMultiPartRequestTest.java` |
+| `core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java` | `core/src/main` | 4 | 935 | not measured | none |
+| `plugins/json/src/main/java/org/apache/struts2/json/JSONInterceptor.java` | `plugins` | 7 | 881 | not measured | `plugins/json/src/test/java/org/apache/struts2/json/JSONInterceptorTest.java` |
+| `plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java` | `plugins` | 7 | 890 | not measured | `plugins/json/src/test/java/org/apache/struts2/json/StrutsJSONWriterTest.java` |
+| `plugins/convention/src/main/java/org/apache/struts2/convention/PackageBasedActionConfigBuilder.java` | `plugins` | 4 | 1255 | not measured | `plugins/convention/src/test/java/org/apache/struts2/convention/PackageBasedActionConfigBuilderTest.java` |
+| `plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java` | `plugins` | 4 | 483 | not measured | `plugins/rest/src/test/java/org/apache/struts2/rest/ContentTypeInterceptorTest.java` |
+
 Not zoned (no source files): (root), .github, .mvn, assembly, bom, docs, jakarta, parent, src, thoughts.
 
 ## Harness adaptation plan
@@ -173,6 +198,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with
 | Level | Item | Trigger | Surfaces |
 |---|---|---|---|
 | required | red-paths | red zone: 13 paths | AGENTS.md, .claude/settings.json |
+| required | yellow-paths | yellow zone: 4 paths | AGENTS.md |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
 | recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
@@ -197,6 +223,19 @@ Why: Auth, billing, permission and secret code needs human review of every chang
 - plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java (authorization): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java)
 - plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java (permission): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java)
 - plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java (password): deny Edit(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java), Write(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java)
+
+### required: yellow-paths
+
+Trigger: yellow zone: 4 paths. Surfaces: `AGENTS.md`.
+
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- core/src/main/java/org/apache/struts2/StrutsConstants.java (in green core/src/main): hotspot: 18 commits in 12 months (module cut 4) and 865 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java (in green core/src/main): hotspot: 9 commits in 12 months (module cut 4) and 739 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java (in green core/src/main): hotspot: 5 commits in 12 months (module cut 4) and 391 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java (in green core/src/main): hotspot: 4 commits in 12 months (module cut 4) and 935 lines (module cut 300); no test is named after it: add characterization tests before agents edit
 
 ### recommended: written-intent
 
@@ -234,8 +273,9 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 | 1 | direct-api-calls | 4 → 5 | L | 0.67 | make the computed-target calls explicit in 26 of 56 files (to 2% of files), starting with core/src/main/java/org/apache/struts2/util/finder/ResourceFinder.java (10), plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java (8), plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java (7) | unchanged |
 | 2 | documented-intent | 3 → 4 | M | 0.5 | add an architecture doc or decision records | unchanged |
 | 3 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
-| 4 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
-| 5 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 11% to 10% of commits, starting with the most coupled pairs apps + core/src/main (11 commits together) and core/src/main + plugins (49 commits together) | unchanged |
+| 4 | dependency-currency | 4 → 5 | M | 0.5 | upgrade java from 17 to 21 | unchanged |
+| 5 | file-size | 4 → 5 | L | 0.33 | bring the p90 file length from 246 to 200 lines | unchanged |
+| 6 | module-boundaries | 4 → 5 | L | 0.33 | reduce cross-module changes from 11% to 10% of commits, starting with the most coupled pairs apps + core/src/main (11 commits together) and core/src/main + plugins (49 commits together) | unchanged |
 
 ## Not measured
 
@@ -245,22 +285,22 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ### Git history
 
-7461 non-merge commits (428 in the 12 months to 2026-10-23), 149 authors, first 2006-02-22, last 2026-10-22, 3848 tracked files.
+7461 non-merge commits (417 in the 12 months to 2026-11-18), 149 authors, first 2006-02-22, last 2026-10-22, 3848 tracked files.
 
-Hotspots (most commits in the last 12 months):
+Most changed files (most commits in the last 12 months):
 
 | File | Commits (12 months) | Commits | Authors | Last commit |
 |---|---|---|---|---|
-| `pom.xml` | 108 | 1060 | 45 | 2026-10-22 |
-| `.github/workflows/codeql.yml` | 44 | 85 | 3 | 2026-10-22 |
-| `.github/workflows/scorecards-analysis.yaml` | 38 | 106 | 4 | 2026-10-22 |
-| `parent/pom.xml` | 36 | 64 | 3 | 2026-10-22 |
+| `pom.xml` | 104 | 1060 | 45 | 2026-10-22 |
+| `.github/workflows/codeql.yml` | 42 | 85 | 3 | 2026-10-22 |
+| `.github/workflows/scorecards-analysis.yaml` | 35 | 106 | 4 | 2026-10-22 |
+| `parent/pom.xml` | 33 | 64 | 3 | 2026-10-22 |
 | `core/src/main/java/org/apache/struts2/StrutsConstants.java` | 18 | 176 | 20 | 2026-10-11 |
 | `.github/dependabot.yml` | 17 | 20 | 1 | 2026-10-16 |
-| `apps/showcase/pom.xml` | 16 | 414 | 23 | 2026-10-22 |
+| `apps/showcase/pom.xml` | 15 | 414 | 23 | 2026-10-22 |
 | `core/src/main/resources/org/apache/struts2/default.properties` | 15 | 106 | 16 | 2026-10-11 |
-| `.github/workflows/maven.yml` | 13 | 35 | 5 | 2026-10-15 |
 | `core/src/main/resources/struts-beans.xml` | 13 | 35 | 3 | 2026-10-12 |
+| `plugins/jasperreports7/pom.xml` | 13 | 20 | 2 | 2026-10-15 |
 
 ### Code structure
 
@@ -413,7 +453,7 @@ Logging calls in 311 of 2428 source files, tests included (logger call 1279, std
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (28 days before the audit)
 - Deferrals: none
 - Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 

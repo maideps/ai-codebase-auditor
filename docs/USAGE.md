@@ -155,6 +155,12 @@ Risk zones cover source files that are not tests:
 - **Green** (agents may edit): the repository's test-feedback base score is at least `greenMinTestScore` (3), and the module's p90 lines and share of files over 1000 lines stay within the file-size factor's score-3 thresholds.
 - **Yellow** (characterization tests first): otherwise, with the reason.
 - **Red** (proposals only): a path with a sensitive term (`redTerms`: auth, login, password, permission, role, billing, payment, secret and similar) as a whole word of a directory or file name, split on separators and camelCase. A red directory is listed once. A module whose source files are all red is red.
+- **Yellow paths** (characterization tests first, inside a green module): hotspots that have no test named after them.
+  - A **hotspot** is a source file outside red paths. Its commits in the last 12 months and its length must both reach the module's 90th percentile (`hotspots.percentile`). It also needs at least 4 commits (`hotspots.minCommits`) and 300 lines (`hotspots.minLines`). The commit percentile counts only files changed in that window.
+  - A test is **named after** a file when its name, without the words test, tests, spec and specs, ends with the file's name as whole words. `notification_method_webpush_test.php` names `webpush.php`; `issue_status_test.rb` does not name `issue.rb`.
+  - Hotspots are looked for in green modules only. They never change a module's zone, a score or the verdict (D-019).
+  - The rule uses length only, so zones are the same on every machine. scc complexity is shown as evidence when scc ran.
+  - Without measured history, or with no commits in the window, the report says why it did not look for hotspots.
 
 Zones use test-feedback's base score, because a deferral adds no tests. Directories without source files are listed as not zoned.
 
@@ -180,10 +186,11 @@ Each requirement ties a harness assumption to one factor:
 | reproducible-runs | dev-deploy-simplicity | the missing CI, runtime pin, test runner or lock file |
 | supported-runtime | dependency-currency | run the verification layers under the declared legacy runtime |
 
-Three more items have other triggers:
+Four more items have other triggers:
 - **detected-stack** (required): the harness's stack detection, from root markers, would not find the main language. Declare each layer command explicitly.
 - **red paths** (required): list them as proposal-only in `AGENTS.md` and add Claude Code `permissions.deny` rules, such as `Edit(app/auth/**)` and `Write(app/auth/**)`.
 - **yellow modules** (required): list them as "characterization tests first" in `AGENTS.md`, with each reason.
+- **yellow paths** (required): the same guardrail for each untested hotspot in a green module, with its commit count and length.
 
 The verdict frames the plan. *Prepare first* keeps only the required items: test-feedback first, then the zone guardrails, which still apply while agents write tests. *Adapt* lists required items, zone guardrails, then recommended ones. *Adopt* has no weak factor, so only zone guardrails, stack and recommended items can appear. Every item names the factor score or zone that triggered it.
 
@@ -206,13 +213,13 @@ Both files come from one report model, so they hold the same content:
 - the verdict with its rule and triggers;
 - the readiness level;
 - every factor with its rule, evidence, partial coverage and any deferral;
-- risk zones and red paths;
+- risk zones, red paths, yellow paths and the hotspots of green modules;
 - the harness adaptation plan and the modernization roadmap;
 - everything not measured, in one list;
-- signal summaries (git-history hotspots, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls, co-change, observability);
+- signal summaries (the ten most changed files, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls, co-change, observability);
 - the method: inputs, every read-only command run, collector notes.
 
-Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 6`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015). Version 5 added `signals.coChange` ([sprints/feat-012.md](sprints/feat-012.md), D-016). Version 6 added `signals.observability` ([sprints/feat-013.md](sprints/feat-013.md), D-017).
+Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 7`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015). Version 5 added `signals.coChange` ([sprints/feat-012.md](sprints/feat-012.md), D-016). Version 6 added `signals.observability` ([sprints/feat-013.md](sprints/feat-013.md), D-017). Version 7 added `zones.yellowPaths`, `zones.hotspotNote` and `hotspots` on each module, and renamed `signals.gitHistory.hotspots` to `mostChanged` ([sprints/feat-014.md](sprints/feat-014.md), D-019).
 
 Reports are deterministic. Every date-based rule (the 12-month window, end of life, deferral expiry) uses the audit date in UTC. Keys and lists are in a fixed order, and line endings are LF. Two runs on the same day, repository and configs give identical bytes. The report records the audited commit (`target.head`), so it traces to exact code.
 

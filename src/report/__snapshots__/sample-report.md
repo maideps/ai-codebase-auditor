@@ -20,7 +20,7 @@ Triggered by: type-strictness 1, direct-api-calls 2, documented-intent 2, depend
 
 | Factor | Class | Score | Rule |
 |---|---|---|---|
-| test-feedback | blocking | 5 | ratio 0.30 ≥ 0.3 with a runner config and CI |
+| test-feedback | blocking | 4 | ratio 0.27 ≥ 0.15 with a runner config and CI |
 | type-strictness | constraining | 1 | weighted typed share 0.00 |
 | direct-api-calls | blocking | 2 | 20.00% of 10 covered files have a computed-target call (3 sites) |
 | file-size | constraining | 5 | lower of p90 40 lines (→ 5) and 0.00% of files over 1000 lines (→ 5) |
@@ -34,11 +34,11 @@ Scores are never averaged; the lowest scored blocking factor sets the readiness 
 
 ### test-feedback: Test presence and feedback speed
 
-Score **5** (blocking). Rule: ratio 0.30 ≥ 0.3 with a runner config and CI.
+Score **4** (blocking). Rule: ratio 0.27 ≥ 0.15 with a runner config and CI.
 
 Evidence:
 
-- 3 test files for 10 source files: ratio 0.30
+- 3 test files for 11 source files: ratio 0.27
 - test runner configs: jest.config.js
 - CI: .github/workflows/ci.yml
 
@@ -50,7 +50,7 @@ Score **1** (constraining). Rule: weighted typed share 0.00.
 
 Evidence:
 
-- typed share 0.00 of 390 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 390)
+- typed share 0.00 of 790 source lines (strong 0, weak 0, checked dynamic 0, unchecked dynamic 790)
 - type checkers: none
 
 ### direct-api-calls: Direct calls (visible at call site)
@@ -63,7 +63,7 @@ Evidence:
 - by construct: computed call 2, eval or Function 1
 - top files: src/f0.js (2), src/auth/login.js (1)
 - sample sites: src/f0.js:1 computed call, src/auth/login.js:1 eval or Function, src/f0.js:2 computed call
-- covered languages hold 100.00% of 390 source lines
+- covered languages hold 100.00% of 790 source lines
 
 Partial: configuration-wired dispatch (dependency injection, XML mappings, callbacks by symbol, annotations) is not detected.
 
@@ -73,8 +73,8 @@ Score **5** (constraining). Rule: lower of p90 40 lines (→ 5) and 0.00% of fil
 
 Evidence:
 
-- 10 source files: p90 40 lines, 0 over 1000 lines (0.00%)
-- largest: src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines), src/f4.js (40 lines)
+- 11 source files: p90 40 lines, 0 over 1000 lines (0.00%)
+- largest: src/engine.js (400 lines), src/f0.js (40 lines), src/f1.js (40 lines), src/f2.js (40 lines), src/f3.js (40 lines)
 
 ### module-boundaries: Module boundary clarity
 
@@ -143,12 +143,22 @@ Green: agents may edit. Yellow: add characterization tests first. Red: agents ma
 
 | Zone | Module | Source files | Red files | Reason |
 |---|---|---|---|---|
-| green | `src/(files)` | 9 | 0 | test-feedback 5 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines) |
+| green | `src/(files)` | 10 | 0 | test-feedback 4 ≥ 3 and files are legible (p90 40 lines, 0% over 1000 lines) |
 | red | `src/auth` | 1 | 1 | every source file is on a red path: agents may only propose changes |
 
 Red paths:
 
 - `src/auth/` (auth)
+
+Yellow paths (hotspots in green modules with no test named after them):
+
+- `src/engine.js` (in `src/(files)`): hotspot: 6 commits in 12 months (module cut 6) and 400 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+
+Hotspots (long and often changed, in green modules):
+
+| File | Module | Commits (12 months) | Lines | Complexity | Tests named after it |
+|---|---|---|---|---|---|
+| `src/engine.js` | `src/(files)` | 6 | 400 | not measured | none |
 
 Not zoned (no source files): test.
 
@@ -162,8 +172,9 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | traceable-calls | direct-api-calls 2 | AGENTS.md, package.json lint script |
 | required | written-intent | documented-intent 2 | AGENTS.md, docs/ARCHITECTURE.md |
 | required | supported-runtime | dependency-currency 1 | CI, verification layers |
-| required | detected-stack | test-feedback 5 | package.json layer scripts |
+| required | detected-stack | test-feedback 4 | package.json layer scripts |
 | required | red-paths | red zone: 1 path | AGENTS.md, .claude/settings.json |
+| required | yellow-paths | yellow zone: 1 path | AGENTS.md |
 | recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
 
 ### required: typed-changes
@@ -174,7 +185,7 @@ Change: Add a type checker for the main dynamic language in check mode, with a b
 
 Why: Dynamic code without a checker lets an agent's type mistakes through every static layer.
 
-- main dynamic language: javascript (390 source lines); suggested checker: TypeScript checkJs
+- main dynamic language: javascript (790 source lines); suggested checker: TypeScript checkJs
 
 ### required: traceable-calls
 
@@ -210,7 +221,7 @@ Why: Code verified on a different runtime than it ships on is not verified.
 
 ### required: detected-stack
 
-Trigger: test-feedback 5. Surfaces: `package.json layer scripts`.
+Trigger: test-feedback 4. Surfaces: `package.json layer scripts`.
 
 Change: Declare each verification layer command explicitly in package.json scripts (for example phpunit, bin/rails test, make check), so no required layer reports only SKIP.
 
@@ -227,6 +238,16 @@ Change: List these paths as proposal-only in AGENTS.md, and add Claude Code perm
 Why: Auth, billing, permission and secret code needs human review of every change.
 
 - src/auth/ (auth): deny Edit(src/auth/**), Write(src/auth/**)
+
+### required: yellow-paths
+
+Trigger: yellow zone: 1 path. Surfaces: `AGENTS.md`.
+
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- src/engine.js (in green src/(files)): hotspot: 6 commits in 12 months (module cut 6) and 400 lines (module cut 300); no test is named after it: add characterization tests before agents edit
 
 ### recommended: observable-changes
 
@@ -251,9 +272,10 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 |---|---|---|---|---|---|---|
 | 1 | direct-api-calls | 2 → 3 | S | 4 | make the computed-target calls explicit in 1 of 2 files (to 10% of files), starting with src/f0.js (2), src/auth/login.js (1) | unchanged |
 | 2 | dependency-currency | 1 → 5 | M | 2.5 | upgrade node from 14 to 24 | unchanged |
-| 3 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
-| 4 | type-strictness | 1 → 3 | M | 1.5 | configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60) | unchanged |
-| 5 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
+| 3 | test-feedback | 4 → 5 | S | 2 | add 1 test files (to ratio 0.3) | unchanged |
+| 4 | documented-intent | 2 → 3 | S | 2 | write at least 3 project rules (AGENTS.md or CONTRIBUTING) | unchanged |
+| 5 | type-strictness | 1 → 3 | M | 1.5 | configure TypeScript checkJs for javascript with a baseline (typed share 0.00 to 0.60) | unchanged |
+| 6 | observability | 3 → 4 | M | 0.5 | add an error reporter (for example Sentry) | unchanged |
 
 ## Not measured
 
@@ -264,15 +286,18 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ### Git history
 
-1 non-merge commit (1 in the 12 months to 2026-10-21), 1 author, first none, last none, 0 tracked files.
+8 non-merge commits (8 in the 12 months to 2026-10-21), 1 author, first none, last none, 2 tracked files.
 
-Hotspots (most commits in the last 12 months):
+Most changed files (most commits in the last 12 months):
 
-None.
+| File | Commits (12 months) | Commits | Authors | Last commit |
+|---|---|---|---|---|
+| `src/engine.js` | 6 | 6 | 1 | 2026-06-01 |
+| `src/f0.js` | 2 | 2 | 1 | 2026-06-01 |
 
 ### Code structure
 
-13 files, 0 lines; per file p50 0, p90 0, p99 0, max 0. Excluded: generated 1. scc: not used (test).
+14 files, 0 lines; per file p50 0, p90 0, p99 0, max 0. Excluded: generated 1. scc: not used (test).
 
 Largest files:
 

@@ -1,9 +1,9 @@
-# AI-readiness audit: phpBB
+# AI-readiness audit: phpbb
 
 | | |
 |---|---|
-| Target | `D:\7-Maide\Projects\audit-targets\phpBB` at commit `27fb7748768e` |
-| Audit date | 2026-10-23 |
+| Target | `D:\7-Maide\Projects\audit-targets\phpbb` at commit `27fb7748768e` |
+| Audit date | 2026-11-18 |
 | Verdict | **adopt** |
 | Readiness level | **4 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -260,6 +260,24 @@ Red paths:
 - `phpBB/phpbb/ucp/controller/oauth.php` (oauth)
 - `phpBB/phpbb/ucp/controller/reset_password.php` (password)
 
+Yellow paths (hotspots in green modules with no test named after them):
+
+- `build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php` (in `build`): hotspot: 7 commits in 12 months (module cut 7) and 501 lines (module cut 380); no test is named after it: add characterization tests before agents edit
+- `phpBB/language/en/common.php` (in `phpBB/language`): hotspot: 15 commits in 12 months (module cut 9) and 1505 lines (module cut 619); no test is named after it: add characterization tests before agents edit
+- `phpBB/language/en/install.php` (in `phpBB/language`): hotspot: 9 commits in 12 months (module cut 9) and 619 lines (module cut 619); no test is named after it: add characterization tests before agents edit
+- `phpBB/phpbb/storage/controller/attachment.php` (in `phpBB/phpbb/storage`): hotspot: 4 commits in 12 months (module cut 4) and 642 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+
+Hotspots (long and often changed, in green modules):
+
+| File | Module | Commits (12 months) | Lines | Complexity | Tests named after it |
+|---|---|---|---|---|---|
+| `build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php` | `build` | 7 | 501 | not measured | none |
+| `phpBB/language/en/common.php` | `phpBB/language` | 15 | 1505 | not measured | none |
+| `phpBB/language/en/install.php` | `phpBB/language` | 9 | 619 | not measured | none |
+| `phpBB/phpbb/notification/method/webpush.php` | `phpBB/phpbb/notification` | 6 | 537 | not measured | `tests/functional/notification_webpush_test.php`, `tests/notification/notification_method_webpush_test.php`, `tests/ucp/controller_webpush_test.php` |
+| `phpBB/phpbb/storage/controller/attachment.php` | `phpBB/phpbb/storage` | 4 | 642 | not measured | none |
+| `phpBB/phpbb/ucp/controller/webpush.php` | `phpBB/phpbb/ucp` | 12 | 496 | not measured | `tests/functional/notification_webpush_test.php`, `tests/notification/notification_method_webpush_test.php`, `tests/ucp/controller_webpush_test.php` |
+
 Not zoned (no source files): .vscode, tests.
 
 ## Harness adaptation plan
@@ -271,6 +289,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness as is, with
 | required | detected-stack | test-feedback 5 | package.json layer scripts |
 | required | red-paths | red zone: 40 paths | AGENTS.md, .claude/settings.json |
 | required | yellow-modules | yellow zone: 9 modules | AGENTS.md |
+| required | yellow-paths | yellow zone: 4 paths | AGENTS.md |
 | recommended | typed-changes | type-strictness 3 | package.json typecheck script, DECISIONS.md |
 | recommended | legible-context | file-size 3 | AGENTS.md |
 | recommended | scoped-lanes | module-boundaries 3 | AGENTS.md, feature lanes (lane-new) |
@@ -340,7 +359,7 @@ Why: Auth, billing, permission and secret code needs human review of every chang
 
 Trigger: yellow zone: 9 modules. Surfaces: `AGENTS.md`.
 
-Change: List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
 
 Why: Agents may only edit autonomously where their changes can be verified.
 
@@ -353,6 +372,19 @@ Why: Agents may only edit autonomously where their changes can be verified.
 - phpBB/phpbb/log: files too large for unsupervised edits: p90 1008 lines > 800; 33.3% of files over 1000 lines > 7%
 - phpBB/phpbb/search: files too large for unsupervised edits: p90 1170 lines > 800; 25% of files over 1000 lines > 7%
 - phpBB/phpbb/tree: files too large for unsupervised edits: p90 875 lines > 800
+
+### required: yellow-paths
+
+Trigger: yellow zone: 4 paths. Surfaces: `AGENTS.md`.
+
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php (in green build): hotspot: 7 commits in 12 months (module cut 7) and 501 lines (module cut 380); no test is named after it: add characterization tests before agents edit
+- phpBB/language/en/common.php (in green phpBB/language): hotspot: 15 commits in 12 months (module cut 9) and 1505 lines (module cut 619); no test is named after it: add characterization tests before agents edit
+- phpBB/language/en/install.php (in green phpBB/language): hotspot: 9 commits in 12 months (module cut 9) and 619 lines (module cut 619); no test is named after it: add characterization tests before agents edit
+- phpBB/phpbb/storage/controller/attachment.php (in green phpBB/phpbb/storage): hotspot: 4 commits in 12 months (module cut 4) and 642 lines (module cut 300); no test is named after it: add characterization tests before agents edit
 
 ### recommended: typed-changes
 
@@ -447,9 +479,9 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ### Git history
 
-28503 non-merge commits (483 in the 12 months to 2026-10-23), 358 authors, first 2001-02-17, last 2026-10-22, 3006 tracked files.
+28503 non-merge commits (473 in the 12 months to 2026-11-18), 358 authors, first 2001-02-17, last 2026-10-22, 3006 tracked files.
 
-Hotspots (most commits in the last 12 months):
+Most changed files (most commits in the last 12 months):
 
 | File | Commits (12 months) | Commits | Authors | Last commit |
 |---|---|---|---|---|
@@ -579,7 +611,7 @@ Logging calls in 46 of 1915 source files, tests included (phpBB-style log 175, l
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (28 days before the audit)
 - Deferrals: none
 - Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 

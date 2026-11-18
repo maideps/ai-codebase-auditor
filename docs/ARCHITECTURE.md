@@ -32,13 +32,13 @@ src/
     co-change.ts        source files changed together in recent commits (one read-only git log)
     observability.ts    logging calls, console output, logging configuration, observability imports
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
-  decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red paths), decide.ts
+  decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red and yellow paths), hotspots.ts (hotspots and test-name matching), decide.ts
   plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)
   report/             model.ts (one AuditReport model), json.ts, markdown.ts, write.ts (--out, target guard)
 config/
   factors.json        factor list, blocking vs. constraining, thresholds
   runtime-eol.json    dated end-of-life table for Node.js, Python, PHP, Ruby, Java
-  decision.json       weak-score limit, green rule, module splitting, red path terms
+  decision.json       weak-score limit, green rule, module splitting, hotspot thresholds, red path terms
   harness-requirements.json  ai-harness-framework assumptions per factor, stack detection, zone guardrails
 ```
 

@@ -235,6 +235,9 @@ function formatDecision(decision: Decision): string[] {
     ...(zones.redPaths.length > 0
       ? ["  red paths:", ...zones.redPaths.map((red) => `    ${red.path}${red.kind === "directory" ? "/" : ""} (${red.term})`)]
       : zones.note ? [] : ["  red paths: none"]),
+    ...(zones.yellowPaths.length > 0
+      ? ["  yellow paths (hotspots with no test named after them):", ...zones.yellowPaths.map((yellow) => `    ${yellow.path} (${yellow.reason.replace(/; no test is named after it.*$/, "")})`)]
+      : zones.note ? [] : [`  yellow paths: ${zones.hotspotNote ?? "none"}`]),
     ...(zones.unzoned.length > 0 ? [`  not zoned (no source files): ${zones.unzoned.join(", ")}`] : []),
   ];
 }

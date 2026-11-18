@@ -402,8 +402,8 @@
     {
       "id": "feat-014",
       "name": "Hotspots in risk zones",
-      "behavior": "Uses the git-history and code-structure signals already collected to mark hotspot files: product files whose commits in the last 12 months and whose complexity (scc) or length are both in the top share of their module. A green module that holds a hotspot without a matching test file becomes yellow, and the hotspot is listed with its commit counts, complexity, length and the missing test as evidence. Thresholds live in config/decision.json. Factor scores and the verdict do not change.",
-      "verification": "Unit tests cover the hotspot rule at each threshold edge, with and without scc data and with and without a matching test file, and the zone change it causes. The five calibration repositories are re-audited and every hotspot that changes a zone is checked against the clone.",
+      "behavior": "Uses the git-history and code-structure signals already collected to mark hotspot files in green modules: product source files whose commits in the last 12 months and whose length are both at or above the module's configured percentile and configured minimums. A hotspot with no test file named after it is listed as a yellow path inside its green module (characterization tests before agents edit that file), citing its commit count, length and the missing test; the module itself stays green, as it does around red paths. Thresholds live in config/decision.json. Factor scores and the verdict do not change.",
+      "verification": "Unit tests cover the hotspot rule at each threshold edge, test-name matching, history that is not measured, and yellow paths inside green modules with scores and the verdict unchanged. The five calibration repositories are re-audited and every untested hotspot is checked against the clone.",
       "dependencies": [
         "feat-002",
         "feat-003",

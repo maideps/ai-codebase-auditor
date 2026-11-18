@@ -1,13 +1,15 @@
 // Risk zones: modules are green (agents may edit autonomously) or yellow
 // (characterization tests first), and paths naming auth, billing, permissions
-// or secrets are red (agents may only propose changes).
+// or secrets are red (agents may only propose changes). Inside green modules,
+// hotspots with no test named after them are yellow paths.
 
 import type { DecisionConfig } from "../config/decision.js";
 import type { FactorConfig } from "../config/factors.js";
 import { extensionOf, SOURCE_EXTENSIONS } from "../file-kinds.js";
 import { groupModules, ROOT_MODULE } from "../modules.js";
 import type { CollectorResults, Scoring } from "../scoring/types.js";
-import type { ModuleZone, RedPath, Zones } from "./types.js";
+import { findHotspots } from "./hotspots.js";
+import type { ModuleZone, RedPath, YellowPath, Zones } from "./types.js";
 
 // 7.1%, not a rounded 7% that hides being over a 7% limit; whole numbers stay whole.
 const percent = (share: number) => {
@@ -51,12 +53,25 @@ function redPathOf(filePath: string, terms: readonly string[]): RedPath | null {
 
 export function assignZones(scoring: Scoring, results: CollectorResults, factors: FactorConfig, config: DecisionConfig): Zones {
   if (results.structure.status !== "measured") {
-    return { modules: [], redPaths: [], unzoned: [], note: `no zones: code structure not measured (${results.structure.reason})` };
+    return { modules: [], redPaths: [], yellowPaths: [], hotspotNote: null, unzoned: [], note: `no zones: code structure not measured (${results.structure.reason})` };
   }
   const structure = results.structure.value;
-  const testPaths = new Set(results.testsDocs.status === "measured" ? results.testsDocs.value.tests.files.map((file) => file.path) : []);
+  const testList = results.testsDocs.status === "measured" ? results.testsDocs.value.tests.files.map((file) => file.path) : [];
+  const testPaths = new Set(testList);
   const source = structure.files.filter((file) => SOURCE_EXTENSIONS.has(extensionOf(file.path)) && !testPaths.has(file.path));
   const linesOf = new Map(source.map((file) => [file.path, file.lines]));
+  const complexityOf = new Map(source.map((file) => [file.path, file.complexity]));
+
+  // Hotspots need recent history; without it, zones are assigned as before and the report says why.
+  const history = results.history;
+  const hotspotNote =
+    history.status !== "measured"
+      ? `hotspots not looked for: git history not measured (${history.reason})`
+      : history.value.totals.commitsLastYear === 0
+        ? `no hotspots: no commits in the 12 months to ${history.value.window.until.slice(0, 10)}`
+        : null;
+  const recentCommits = new Map(history.status === "measured" ? history.value.files.map((file) => [file.path, file.commitsLastYear]) : []);
+  const yellowPaths: YellowPath[] = [];
 
   const redPaths = new Map<string, RedPath>();
   const redFiles = new Set<string>();
@@ -78,7 +93,7 @@ export function assignZones(scoring: Scoring, results: CollectorResults, factors
     .sort(([a], [b]) => byPath(a, b))
     .map(([module, files]) => {
       const red = files.filter((file) => redFiles.has(file)).length;
-      const zone = (z: ModuleZone["zone"], reason: string): ModuleZone => ({ module, zone: z, reason, sourceFiles: files.length, redFiles: red });
+      const zone = (z: ModuleZone["zone"], reason: string): ModuleZone => ({ module, zone: z, reason, sourceFiles: files.length, redFiles: red, hotspots: [] });
       if (red === files.length) return zone("red", "every source file is on a red path: agents may only propose changes");
       if (testScore === null || testScore < config.greenMinTestScore) {
         return zone("yellow", `test-feedback ${testScore ?? "not measured"} < ${config.greenMinTestScore}: add characterization tests before agents edit`);
@@ -91,12 +106,35 @@ export function assignZones(scoring: Scoring, results: CollectorResults, factors
         ...(share > maxShare ? [`${percent(share)} of files over 1000 lines > ${percent(maxShare)}`] : []),
       ];
       if (problems.length > 0) return zone("yellow", `files too large for unsupervised edits: ${problems.join("; ")}`);
-      return zone("green", `test-feedback ${testScore} ≥ ${config.greenMinTestScore} and files are legible (p90 ${p90} lines, ${percent(share)} over 1000 lines)`);
+      const green = zone("green", `test-feedback ${testScore} ≥ ${config.greenMinTestScore} and files are legible (p90 ${p90} lines, ${percent(share)} over 1000 lines)`);
+      if (hotspotNote !== null) return green;
+      // Red files are proposals only already, so they are neither counted nor listed.
+      const candidates = files
+        .filter((file) => !redFiles.has(file))
+        .map((file) => ({ path: file, commitsLastYear: recentCommits.get(file) ?? 0, lines: linesOf.get(file) ?? 0, complexity: complexityOf.get(file) ?? null }));
+      const found = findHotspots(candidates, testList, config.hotspots);
+      for (const hotspot of found.hotspots.filter((h) => h.testedBy.length === 0)) {
+        yellowPaths.push({
+          path: hotspot.path,
+          module,
+          reason:
+            `hotspot: ${hotspot.commitsLastYear} commits in 12 months (module cut ${found.commitCut}) and ${hotspot.lines} lines (module cut ${found.lineCut}); ` +
+            "no test is named after it: add characterization tests before agents edit",
+        });
+      }
+      return { ...green, hotspots: found.hotspots };
     });
 
   const zonedTopLevel = new Set(source.map((file) => (file.path.includes("/") ? file.path.split("/")[0] : ROOT_MODULE)));
   const topLevel = new Set(structure.files.map((file) => (file.path.includes("/") ? file.path.split("/")[0] : ROOT_MODULE)));
   const unzoned = [...topLevel].filter((name): name is string => name !== undefined && !zonedTopLevel.has(name)).sort(byPath);
 
-  return { modules, redPaths: [...redPaths.values()].sort((a, b) => byPath(a.path, b.path)), unzoned, note: null };
+  return {
+    modules,
+    redPaths: [...redPaths.values()].sort((a, b) => byPath(a.path, b.path)),
+    yellowPaths: yellowPaths.sort((a, b) => byPath(a.path, b.path)),
+    hotspotNote,
+    unzoned,
+    note: null,
+  };
 }

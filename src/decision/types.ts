@@ -1,6 +1,8 @@
 // Decision outputs: the verdict and where agents may work. Like scoring, the
 // decision engine is pure and never reads the repository.
 
+import type { Hotspot } from "./hotspots.js";
+
 export type VerdictKind = "adopt" | "adapt" | "prepare-first";
 
 export interface Verdict {
@@ -25,6 +27,15 @@ export interface ModuleZone {
   sourceFiles: number;
   /** Source files in the module that sit on a red path. */
   redFiles: number;
+  /** Long, often-changed files outside red paths; computed for green modules only, empty otherwise. */
+  hotspots: Hotspot[];
+}
+
+/** A hotspot with no test named after it, inside a green module: characterization tests first. */
+export interface YellowPath {
+  path: string;
+  module: string;
+  reason: string;
 }
 
 export interface RedPath {
@@ -37,6 +48,10 @@ export interface RedPath {
 export interface Zones {
   modules: ModuleZone[];
   redPaths: RedPath[];
+  /** Untested hotspots inside green modules, sorted by path. */
+  yellowPaths: YellowPath[];
+  /** Why hotspots were not looked for; null when they were. */
+  hotspotNote: string | null;
   /** Top-level directories without source files, counted but not zoned. */
   unzoned: string[];
   /** Why no zones could be assigned; null otherwise. */

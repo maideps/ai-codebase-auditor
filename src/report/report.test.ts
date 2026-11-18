@@ -7,7 +7,7 @@ import { decide } from "../decision/decide.js";
 import { buildPlan } from "../plan/plan.js";
 import { buildRoadmap } from "../plan/roadmap.js";
 import { scoreFactors } from "../scoring/score.js";
-import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, notMeasured, observabilityOf, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
+import { coChangeOf, collected, dependenciesOf, dynamicCallsOf, historyOf, notMeasured, observabilityOf, sourceFiles, structureOf, testsDocsOf } from "../testing/collected.js";
 import { renderJson } from "./json.js";
 import { cell, renderMarkdown } from "./markdown.js";
 import { buildReport, type ReportInput } from "./model.js";
@@ -27,7 +27,7 @@ const now = new Date("2026-10-22T09:00:00Z");
 function sampleInput(): ReportInput {
   const results = collected({
     structure: structureOf(
-      [...sourceFiles(9, "js", 40), { path: "src/auth/login.js", lines: 30 }, ...sourceFiles(3, "js", 5, "test")],
+      [...sourceFiles(9, "js", 40), { path: "src/engine.js", lines: 400 }, { path: "src/auth/login.js", lines: 30 }, ...sourceFiles(3, "js", 5, "test")],
       [{ path: "package-lock.json", reason: "generated" }],
     ),
     testsDocs: testsDocsOf({
@@ -37,6 +37,8 @@ function sampleInput(): ReportInput {
       docs: { readme: ["README.md"], agentContext: ["AGENTS.md"] },
       rules: [{ path: "AGENTS.md", count: 2 }],
     }),
+    // src/engine.js is long and changed often, with no test named after it: a yellow path in green src.
+    history: historyOf([{ path: "src/f0.js", commitsLastYear: 2 }, { path: "src/engine.js", commitsLastYear: 6 }], 8),
     dependencies: dependenciesOf([{ spec: ">=14", lowest: "14", cycle: "14", status: "end-of-life", eol: "2023-04-30" }]),
     dynamicCalls: dynamicCallsOf([
       { path: "src/f0.js", lines: 40, sites: 2 },
@@ -78,7 +80,7 @@ describe("report model", () => {
   it("carries the verdict, readiness, every factor and the not-measured items", () => {
     const report = buildReport(sampleInput());
     expect(report.schema).toBe("ai-codebase-auditor/report");
-    expect(report.schemaVersion).toBe(6);
+    expect(report.schemaVersion).toBe(7);
     expect(report.target).toEqual({ path: "/repos/sample", head: "0123456789abcdef0123456789abcdef01234567" });
     expect(report.inputs.eolTable).toEqual({ path: "/tool/config/runtime-eol.json", asOf: "2026-10-21", ageDays: 1 });
     expect(report.verdict.verdict).toBe("adapt");

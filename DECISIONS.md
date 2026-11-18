@@ -356,3 +356,28 @@ Second, the handoff's sanity test failed: DOOM and Redmine both had readiness 1,
 **Consequences:**
 - Positive: the tool's differences (legacy focus, per-module zones, harness plan) stay, and it gains the CI, agent and portfolio surfaces the other tools have.
 - Negative: the CLI gains four commands (mcp, compare, audit-batch, validate) that share `src/cli.ts`, so those features conflict when run in parallel lanes; the MCP server would add the product's first runtime dependency (the MCP SDK), unless the protocol is implemented directly; zone rules gain thresholds that need calibration.
+
+### D-019: Hotspots in green modules become yellow paths; the module stays green
+
+**Date:** 2026-11-18
+**Status:** accepted (rules proposed in docs/sprints/feat-014.md and approved in review)
+**Context:** the git-history and code-structure collectors already count each file's commits in the last 12 months and its lines, but zones used neither. A file that is long and changing often is where agents are most likely to be sent, and where a wrong change costs most. feat-014 was first declared to turn a whole green module yellow for one untested hotspot. The calibration survey showed that would turn Redmine's `app` (340 files) and Struts's `core/src/main` (797 files) yellow because of one to four files each.
+**Decision:**
+- A hotspot is a source file in a green module, outside red paths, whose recent commits and length both reach the module's 90th percentile, with at least 4 commits and 300 lines (`hotspots` in `config/decision.json`). The commit percentile counts only files changed in the window.
+- A hotspot with no test named after it is a **yellow path**: characterization tests before agents edit it. The module stays green, as it does around red paths. feat-014's declared behavior was reworded to say so before implementation.
+- A test is named after a file when its name, without test words, ends with the file's name as whole words.
+- The rule uses length, not scc complexity, so zones do not depend on whether scc is installed. Complexity is evidence only.
+- Hotspots are looked for in green modules only. They change no zone, factor score or verdict. The minimal-pair study (arXiv 2605.20049) found cleanliness changed agent cost, not pass rate.
+- The plan adds a required `yellow-paths` item that uses the yellow guardrail text, now worded for modules and files. Report `schemaVersion` 7 adds `zones.yellowPaths`, `zones.hotspotNote` and per-module `hotspots`. It renames `signals.gitHistory.hotspots` to `mostChanged`, because that list ranks by commits alone and is not the zone hotspots.
+**Alternatives considered:**
+- The whole module yellow (the first declaration) — Rejected in review: one file would remove the green zone from most of a large module.
+- Matching any test whose name *contains* the file's name — Rejected during implementation: `issue_status_test.rb` would count as a test of `issue.rb`.
+- Complexity when scc is installed, else length — Rejected in review: zones would differ between machines.
+- Hotspots in yellow modules too — Rejected in review: those modules already need characterization tests everywhere.
+- Floors of 6 commits and 400 lines — Rejected in review: moin-1.9, which changes slowly, would get no signal.
+**Consequences:**
+- Positive: on the calibration set, 14 yellow paths across four repositories, every count confirmed against the clones, and no verdict or module zone changed. DOOM has none because it has had no commits for a year, which is correct.
+- Negative:
+  - names are not references: 6 of the 14 yellow paths are tested under another name, and two are string tables (labels.json);
+  - the window ends at the audit date, so a repository that paused a year ago shows no hotspots;
+  - the percentile is per module, so a module split moves the cut, which the floors limit.

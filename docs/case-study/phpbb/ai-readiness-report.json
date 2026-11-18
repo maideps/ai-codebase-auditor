@@ -1,13 +1,13 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-23",
+  "auditDate": "2026-11-18",
   "target": {
-    "path": "D:\\7-Maide\\Projects\\audit-targets\\phpBB",
+    "path": "D:\\7-Maide\\Projects\\audit-targets\\phpbb",
     "head": "27fb7748768ec3c1426f86a82ab553f85b04b71b"
   },
   "inputs": {
@@ -16,7 +16,7 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 2
+      "ageDays": 28
     },
     "deferrals": null,
     "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
@@ -211,490 +211,615 @@
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 67 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": ".devcontainer",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 81 lines, 0% over 1000 lines)",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": ".github",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 81 lines, 0% over 1000 lines)",
         "sourceFiles": 16,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "build",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 380 lines, 0% over 1000 lines)",
         "sourceFiles": 27,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": [
+          {
+            "path": "build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php",
+            "commitsLastYear": 7,
+            "lines": 501,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "git-tools",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 194 lines, 0% over 1000 lines)",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/(files)",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 2124 lines > 800; 33.3% of files over 1000 lines > 7%",
         "sourceFiles": 15,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/adm",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 425 lines, 0% over 1000 lines)",
         "sourceFiles": 6,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "phpBB/assets",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1914 lines > 800; 30% of files over 1000 lines > 7%",
         "sourceFiles": 10,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/bin",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 95 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/develop",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 307 lines, 0% over 1000 lines)",
         "sourceFiles": 36,
-        "redFiles": 2
+        "redFiles": 2,
+        "hotspots": []
       },
       {
         "module": "phpBB/download",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 55 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/includes",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1545 lines > 800; 18.7% of files over 1000 lines > 7%",
         "sourceFiles": 166,
-        "redFiles": 7
+        "redFiles": 7,
+        "hotspots": []
       },
       {
         "module": "phpBB/install",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1605 lines > 800; 12.5% of files over 1000 lines > 7%",
         "sourceFiles": 8,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/language",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 594 lines, 2.5% over 1000 lines)",
         "sourceFiles": 40,
-        "redFiles": 2
+        "redFiles": 2,
+        "hotspots": [
+          {
+            "path": "phpBB/language/en/common.php",
+            "commitsLastYear": 15,
+            "lines": 1505,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "phpBB/language/en/install.php",
+            "commitsLastYear": 9,
+            "lines": 619,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "phpBB/phpbb/(files)",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 930 lines > 800",
         "sourceFiles": 16,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/attachment",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 474 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/auth",
         "zone": "red",
         "reason": "every source file is on a red path: agents may only propose changes",
         "sourceFiles": 16,
-        "redFiles": 16
+        "redFiles": 16,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/avatar",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 379 lines, 0% over 1000 lines)",
         "sourceFiles": 7,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/ban",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 240 lines, 0% over 1000 lines)",
         "sourceFiles": 11,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/cache",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 425 lines, 0% over 1000 lines)",
         "sourceFiles": 10,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/captcha",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 391 lines, 0% over 1000 lines)",
         "sourceFiles": 11,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/composer",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 335 lines, 0% over 1000 lines)",
         "sourceFiles": 14,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/config",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 219 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/console",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 223 lines, 0% over 1000 lines)",
         "sourceFiles": 44,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/controller",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 375 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/cron",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 162 lines, 0% over 1000 lines)",
         "sourceFiles": 23,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/db",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 151 lines, 0.9% over 1000 lines)",
         "sourceFiles": 440,
-        "redFiles": 19
+        "redFiles": 19,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/debug",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 71 lines, 0% over 1000 lines)",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/di",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 167 lines, 0% over 1000 lines)",
         "sourceFiles": 14,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/event",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 808 lines > 800",
         "sourceFiles": 9,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/exception",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 70 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/extension",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 585 lines, 0% over 1000 lines)",
         "sourceFiles": 7,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/feed",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 211 lines, 0% over 1000 lines)",
         "sourceFiles": 24,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/files",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 510 lines, 0% over 1000 lines)",
         "sourceFiles": 10,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/filesystem",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 744 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/finder",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 545 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/form",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 104 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/forum",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 156 lines, 0% over 1000 lines)",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/group",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 359 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/groupposition",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 597 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/help",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 181 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/install",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 288 lines, 0% over 1000 lines)",
         "sourceFiles": 98,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/json",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 59 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/language",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 685 lines, 0% over 1000 lines)",
         "sourceFiles": 6,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/lock",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 153 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/log",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1008 lines > 800; 33.3% of files over 1000 lines > 7%",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/members",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 469 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/mention",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 194 lines, 0% over 1000 lines)",
         "sourceFiles": 10,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/message",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 274 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/messenger",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 588 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/mimetype",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 509 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/module",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 564 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/notification",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 462 lines, 3% over 1000 lines)",
         "sourceFiles": 33,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": [
+          {
+            "path": "phpBB/phpbb/notification/method/webpush.php",
+            "commitsLastYear": 6,
+            "lines": 537,
+            "complexity": null,
+            "testedBy": [
+              "tests/functional/notification_webpush_test.php",
+              "tests/notification/notification_method_webpush_test.php",
+              "tests/ucp/controller_webpush_test.php"
+            ]
+          }
+        ]
       },
       {
         "module": "phpBB/phpbb/passwords",
         "zone": "red",
         "reason": "every source file is on a red path: agents may only propose changes",
         "sourceFiles": 22,
-        "redFiles": 22
+        "redFiles": 22,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/plupload",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 427 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/posting",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 43 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/profilefields",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 418 lines, 0% over 1000 lines)",
         "sourceFiles": 12,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/report",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 175 lines, 0% over 1000 lines)",
         "sourceFiles": 14,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/request",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 454 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/routing",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 408 lines, 0% over 1000 lines)",
         "sourceFiles": 8,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/search",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1170 lines > 800; 25% of files over 1000 lines > 7%",
         "sourceFiles": 16,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/storage",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 278 lines, 0% over 1000 lines)",
         "sourceFiles": 16,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": [
+          {
+            "path": "phpBB/phpbb/storage/controller/attachment.php",
+            "commitsLastYear": 4,
+            "lines": 642,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "phpBB/phpbb/template",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 347 lines, 0% over 1000 lines)",
         "sourceFiles": 31,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/textformatter",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 371 lines, 0% over 1000 lines)",
         "sourceFiles": 15,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/textreparser",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 148 lines, 0% over 1000 lines)",
         "sourceFiles": 13,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/tree",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 875 lines > 800",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/phpbb/ucp",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 496 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 2
+        "redFiles": 2,
+        "hotspots": [
+          {
+            "path": "phpBB/phpbb/ucp/controller/webpush.php",
+            "commitsLastYear": 12,
+            "lines": 496,
+            "complexity": null,
+            "testedBy": [
+              "tests/functional/notification_webpush_test.php",
+              "tests/notification/notification_method_webpush_test.php",
+              "tests/ucp/controller_webpush_test.php"
+            ]
+          }
+        ]
       },
       {
         "module": "phpBB/phpbb/update",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 175 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "phpBB/styles",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 757 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "vagrant",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 37 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       }
     ],
     "redPaths": [
@@ -899,6 +1024,29 @@
         "term": "password"
       }
     ],
+    "yellowPaths": [
+      {
+        "path": "build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php",
+        "module": "build",
+        "reason": "hotspot: 7 commits in 12 months (module cut 7) and 501 lines (module cut 380); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "phpBB/language/en/common.php",
+        "module": "phpBB/language",
+        "reason": "hotspot: 15 commits in 12 months (module cut 9) and 1505 lines (module cut 619); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "phpBB/language/en/install.php",
+        "module": "phpBB/language",
+        "reason": "hotspot: 9 commits in 12 months (module cut 9) and 619 lines (module cut 619); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "phpBB/phpbb/storage/controller/attachment.php",
+        "module": "phpBB/phpbb/storage",
+        "reason": "hotspot: 4 commits in 12 months (module cut 4) and 642 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      }
+    ],
+    "hotspotNote": null,
     "unzoned": [
       ".vscode",
       "tests"
@@ -993,7 +1141,7 @@
         "surfaces": [
           "AGENTS.md"
         ],
-        "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
         "why": "Agents may only edit autonomously where their changes can be verified.",
         "trigger": {
           "kind": "zone",
@@ -1010,6 +1158,26 @@
           "phpBB/phpbb/log: files too large for unsupervised edits: p90 1008 lines > 800; 33.3% of files over 1000 lines > 7%",
           "phpBB/phpbb/search: files too large for unsupervised edits: p90 1170 lines > 800; 25% of files over 1000 lines > 7%",
           "phpBB/phpbb/tree: files too large for unsupervised edits: p90 875 lines > 800"
+        ]
+      },
+      {
+        "id": "yellow-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 4
+        },
+        "details": [
+          "build/code_sniffer/phpbb/Sniffs/Namespaces/UnusedUseSniff.php (in green build): hotspot: 7 commits in 12 months (module cut 7) and 501 lines (module cut 380); no test is named after it: add characterization tests before agents edit",
+          "phpBB/language/en/common.php (in green phpBB/language): hotspot: 15 commits in 12 months (module cut 9) and 1505 lines (module cut 619); no test is named after it: add characterization tests before agents edit",
+          "phpBB/language/en/install.php (in green phpBB/language): hotspot: 9 commits in 12 months (module cut 9) and 619 lines (module cut 619); no test is named after it: add characterization tests before agents edit",
+          "phpBB/phpbb/storage/controller/attachment.php (in green phpBB/phpbb/storage): hotspot: 4 commits in 12 months (module cut 4) and 642 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
         ]
       },
       {
@@ -1302,18 +1470,18 @@
       "status": "measured",
       "head": "27fb7748768ec3c1426f86a82ab553f85b04b71b",
       "window": {
-        "since": "2025-10-23T23:59:59.999Z",
-        "until": "2026-10-23T23:59:59.999Z"
+        "since": "2025-11-18T23:59:59.999Z",
+        "until": "2026-11-18T23:59:59.999Z"
       },
       "totals": {
         "commits": 28503,
-        "commitsLastYear": 483,
+        "commitsLastYear": 473,
         "authors": 358,
         "firstCommit": "2001-02-17T08:37:32.000Z",
         "lastCommit": "2026-10-22T17:45:20.000Z",
         "trackedFiles": 3006
       },
-      "hotspots": [
+      "mostChanged": [
         {
           "path": "phpBB/viewtopic.php",
           "commits": 905,

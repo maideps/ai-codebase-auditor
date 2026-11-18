@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\DOOM` at commit `a77dfb96cb91` |
-| Audit date | 2026-10-23 |
+| Audit date | 2026-11-18 |
 | Verdict | **prepare first** (provisional: direct-api-calls not measured) |
 | Readiness level | **1 of 5**, set by test-feedback (provisional) |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -126,6 +126,14 @@ Red paths:
 
 - none
 
+Yellow paths (hotspots in green modules with no test named after them):
+
+- none
+
+Hotspots (long and often changed, in green modules):
+
+no hotspots: no commits in the 12 months to 2026-11-18.
+
 Not zoned (no source files): (root).
 
 ## Harness adaptation plan
@@ -199,7 +207,7 @@ Why: The harness picks layer commands from root markers; when it does not detect
 
 Trigger: yellow zone: 4 modules. Surfaces: `AGENTS.md`.
 
-Change: List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
 
 Why: Agents may only edit autonomously where their changes can be verified.
 
@@ -237,9 +245,9 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ### Git history
 
-4 non-merge commits (0 in the 12 months to 2026-10-23), 2 authors, first 2012-01-31, last 2024-01-16, 165 tracked files.
+4 non-merge commits (0 in the 12 months to 2026-11-18), 2 authors, first 2012-01-31, last 2024-01-16, 165 tracked files.
 
-Hotspots (most commits in the last 12 months):
+Most changed files (most commits in the last 12 months):
 
 | File | Commits (12 months) | Commits | Authors | Last commit |
 |---|---|---|---|---|
@@ -316,7 +324,7 @@ Logging calls in 12 of 146 source files, tests included (stderr 51). Console out
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (28 days before the audit)
 - Deferrals: none
 - Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 

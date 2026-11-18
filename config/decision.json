@@ -4,6 +4,11 @@
   "greenMinTestScore": 3,
   "splitShare": 0.5,
   "maxDepth": 3,
+  "hotspots": {
+    "percentile": 0.9,
+    "minCommits": 4,
+    "minLines": 300
+  },
   "redTerms": [
     "auth",
     "authn",

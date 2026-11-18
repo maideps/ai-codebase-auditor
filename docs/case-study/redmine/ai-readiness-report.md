@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Target | `D:\7-Maide\Projects\audit-targets\redmine` at commit `77cad6adb89c` |
-| Audit date | 2026-10-23 |
+| Audit date | 2026-11-18 |
 | Verdict | **adapt** |
 | Readiness level | **3 of 5**, set by direct-api-calls |
 | Tool | ai-codebase-auditor 0.1.0 |
@@ -231,6 +231,31 @@ Red paths:
 - `db/migrate/20260319170822_add_index_to_users_login.rb` (login)
 - `db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb` (permissions)
 
+Yellow paths (hotspots in green modules with no test named after them):
+
+- `app/assets/javascripts/application-legacy.js` (in `app`): hotspot: 9 commits in 12 months (module cut 7) and 1570 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- `app/controllers/application_controller.rb` (in `app`): hotspot: 8 commits in 12 months (module cut 7) and 834 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- `app/javascript/controllers/gantt/chart_controller.js` (in `app`): hotspot: 8 commits in 12 months (module cut 7) and 462 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- `lib/redmine/preparation.rb` (in `lib`): hotspot: 11 commits in 12 months (module cut 6) and 441 lines (module cut 310); no test is named after it: add characterization tests before agents edit
+
+Hotspots (long and often changed, in green modules):
+
+| File | Module | Commits (12 months) | Lines | Complexity | Tests named after it |
+|---|---|---|---|---|---|
+| `app/helpers/application_helper.rb` | `app` | 30 | 1994 | not measured | `test/helpers/application_helper_test.rb`, `test/unit/lib/redmine/wiki_formatting/common_mark/application_helper_test.rb` |
+| `app/models/issue.rb` | `app` | 20 | 2173 | not measured | `test/unit/issue_test.rb` |
+| `app/models/attachment.rb` | `app` | 15 | 664 | not measured | `test/unit/attachment_test.rb` |
+| `app/controllers/attachments_controller.rb` | `app` | 12 | 343 | not measured | `test/functional/attachments_controller_test.rb` |
+| `app/models/user.rb` | `app` | 11 | 1139 | not measured | `test/unit/user_test.rb` |
+| `app/assets/javascripts/application-legacy.js` | `app` | 9 | 1570 | not measured | none |
+| `app/controllers/application_controller.rb` | `app` | 8 | 834 | not measured | none |
+| `app/javascript/controllers/gantt/chart_controller.js` | `app` | 8 | 462 | not measured | none |
+| `app/models/query.rb` | `app` | 8 | 1708 | not measured | `test/system/query_test.rb`, `test/unit/project_admin_query_test.rb`, `test/unit/project_query_test.rb`, `test/unit/query_test.rb`, `test/unit/time_entry_query_test.rb`, `test/unit/user_query_test.rb` |
+| `app/models/journal.rb` | `app` | 7 | 399 | not measured | `test/unit/journal_test.rb` |
+| `config/routes.rb` | `config` | 8 | 457 | not measured | `test/fixtures/plugins/redmine_test_plugin_bar/config/routes.rb`, `test/fixtures/plugins/redmine_test_plugin_foo/config/routes.rb` |
+| `lib/redmine/preparation.rb` | `lib` | 11 | 441 | not measured | none |
+| `lib/redmine/helpers/gantt.rb` | `lib` | 8 | 1151 | not measured | `test/unit/lib/redmine/helpers/gantt_test.rb` |
+
 Not zoned (no source files): (root), .github, doc, files, log, plugins, public, test, themes, tmp.
 
 ## Harness adaptation plan
@@ -242,6 +267,7 @@ For ai-harness-framework 0.5.0 (commit `7fb142a`). Adopt the harness with these 
 | required | typed-changes | type-strictness 1 | package.json typecheck script, DECISIONS.md |
 | required | detected-stack | test-feedback 5 | package.json layer scripts |
 | required | red-paths | red zone: 78 paths | AGENTS.md, .claude/settings.json |
+| required | yellow-paths | yellow zone: 4 paths | AGENTS.md |
 | recommended | traceable-calls | direct-api-calls 3 | AGENTS.md, package.json lint script |
 | recommended | written-intent | documented-intent 3 | AGENTS.md, docs/ARCHITECTURE.md |
 | recommended | observable-changes | observability 3 | AGENTS.md, e2e/smoke layer |
@@ -353,6 +379,19 @@ Why: Auth, billing, permission and secret code needs human review of every chang
 - db/migrate/20260319170822_add_index_to_users_login.rb (login): deny Edit(db/migrate/20260319170822_add_index_to_users_login.rb), Write(db/migrate/20260319170822_add_index_to_users_login.rb)
 - db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb (permissions): deny Edit(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb), Write(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb)
 
+### required: yellow-paths
+
+Trigger: yellow zone: 4 paths. Surfaces: `AGENTS.md`.
+
+Change: List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.
+
+Why: Agents may only edit autonomously where their changes can be verified.
+
+- app/assets/javascripts/application-legacy.js (in green app): hotspot: 9 commits in 12 months (module cut 7) and 1570 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- app/controllers/application_controller.rb (in green app): hotspot: 8 commits in 12 months (module cut 7) and 834 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- app/javascript/controllers/gantt/chart_controller.js (in green app): hotspot: 8 commits in 12 months (module cut 7) and 462 lines (module cut 300); no test is named after it: add characterization tests before agents edit
+- lib/redmine/preparation.rb (in green lib): hotspot: 11 commits in 12 months (module cut 6) and 441 lines (module cut 310); no test is named after it: add characterization tests before agents edit
+
 ### recommended: traceable-calls
 
 Trigger: direct-api-calls 3. Surfaces: `AGENTS.md`, `package.json lint script`.
@@ -412,22 +451,22 @@ Ordered by priority: score gain (plus 1 when a weak factor leaves weak) × 2 for
 
 ### Git history
 
-19890 non-merge commits (837 in the 12 months to 2026-10-23), 12 authors, first 2006-06-28, last 2026-10-22, 2341 tracked files.
+19890 non-merge commits (773 in the 12 months to 2026-11-18), 12 authors, first 2006-06-28, last 2026-10-22, 2341 tracked files.
 
-Hotspots (most commits in the last 12 months):
+Most changed files (most commits in the last 12 months):
 
 | File | Commits (12 months) | Commits | Authors | Last commit |
 |---|---|---|---|---|
-| `app/assets/stylesheets/application.css` | 119 | 285 | 2 | 2026-10-21 |
-| `config/locales/ja.yml` | 66 | 731 | 8 | 2026-10-22 |
-| `Gemfile` | 64 | 661 | 6 | 2026-10-22 |
-| `config/locales/bg.yml` | 57 | 662 | 8 | 2026-10-20 |
-| `config/locales/en.yml` | 55 | 564 | 8 | 2026-10-21 |
-| `config/locales/zh-TW.yml` | 53 | 711 | 8 | 2026-10-20 |
-| `config/locales/sv.yml` | 51 | 535 | 8 | 2026-10-22 |
-| `config/locales/cs.yml` | 50 | 541 | 8 | 2026-10-20 |
-| `config/locales/fr.yml` | 49 | 549 | 8 | 2026-10-20 |
-| `config/locales/fa.yml` | 49 | 419 | 5 | 2026-10-20 |
+| `app/assets/stylesheets/application.css` | 115 | 285 | 2 | 2026-10-21 |
+| `config/locales/ja.yml` | 60 | 731 | 8 | 2026-10-22 |
+| `config/locales/bg.yml` | 53 | 662 | 8 | 2026-10-20 |
+| `config/locales/en.yml` | 53 | 564 | 8 | 2026-10-21 |
+| `Gemfile` | 52 | 661 | 6 | 2026-10-22 |
+| `config/locales/zh-TW.yml` | 49 | 711 | 8 | 2026-10-20 |
+| `config/locales/sv.yml` | 48 | 535 | 8 | 2026-10-22 |
+| `config/locales/cs.yml` | 47 | 541 | 8 | 2026-10-20 |
+| `config/locales/fr.yml` | 46 | 549 | 8 | 2026-10-20 |
+| `config/locales/fa.yml` | 46 | 419 | 5 | 2026-10-20 |
 
 ### Code structure
 
@@ -519,7 +558,7 @@ Logging calls in 40 of 1257 source files, tests included (logger call 97). Conso
 
 - Factor config: `D:\7-Maide\Projects\ai-codebase-auditor\config\factors.json`
 - Decision config: `D:\7-Maide\Projects\ai-codebase-auditor\config\decision.json`
-- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (2 days before the audit)
+- End-of-life table: `D:\7-Maide\Projects\ai-codebase-auditor\config\runtime-eol.json`, as of 2026-10-21 (28 days before the audit)
 - Deferrals: none
 - Harness requirements: `D:\7-Maide\Projects\ai-codebase-auditor\config\harness-requirements.json`
 

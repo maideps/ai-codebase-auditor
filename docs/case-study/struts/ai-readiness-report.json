@@ -1,11 +1,11 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-23",
+  "auditDate": "2026-11-18",
   "target": {
     "path": "D:\\7-Maide\\Projects\\audit-targets\\struts",
     "head": "f2ea51ac3e3c723d670e1734c413d5fe5c31104c"
@@ -16,7 +16,7 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 2
+      "ageDays": 28
     },
     "deferrals": null,
     "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
@@ -190,9 +190,9 @@
       "name": "Dependency and runtime currency",
       "class": "constraining",
       "status": "scored",
-      "score": 5,
-      "baseScore": 5,
-      "rule": "every runtime is supported past 12 months",
+      "score": 4,
+      "baseScore": 4,
+      "rule": "a runtime reaches end of life on 2027-10-31, within 12 months",
       "evidence": [
         "java 17 (pom.xml, maven.compiler.release): cycle 17 supported until 2027-10-31"
       ],
@@ -208,28 +208,147 @@
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 103 lines, 0% over 1000 lines)",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "apps",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 117 lines, 0% over 1000 lines)",
         "sourceFiles": 127,
-        "redFiles": 3
+        "redFiles": 3,
+        "hotspots": []
       },
       {
         "module": "core/src/main",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 291 lines, 0.6% over 1000 lines)",
         "sourceFiles": 797,
-        "redFiles": 5
+        "redFiles": 5,
+        "hotspots": [
+          {
+            "path": "core/src/main/java/org/apache/struts2/StrutsConstants.java",
+            "commitsLastYear": 18,
+            "lines": 865,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java",
+            "commitsLastYear": 9,
+            "lines": 739,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/config/StrutsBeanSelectionProvider.java",
+            "commitsLastYear": 7,
+            "lines": 499,
+            "complexity": null,
+            "testedBy": [
+              "core/src/test/java/org/apache/struts2/config/StrutsBeanSelectionProviderTest.java"
+            ]
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/components/UIBean.java",
+            "commitsLastYear": 6,
+            "lines": 1552,
+            "complexity": null,
+            "testedBy": [
+              "core/src/test/java/org/apache/struts2/components/UIBeanTest.java"
+            ]
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/interceptor/parameter/ParametersInterceptor.java",
+            "commitsLastYear": 6,
+            "lines": 814,
+            "complexity": null,
+            "testedBy": [
+              "core/src/test/java/org/apache/struts2/interceptor/ActionMappingParametersInterceptorTest.java",
+              "core/src/test/java/org/apache/struts2/interceptor/StaticParametersInterceptorTest.java",
+              "core/src/test/java/org/apache/struts2/interceptor/parameter/ParametersInterceptorTest.java"
+            ]
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/ognl/SecurityMemberAccess.java",
+            "commitsLastYear": 6,
+            "lines": 624,
+            "complexity": null,
+            "testedBy": [
+              "core/src/test/java/org/apache/struts2/ognl/SecurityMemberAccessTest.java",
+              "core/src/test/java/org/test/ExternalSecurityMemberAccess.java",
+              "core/src/test/java/org/test/ExternalSecurityMemberAccessTest.java"
+            ]
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java",
+            "commitsLastYear": 5,
+            "lines": 391,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/dispatcher/multipart/AbstractMultiPartRequest.java",
+            "commitsLastYear": 4,
+            "lines": 628,
+            "complexity": null,
+            "testedBy": [
+              "core/src/test/java/org/apache/struts2/dispatcher/multipart/AbstractMultiPartRequestTest.java"
+            ]
+          },
+          {
+            "path": "core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java",
+            "commitsLastYear": 4,
+            "lines": 935,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "plugins",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 211 lines, 0.2% over 1000 lines)",
         "sourceFiles": 592,
-        "redFiles": 5
+        "redFiles": 5,
+        "hotspots": [
+          {
+            "path": "plugins/json/src/main/java/org/apache/struts2/json/JSONInterceptor.java",
+            "commitsLastYear": 7,
+            "lines": 881,
+            "complexity": null,
+            "testedBy": [
+              "plugins/json/src/test/java/org/apache/struts2/json/JSONInterceptorTest.java"
+            ]
+          },
+          {
+            "path": "plugins/json/src/main/java/org/apache/struts2/json/StrutsJSONWriter.java",
+            "commitsLastYear": 7,
+            "lines": 890,
+            "complexity": null,
+            "testedBy": [
+              "plugins/json/src/test/java/org/apache/struts2/json/StrutsJSONWriterTest.java"
+            ]
+          },
+          {
+            "path": "plugins/convention/src/main/java/org/apache/struts2/convention/PackageBasedActionConfigBuilder.java",
+            "commitsLastYear": 4,
+            "lines": 1255,
+            "complexity": null,
+            "testedBy": [
+              "plugins/convention/src/test/java/org/apache/struts2/convention/PackageBasedActionConfigBuilderTest.java"
+            ]
+          },
+          {
+            "path": "plugins/rest/src/main/java/org/apache/struts2/rest/ContentTypeInterceptor.java",
+            "commitsLastYear": 4,
+            "lines": 483,
+            "complexity": null,
+            "testedBy": [
+              "plugins/rest/src/test/java/org/apache/struts2/rest/ContentTypeInterceptorTest.java"
+            ]
+          }
+        ]
       }
     ],
     "redPaths": [
@@ -299,6 +418,29 @@
         "term": "password"
       }
     ],
+    "yellowPaths": [
+      {
+        "path": "core/src/main/java/org/apache/struts2/StrutsConstants.java",
+        "module": "core/src/main",
+        "reason": "hotspot: 18 commits in 12 months (module cut 4) and 865 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java",
+        "module": "core/src/main",
+        "reason": "hotspot: 9 commits in 12 months (module cut 4) and 739 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java",
+        "module": "core/src/main",
+        "reason": "hotspot: 5 commits in 12 months (module cut 4) and 391 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java",
+        "module": "core/src/main",
+        "reason": "hotspot: 4 commits in 12 months (module cut 4) and 935 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      }
+    ],
+    "hotspotNote": null,
     "unzoned": [
       "(root)",
       ".github",
@@ -349,6 +491,26 @@
           "plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java (authorization): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/jackson/DynamicKeyAuthorizationContext.java)",
           "plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java (permission): deny Edit(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java), Write(plugins/rest/src/main/java/org/apache/struts2/rest/handler/xstream/XStreamPermissionProvider.java)",
           "plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java (password): deny Edit(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java), Write(plugins/velocity/src/main/java/org/apache/struts2/views/velocity/components/PasswordDirective.java)"
+        ]
+      },
+      {
+        "id": "yellow-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 4
+        },
+        "details": [
+          "core/src/main/java/org/apache/struts2/StrutsConstants.java (in green core/src/main): hotspot: 18 commits in 12 months (module cut 4) and 865 lines (module cut 300); no test is named after it: add characterization tests before agents edit",
+          "core/src/main/java/org/apache/struts2/config/impl/DefaultConfiguration.java (in green core/src/main): hotspot: 9 commits in 12 months (module cut 4) and 739 lines (module cut 300); no test is named after it: add characterization tests before agents edit",
+          "core/src/main/java/org/apache/struts2/interceptor/parameter/StrutsParameterAuthorizer.java (in green core/src/main): hotspot: 5 commits in 12 months (module cut 4) and 391 lines (module cut 300); no test is named after it: add characterization tests before agents edit",
+          "core/src/main/java/org/apache/struts2/text/AbstractLocalizedTextProvider.java (in green core/src/main): hotspot: 4 commits in 12 months (module cut 4) and 935 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
         ]
       },
       {
@@ -452,6 +614,20 @@
       ]
     },
     {
+      "factor": "dependency-currency",
+      "class": "constraining",
+      "from": 4,
+      "to": 5,
+      "action": "upgrade java from 17 to 21",
+      "effort": "M",
+      "gain": 1,
+      "priority": 0.5,
+      "verdictAfter": null,
+      "evidence": [
+        "java 17 (pom.xml, maven.compiler.release): cycle 17 supported until 2027-10-31"
+      ]
+    },
+    {
       "factor": "file-size",
       "class": "constraining",
       "from": 4,
@@ -496,43 +672,43 @@
       "status": "measured",
       "head": "f2ea51ac3e3c723d670e1734c413d5fe5c31104c",
       "window": {
-        "since": "2025-10-23T23:59:59.999Z",
-        "until": "2026-10-23T23:59:59.999Z"
+        "since": "2025-11-18T23:59:59.999Z",
+        "until": "2026-11-18T23:59:59.999Z"
       },
       "totals": {
         "commits": 7461,
-        "commitsLastYear": 428,
+        "commitsLastYear": 417,
         "authors": 149,
         "firstCommit": "2006-02-22T05:16:10.000Z",
         "lastCommit": "2026-10-22T10:07:38.000Z",
         "trackedFiles": 3848
       },
-      "hotspots": [
+      "mostChanged": [
         {
           "path": "pom.xml",
           "commits": 1060,
-          "commitsLastYear": 108,
+          "commitsLastYear": 104,
           "authors": 45,
           "lastCommit": "2026-10-22T07:18:17.000Z"
         },
         {
           "path": ".github/workflows/codeql.yml",
           "commits": 85,
-          "commitsLastYear": 44,
+          "commitsLastYear": 42,
           "authors": 3,
           "lastCommit": "2026-10-22T07:17:07.000Z"
         },
         {
           "path": ".github/workflows/scorecards-analysis.yaml",
           "commits": 106,
-          "commitsLastYear": 38,
+          "commitsLastYear": 35,
           "authors": 4,
           "lastCommit": "2026-10-22T07:17:02.000Z"
         },
         {
           "path": "parent/pom.xml",
           "commits": 64,
-          "commitsLastYear": 36,
+          "commitsLastYear": 33,
           "authors": 3,
           "lastCommit": "2026-10-22T07:17:37.000Z"
         },
@@ -553,7 +729,7 @@
         {
           "path": "apps/showcase/pom.xml",
           "commits": 414,
-          "commitsLastYear": 16,
+          "commitsLastYear": 15,
           "authors": 23,
           "lastCommit": "2026-10-22T07:17:33.000Z"
         },
@@ -565,18 +741,18 @@
           "lastCommit": "2026-10-11T08:14:46.000Z"
         },
         {
-          "path": ".github/workflows/maven.yml",
-          "commits": 35,
-          "commitsLastYear": 13,
-          "authors": 5,
-          "lastCommit": "2026-10-15T17:40:51.000Z"
-        },
-        {
           "path": "core/src/main/resources/struts-beans.xml",
           "commits": 35,
           "commitsLastYear": 13,
           "authors": 3,
           "lastCommit": "2026-10-12T19:30:00.000Z"
+        },
+        {
+          "path": "plugins/jasperreports7/pom.xml",
+          "commits": 20,
+          "commitsLastYear": 13,
+          "authors": 2,
+          "lastCommit": "2026-10-15T17:41:07.000Z"
         }
       ]
     },

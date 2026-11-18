@@ -5,6 +5,16 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Result } from "../result.js";
 
+/** When a file in a green module is a hotspot: long and changing often. */
+export interface HotspotSettings {
+  /** The within-module percentile, of recent commits and of length, a file must reach. */
+  percentile: number;
+  /** The fewest commits in the last 12 months a hotspot may have. */
+  minCommits: number;
+  /** The fewest lines a hotspot may have. */
+  minLines: number;
+}
+
 export interface DecisionConfig {
   version: 1;
   /** A score at or below this is weak. */
@@ -15,6 +25,8 @@ export interface DecisionConfig {
   splitShare: number;
   /** Deepest module path, in directory levels. */
   maxDepth: number;
+  /** When a file in a green module is a hotspot (long and changing often). */
+  hotspots: HotspotSettings;
   /** Whole-word path terms that make a path red. */
   redTerms: string[];
 }
@@ -22,7 +34,8 @@ export interface DecisionConfig {
 // config/ sits two levels above both src/config/ and dist/config/.
 export const DEFAULT_DECISION_CONFIG_PATH = fileURLToPath(new URL("../../config/decision.json", import.meta.url));
 
-const KEYS = new Set(["version", "weakMax", "greenMinTestScore", "splitShare", "maxDepth", "redTerms"]);
+const KEYS = new Set(["version", "weakMax", "greenMinTestScore", "splitShare", "maxDepth", "hotspots", "redTerms"]);
+const HOTSPOT_KEYS = new Set(["percentile", "minCommits", "minLines"]);
 const WORD = /^[a-z0-9]+$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -42,6 +55,14 @@ export function parseDecisionConfig(raw: unknown, source: string): Result<Decisi
   if (!wholeIn(raw.greenMinTestScore, 1, 5)) report("greenMinTestScore must be a whole number from 1 to 5");
   if (typeof raw.splitShare !== "number" || !(raw.splitShare > 0 && raw.splitShare <= 1)) report("splitShare must be above 0 and at most 1");
   if (!wholeIn(raw.maxDepth, 1, Number.MAX_SAFE_INTEGER)) report("maxDepth must be a whole number of at least 1");
+  const hotspots = raw.hotspots;
+  if (!isRecord(hotspots)) report("hotspots must be an object with percentile, minCommits and minLines");
+  else {
+    for (const key of Object.keys(hotspots)) if (!HOTSPOT_KEYS.has(key)) report(`unknown key hotspots.${key}`);
+    if (typeof hotspots.percentile !== "number" || !(hotspots.percentile > 0 && hotspots.percentile < 1)) report("hotspots.percentile must be above 0 and below 1");
+    if (!wholeIn(hotspots.minCommits, 1, Number.MAX_SAFE_INTEGER)) report("hotspots.minCommits must be a whole number of at least 1");
+    if (!wholeIn(hotspots.minLines, 1, Number.MAX_SAFE_INTEGER)) report("hotspots.minLines must be a whole number of at least 1");
+  }
   const terms: string[] = [];
   if (!Array.isArray(raw.redTerms) || raw.redTerms.length === 0) report("redTerms must be a non-empty array");
   else {
@@ -60,6 +81,7 @@ export function parseDecisionConfig(raw: unknown, source: string): Result<Decisi
       greenMinTestScore: raw.greenMinTestScore as number,
       splitShare: raw.splitShare as number,
       maxDepth: raw.maxDepth as number,
+      hotspots: { ...(hotspots as unknown as HotspotSettings) },
       redTerms: terms,
     },
   };

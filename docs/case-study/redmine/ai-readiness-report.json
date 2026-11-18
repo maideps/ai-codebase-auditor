@@ -1,11 +1,11 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-23",
+  "auditDate": "2026-11-18",
   "target": {
     "path": "D:\\7-Maide\\Projects\\audit-targets\\redmine",
     "head": "77cad6adb89c2662a3776d26a6fce29a3b2cac1b"
@@ -16,7 +16,7 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 2
+      "ageDays": 28
     },
     "deferrals": null,
     "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
@@ -204,42 +204,167 @@
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 298 lines, 1.8% over 1000 lines)",
         "sourceFiles": 340,
-        "redFiles": 10
+        "redFiles": 10,
+        "hotspots": [
+          {
+            "path": "app/helpers/application_helper.rb",
+            "commitsLastYear": 30,
+            "lines": 1994,
+            "complexity": null,
+            "testedBy": [
+              "test/helpers/application_helper_test.rb",
+              "test/unit/lib/redmine/wiki_formatting/common_mark/application_helper_test.rb"
+            ]
+          },
+          {
+            "path": "app/models/issue.rb",
+            "commitsLastYear": 20,
+            "lines": 2173,
+            "complexity": null,
+            "testedBy": [
+              "test/unit/issue_test.rb"
+            ]
+          },
+          {
+            "path": "app/models/attachment.rb",
+            "commitsLastYear": 15,
+            "lines": 664,
+            "complexity": null,
+            "testedBy": [
+              "test/unit/attachment_test.rb"
+            ]
+          },
+          {
+            "path": "app/controllers/attachments_controller.rb",
+            "commitsLastYear": 12,
+            "lines": 343,
+            "complexity": null,
+            "testedBy": [
+              "test/functional/attachments_controller_test.rb"
+            ]
+          },
+          {
+            "path": "app/models/user.rb",
+            "commitsLastYear": 11,
+            "lines": 1139,
+            "complexity": null,
+            "testedBy": [
+              "test/unit/user_test.rb"
+            ]
+          },
+          {
+            "path": "app/assets/javascripts/application-legacy.js",
+            "commitsLastYear": 9,
+            "lines": 1570,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "app/controllers/application_controller.rb",
+            "commitsLastYear": 8,
+            "lines": 834,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "app/javascript/controllers/gantt/chart_controller.js",
+            "commitsLastYear": 8,
+            "lines": 462,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "app/models/query.rb",
+            "commitsLastYear": 8,
+            "lines": 1708,
+            "complexity": null,
+            "testedBy": [
+              "test/system/query_test.rb",
+              "test/unit/project_admin_query_test.rb",
+              "test/unit/project_query_test.rb",
+              "test/unit/query_test.rb",
+              "test/unit/time_entry_query_test.rb",
+              "test/unit/user_query_test.rb"
+            ]
+          },
+          {
+            "path": "app/models/journal.rb",
+            "commitsLastYear": 7,
+            "lines": 399,
+            "complexity": null,
+            "testedBy": [
+              "test/unit/journal_test.rb"
+            ]
+          }
+        ]
       },
       {
         "module": "bin",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 282 lines, 0% over 1000 lines)",
         "sourceFiles": 1,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "config",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 169 lines, 0% over 1000 lines)",
         "sourceFiles": 18,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": [
+          {
+            "path": "config/routes.rb",
+            "commitsLastYear": 8,
+            "lines": 457,
+            "complexity": null,
+            "testedBy": [
+              "test/fixtures/plugins/redmine_test_plugin_bar/config/routes.rb",
+              "test/fixtures/plugins/redmine_test_plugin_foo/config/routes.rb"
+            ]
+          }
+        ]
       },
       {
         "module": "db",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 18 lines, 0% over 1000 lines)",
         "sourceFiles": 331,
-        "redFiles": 68
+        "redFiles": 68,
+        "hotspots": []
       },
       {
         "module": "extra",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 289 lines, 0% over 1000 lines)",
         "sourceFiles": 7,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "lib",
         "zone": "green",
         "reason": "test-feedback 5 ≥ 3 and files are legible (p90 310 lines, 2.1% over 1000 lines)",
         "sourceFiles": 142,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": [
+          {
+            "path": "lib/redmine/preparation.rb",
+            "commitsLastYear": 11,
+            "lines": 441,
+            "complexity": null,
+            "testedBy": []
+          },
+          {
+            "path": "lib/redmine/helpers/gantt.rb",
+            "commitsLastYear": 8,
+            "lines": 1151,
+            "complexity": null,
+            "testedBy": [
+              "test/unit/lib/redmine/helpers/gantt_test.rb"
+            ]
+          }
+        ]
       }
     ],
     "redPaths": [
@@ -634,6 +759,29 @@
         "term": "permissions"
       }
     ],
+    "yellowPaths": [
+      {
+        "path": "app/assets/javascripts/application-legacy.js",
+        "module": "app",
+        "reason": "hotspot: 9 commits in 12 months (module cut 7) and 1570 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "app/controllers/application_controller.rb",
+        "module": "app",
+        "reason": "hotspot: 8 commits in 12 months (module cut 7) and 834 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "app/javascript/controllers/gantt/chart_controller.js",
+        "module": "app",
+        "reason": "hotspot: 8 commits in 12 months (module cut 7) and 462 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "lib/redmine/preparation.rb",
+        "module": "lib",
+        "reason": "hotspot: 11 commits in 12 months (module cut 6) and 441 lines (module cut 310); no test is named after it: add characterization tests before agents edit"
+      }
+    ],
+    "hotspotNote": null,
     "unzoned": [
       "(root)",
       ".github",
@@ -784,6 +932,26 @@
           "db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb (login): deny Edit(db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb), Write(db/migrate/20260319062845_add_index_to_users_lower_login_on_postgres_and_sqlite.rb)",
           "db/migrate/20260319170822_add_index_to_users_login.rb (login): deny Edit(db/migrate/20260319170822_add_index_to_users_login.rb), Write(db/migrate/20260319170822_add_index_to_users_login.rb)",
           "db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb (permissions): deny Edit(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb), Write(db/migrate/20260906000000_add_export_issues_and_export_time_entries_permissions.rb)"
+        ]
+      },
+      {
+        "id": "yellow-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 4
+        },
+        "details": [
+          "app/assets/javascripts/application-legacy.js (in green app): hotspot: 9 commits in 12 months (module cut 7) and 1570 lines (module cut 300); no test is named after it: add characterization tests before agents edit",
+          "app/controllers/application_controller.rb (in green app): hotspot: 8 commits in 12 months (module cut 7) and 834 lines (module cut 300); no test is named after it: add characterization tests before agents edit",
+          "app/javascript/controllers/gantt/chart_controller.js (in green app): hotspot: 8 commits in 12 months (module cut 7) and 462 lines (module cut 300); no test is named after it: add characterization tests before agents edit",
+          "lib/redmine/preparation.rb (in green lib): hotspot: 11 commits in 12 months (module cut 6) and 441 lines (module cut 310); no test is named after it: add characterization tests before agents edit"
         ]
       },
       {
@@ -978,85 +1146,85 @@
       "status": "measured",
       "head": "77cad6adb89c2662a3776d26a6fce29a3b2cac1b",
       "window": {
-        "since": "2025-10-23T23:59:59.999Z",
-        "until": "2026-10-23T23:59:59.999Z"
+        "since": "2025-11-18T23:59:59.999Z",
+        "until": "2026-11-18T23:59:59.999Z"
       },
       "totals": {
         "commits": 19890,
-        "commitsLastYear": 837,
+        "commitsLastYear": 773,
         "authors": 12,
         "firstCommit": "2006-06-28T17:26:26.000Z",
         "lastCommit": "2026-10-22T21:51:47.000Z",
         "trackedFiles": 2341
       },
-      "hotspots": [
+      "mostChanged": [
         {
           "path": "app/assets/stylesheets/application.css",
           "commits": 285,
-          "commitsLastYear": 119,
+          "commitsLastYear": 115,
           "authors": 2,
           "lastCommit": "2026-10-21T20:28:37.000Z"
         },
         {
           "path": "config/locales/ja.yml",
           "commits": 731,
-          "commitsLastYear": 66,
+          "commitsLastYear": 60,
           "authors": 8,
           "lastCommit": "2026-10-22T21:51:47.000Z"
         },
         {
-          "path": "Gemfile",
-          "commits": 661,
-          "commitsLastYear": 64,
-          "authors": 6,
-          "lastCommit": "2026-10-22T08:43:05.000Z"
-        },
-        {
           "path": "config/locales/bg.yml",
           "commits": 662,
-          "commitsLastYear": 57,
+          "commitsLastYear": 53,
           "authors": 8,
           "lastCommit": "2026-10-20T00:54:42.000Z"
         },
         {
           "path": "config/locales/en.yml",
           "commits": 564,
-          "commitsLastYear": 55,
+          "commitsLastYear": 53,
           "authors": 8,
           "lastCommit": "2026-10-21T20:28:37.000Z"
         },
         {
+          "path": "Gemfile",
+          "commits": 661,
+          "commitsLastYear": 52,
+          "authors": 6,
+          "lastCommit": "2026-10-22T08:43:05.000Z"
+        },
+        {
           "path": "config/locales/zh-TW.yml",
           "commits": 711,
-          "commitsLastYear": 53,
+          "commitsLastYear": 49,
           "authors": 8,
           "lastCommit": "2026-10-20T00:54:42.000Z"
         },
         {
           "path": "config/locales/sv.yml",
           "commits": 535,
-          "commitsLastYear": 51,
+          "commitsLastYear": 48,
           "authors": 8,
           "lastCommit": "2026-10-22T21:44:31.000Z"
         },
         {
           "path": "config/locales/cs.yml",
           "commits": 541,
-          "commitsLastYear": 50,
+          "commitsLastYear": 47,
           "authors": 8,
           "lastCommit": "2026-10-20T00:54:42.000Z"
         },
         {
           "path": "config/locales/fr.yml",
           "commits": 549,
-          "commitsLastYear": 49,
+          "commitsLastYear": 46,
           "authors": 8,
           "lastCommit": "2026-10-20T00:54:42.000Z"
         },
         {
           "path": "config/locales/fa.yml",
           "commits": 419,
-          "commitsLastYear": 49,
+          "commitsLastYear": 46,
           "authors": 5,
           "lastCommit": "2026-10-20T00:54:42.000Z"
         }

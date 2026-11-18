@@ -2,7 +2,7 @@
 
 **Status:** final, reviewed 2026-10-22. The proposals from the first run were approved and applied (D-013). The reports in each folder are the regenerated ones; machine-readable labels are in [labels.json](labels.json).
 
-Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 6: regenerated for feat-013 with the observability score; see the sections on direct calls, module boundaries and observability below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
+Five public legacy repositories, audited on 2026-10-22. Each folder holds that repository's `ai-readiness-report.md` and `ai-readiness-report.json` (report `schemaVersion` 7: regenerated on 2026-11-18 for feat-014 with hotspots and yellow paths; see the sections on direct calls, module boundaries, observability and hotspots below). The clones are kept outside this repository, in `D:\7-Maide\Projects\audit-targets\`. They were cloned with full history, `core.autocrlf=false` and Git LFS downloads skipped, and the auditor only read them: every clone's `git status` was empty after each of the two audit runs.
 
 ## Repositories
 
@@ -212,6 +212,27 @@ The detected configurations and the Rails framework were confirmed too.
 
 One rule gap was found and fixed: Struts's `log4j2.xml` files sit under `src/main/resources`, which the test-path rule from D-013 treats as test data. Configuration now uses test directories only, so they count.
 
+## Hotspots and Yellow Paths (feat-014)
+
+The reports were regenerated on 2026-11-18 with hotspots in green modules (D-019). A hotspot is in its module's top 10% by commits in the last 12 months and by length, with at least 4 commits and 300 lines. One with no test named after it is a yellow path: characterization tests first, while its module stays green. No verdict, readiness level, module zone or factor score changed because of hotspots. The audit date moved from 2026-10-23, which lowered Struts's dependency-currency from 5 to 4: a runtime now reaches end of life on 2027-10-31, within 12 months.
+
+| Repository | Hotspots | Yellow paths |
+|---|---|---|
+| DOOM | none: no commits in the 12 months to 2026-11-18 | none |
+| moin-1.9 | 2 | `MoinMoin/action/info.py`, `MoinMoin/macro/MonthCalendar.py` |
+| phpBB | 6 | `build/code_sniffer/.../UnusedUseSniff.php`, `phpBB/language/en/common.php`, `phpBB/language/en/install.php`, `phpBB/phpbb/storage/controller/attachment.php` |
+| Redmine | 13 | `app/assets/javascripts/application-legacy.js`, `app/controllers/application_controller.rb`, `app/javascript/controllers/gantt/chart_controller.js`, `lib/redmine/preparation.rb` |
+| Struts | 13 | `StrutsConstants.java`, `DefaultConfiguration.java`, `StrutsParameterAuthorizer.java`, `AbstractLocalizedTextProvider.java` |
+
+**Checking the findings.** Every yellow path was checked in its clone:
+- **Counts:** all 14 commit counts and line counts match `git log --full-history --no-merges` and the file at HEAD. phpBB's `install.php` has 9 commits only with `--full-history`, because two of them sit on side branches, which the collector counts by design (D-006).
+- **No test named after it:** true for all 14, by construction.
+- **Tested indirectly** (known limit 6): 6 of 14 are referenced by tests under another name: Struts's four (`StrutsConstants` by 28 test files, `DefaultConfiguration` by 8, `StrutsParameterAuthorizer` by 6, `AbstractLocalizedTextProvider` by 1), Redmine's `ApplicationController` (6) and phpBB's attachment controller (1).
+- **No reference from any test:** 6 of 14: moin-1.9's `info.py` and `MonthCalendar.py`, phpBB's `UnusedUseSniff.php`, and Redmine's `application-legacy.js`, gantt `chart_controller.js` and `preparation.rb`.
+- **Data files:** phpBB's two language files are string tables. They change often because translations do, and characterization tests add little there (FP).
+
+**Found in passing:** `StrutsParameterAuthorizer.java` decides which request parameters may be set, which is authorization logic, but "authorizer" is not a red term, so it is not red. Adding `authorizer` to `redTerms` is a candidate change for the next review of the red-term list. It is out of scope for feat-014.
+
 ## Known Limits Kept After Review
 
 1. **Bundled libraries under non-standard directory names** count as product code (moin-1.9 `MoinMoin/support/`). A fix would honor `linguist-vendored` or take a team-supplied exclude list.
@@ -219,3 +240,4 @@ One rule gap was found and fixed: Struts's `log4j2.xml` files sit under `src/mai
 3. **Doc classification by name:** "convention" in a feature name matches, and design specs in a `specs/` directory are skipped as test paths.
 4. **Unmeasured signals:** test feedback speed, CI pass state and build scripts are not measured. Direct calls are not measured for C and other uncovered languages, so DOOM's verdict stays provisional.
 5. **Co-change by design counts as coupling:** Rails migrations change with their models, and example apps change with the features they show. A team can raise the thresholds, or keep such pairs in one module.
+6. **Hotspot tests are matched by name:** a yellow path means no test is named after the file, not that nothing tests it. 6 of the 14 yellow paths are reached by tests under another name, and string-table files such as phpBB's language files can be hotspots. Matching through imports or class references would need per-language parsing (D-001).

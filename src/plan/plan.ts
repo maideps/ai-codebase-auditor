@@ -13,7 +13,7 @@ export type PlanTrigger =
   | { kind: "zone"; zone: "red" | "yellow"; count: number };
 
 export interface PlanItem {
-  /** A requirement id, or detected-stack, red-paths, yellow-modules. */
+  /** A requirement id, or detected-stack, red-paths, yellow-modules, yellow-paths. */
   id: string;
   level: "required" | "recommended";
   surfaces: string[];
@@ -253,6 +253,19 @@ export function buildPlan(input: PlanInput): Plan {
       why: requirements.zones.yellow.why,
       trigger: { kind: "zone", zone: "yellow", count: yellow.length },
       details: yellow.map((module) => `${module.module}: ${module.reason}`),
+    });
+  }
+  // Untested hotspots inside green modules: the same guardrail, file by file.
+  const { yellowPaths } = decision.zones;
+  if (yellowPaths.length > 0) {
+    zones.push({
+      id: "yellow-paths",
+      level: "required",
+      surfaces: requirements.zones.yellow.surfaces,
+      change: requirements.zones.yellow.change,
+      why: requirements.zones.yellow.why,
+      trigger: { kind: "zone", zone: "yellow", count: yellowPaths.length },
+      details: yellowPaths.map((path) => `${path.path} (in green ${path.module}): ${path.reason}`),
     });
   }
 

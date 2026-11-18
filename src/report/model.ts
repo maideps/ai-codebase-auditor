@@ -16,7 +16,7 @@ import type { RoadmapStep } from "../plan/roadmap.js";
 import type { CollectorResults, FactorScore, Readiness, Scoring } from "../scoring/types.js";
 
 export const REPORT_SCHEMA = "ai-codebase-auditor/report";
-export const REPORT_SCHEMA_VERSION = 6;
+export const REPORT_SCHEMA_VERSION = 7;
 
 export interface ReportInput {
   tool: { name: string; version: string };
@@ -72,7 +72,8 @@ export interface AuditReport {
       head: string;
       window: GitHistory["window"];
       totals: GitHistory["totals"];
-      hotspots: { path: string; commits: number; commitsLastYear: number; authors: number; lastCommit: string | null }[];
+      /** The ten files with the most commits in the last 12 months; not the zone hotspots, which also need length. */
+      mostChanged: { path: string; commits: number; commitsLastYear: number; authors: number; lastCommit: string | null }[];
     }>;
     codeStructure: Signal<{
       distribution: CodeStructure["distribution"];
@@ -256,7 +257,7 @@ export function buildReport(input: ReportInput): AuditReport {
         head: history.head,
         window: history.window,
         totals: history.totals,
-        hotspots: [...history.files]
+        mostChanged: [...history.files]
           .sort((a, b) => b.commitsLastYear - a.commitsLastYear || b.commits - a.commits || byText(a.path, b.path))
           .slice(0, 10)
           .map((file) => ({ path: file.path, commits: file.commits, commitsLastYear: file.commitsLastYear, authors: file.authors, lastCommit: file.lastCommit })),

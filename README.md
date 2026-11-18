@@ -45,6 +45,9 @@ Risk zones (green: agents may edit; yellow: characterization tests first; red: p
     app/models/auth_source.rb (auth)
     app/models/role.rb (role)
   ...
+  yellow paths (hotspots with no test named after them):
+    lib/redmine/preparation.rb (hotspot: 11 commits in 12 months (module cut 6) and 441 lines (module cut 310))
+  ...
 
 Harness adaptation plan (ai-harness-framework 0.5.0): Adopt the harness with these adaptations.
   required     typed-changes    type-strictness 1
@@ -110,6 +113,7 @@ A verdict is marked provisional while a blocking factor is not measured.
 - **Green** modules (agents may edit) need test-feedback of at least 3 and legible files.
 - **Yellow** modules need characterization tests before agents edit them.
 - **Red** paths (auth, billing, permissions, secrets and similar) are proposals only, even inside a green module.
+- **Yellow** paths are files inside green modules that are long, often changed in the last 12 months, and have no test named after them. They need characterization tests first.
 
 **Plan and roadmap.** The plan maps weak factors and zones to changes in the [ai-harness-framework](https://github.com/maideps/ai-harness-framework): extra rules in `AGENTS.md`, Claude Code `permissions.deny` entries for red paths, and explicit layer commands where the harness would not detect the stack. The roadmap gives one step per factor below 5, with its effort (S, M or L) and the verdict it would lead to. The harness assumptions live in one file, so the audit works without the harness.
 

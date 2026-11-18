@@ -1,11 +1,11 @@
 {
   "schema": "ai-codebase-auditor/report",
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "tool": {
     "name": "ai-codebase-auditor",
     "version": "0.1.0"
   },
-  "auditDate": "2026-10-23",
+  "auditDate": "2026-11-18",
   "target": {
     "path": "D:\\7-Maide\\Projects\\audit-targets\\moin-1.9",
     "head": "8c6341e92bce1049214cd3abfdd0f29351480176"
@@ -16,7 +16,7 @@
     "eolTable": {
       "path": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\runtime-eol.json",
       "asOf": "2026-10-21",
-      "ageDays": 2
+      "ageDays": 28
     },
     "deferrals": null,
     "harnessRequirements": "D:\\7-Maide\\Projects\\ai-codebase-auditor\\config\\harness-requirements.json"
@@ -212,224 +212,272 @@
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 370 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/(files)",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 2006 lines > 800; 25% of files over 1000 lines > 7%",
         "sourceFiles": 16,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/_tests",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 916 lines > 800",
         "sourceFiles": 7,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/action",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 397 lines, 1.9% over 1000 lines)",
         "sourceFiles": 52,
-        "redFiles": 2
+        "redFiles": 2,
+        "hotspots": [
+          {
+            "path": "MoinMoin/action/info.py",
+            "commitsLastYear": 6,
+            "lines": 397,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "MoinMoin/auth",
         "zone": "red",
         "reason": "every source file is on a red path: agents may only propose changes",
         "sourceFiles": 16,
-        "redFiles": 16
+        "redFiles": 16,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/config",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1477 lines > 800; 50% of files over 1000 lines > 7%",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/converter",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1459 lines > 800; 50% of files over 1000 lines > 7%",
         "sourceFiles": 2,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/datastruct",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 193 lines, 0% over 1000 lines)",
         "sourceFiles": 10,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/events",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 286 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/filter",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 52 lines, 4.5% over 1000 lines)",
         "sourceFiles": 22,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/formatter",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1052 lines > 800; 18.2% of files over 1000 lines > 7%",
         "sourceFiles": 11,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/i18n",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 374 lines, 0% over 1000 lines)",
         "sourceFiles": 11,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/logfile",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 462 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/macro",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 235 lines, 0% over 1000 lines)",
         "sourceFiles": 41,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": [
+          {
+            "path": "MoinMoin/macro/MonthCalendar.py",
+            "commitsLastYear": 4,
+            "lines": 498,
+            "complexity": null,
+            "testedBy": []
+          }
+        ]
       },
       {
         "module": "MoinMoin/mail",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 349 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/parser",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 636 lines, 5.6% over 1000 lines)",
         "sourceFiles": 18,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/script",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 218 lines, 2.7% over 1000 lines)",
         "sourceFiles": 113,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/search",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 624 lines, 0% over 1000 lines)",
         "sourceFiles": 10,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/security",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 459 lines, 0% over 1000 lines)",
         "sourceFiles": 4,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/stats",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 259 lines, 0% over 1000 lines)",
         "sourceFiles": 6,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/support",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 960 lines > 800; 9% of files over 1000 lines > 7%",
         "sourceFiles": 388,
-        "redFiles": 2
+        "redFiles": 2,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/theme",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1959 lines > 800; 16.7% of files over 1000 lines > 7%",
         "sourceFiles": 6,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/userform",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 131 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/userprefs",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 410 lines, 0% over 1000 lines)",
         "sourceFiles": 7,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/util",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 269 lines, 0% over 1000 lines)",
         "sourceFiles": 21,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/web",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 539 lines, 1.2% over 1000 lines)",
         "sourceFiles": 252,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/widget",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 707 lines, 0% over 1000 lines)",
         "sourceFiles": 5,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/wikixml",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 107 lines, 0% over 1000 lines)",
         "sourceFiles": 3,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "MoinMoin/xmlrpc",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1201 lines > 800; 14.3% of files over 1000 lines > 7%",
         "sourceFiles": 7,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "contrib",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 385 lines, 0.7% over 1000 lines)",
         "sourceFiles": 153,
-        "redFiles": 1
+        "redFiles": 1,
+        "hotspots": []
       },
       {
         "module": "jabberbot",
         "zone": "yellow",
         "reason": "files too large for unsupervised edits: p90 1686 lines > 800; 11.1% of files over 1000 lines > 7%",
         "sourceFiles": 9,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       },
       {
         "module": "wiki",
         "zone": "green",
         "reason": "test-feedback 3 ≥ 3 and files are legible (p90 180 lines, 0% over 1000 lines)",
         "sourceFiles": 16,
-        "redFiles": 0
+        "redFiles": 0,
+        "hotspots": []
       }
     ],
     "redPaths": [
@@ -469,6 +517,19 @@
         "term": "auth"
       }
     ],
+    "yellowPaths": [
+      {
+        "path": "MoinMoin/action/info.py",
+        "module": "MoinMoin/action",
+        "reason": "hotspot: 6 commits in 12 months (module cut 6) and 397 lines (module cut 397); no test is named after it: add characterization tests before agents edit"
+      },
+      {
+        "path": "MoinMoin/macro/MonthCalendar.py",
+        "module": "MoinMoin/macro",
+        "reason": "hotspot: 4 commits in 12 months (module cut 4) and 498 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
+      }
+    ],
+    "hotspotNote": null,
     "unzoned": [
       ".github",
       "docs",
@@ -587,7 +648,7 @@
         "surfaces": [
           "AGENTS.md"
         ],
-        "change": "List these modules in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
         "why": "Agents may only edit autonomously where their changes can be verified.",
         "trigger": {
           "kind": "zone",
@@ -604,6 +665,24 @@
           "MoinMoin/theme: files too large for unsupervised edits: p90 1959 lines > 800; 16.7% of files over 1000 lines > 7%",
           "MoinMoin/xmlrpc: files too large for unsupervised edits: p90 1201 lines > 800; 14.3% of files over 1000 lines > 7%",
           "jabberbot: files too large for unsupervised edits: p90 1686 lines > 800; 11.1% of files over 1000 lines > 7%"
+        ]
+      },
+      {
+        "id": "yellow-paths",
+        "level": "required",
+        "surfaces": [
+          "AGENTS.md"
+        ],
+        "change": "List these modules and files in AGENTS.md as characterization-tests-first: no feature work there until their current behavior is pinned by tests.",
+        "why": "Agents may only edit autonomously where their changes can be verified.",
+        "trigger": {
+          "kind": "zone",
+          "zone": "yellow",
+          "count": 2
+        },
+        "details": [
+          "MoinMoin/action/info.py (in green MoinMoin/action): hotspot: 6 commits in 12 months (module cut 6) and 397 lines (module cut 397); no test is named after it: add characterization tests before agents edit",
+          "MoinMoin/macro/MonthCalendar.py (in green MoinMoin/macro): hotspot: 4 commits in 12 months (module cut 4) and 498 lines (module cut 300); no test is named after it: add characterization tests before agents edit"
         ]
       },
       {
@@ -728,7 +807,7 @@
       "class": "constraining",
       "from": 1,
       "to": 5,
-      "action": "upgrade python from 2.7 to 3.11",
+      "action": "upgrade python from 2.7 to 3.12",
       "effort": "L",
       "gain": 4,
       "priority": 1.67,
@@ -855,8 +934,8 @@
       "status": "measured",
       "head": "8c6341e92bce1049214cd3abfdd0f29351480176",
       "window": {
-        "since": "2025-10-23T23:59:59.999Z",
-        "until": "2026-10-23T23:59:59.999Z"
+        "since": "2025-11-18T23:59:59.999Z",
+        "until": "2026-11-18T23:59:59.999Z"
       },
       "totals": {
         "commits": 5901,
@@ -866,7 +945,7 @@
         "lastCommit": "2026-07-28T13:23:46.000Z",
         "trackedFiles": 2087
       },
-      "hotspots": [
+      "mostChanged": [
         {
           "path": "MoinMoin/action/info.py",
           "commits": 349,

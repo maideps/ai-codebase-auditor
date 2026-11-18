@@ -147,15 +147,19 @@ export function observabilityOf(
   };
 }
 
-export function historyOf(): Measurement<GitHistory> {
+/** Git history with the given commits in the last 12 months per file (all-time commits equal them). */
+export function historyOf(files: { path: string; commitsLastYear: number }[] = [], commitsLastYear = 1): Measurement<GitHistory> {
   return {
     status: "measured",
     evidence,
     value: {
       head: "0123456789abcdef0123456789abcdef01234567",
       window: { since: "2025-10-21T00:00:00.000Z", until: "2026-10-21T00:00:00.000Z" },
-      totals: { commits: 1, commitsLastYear: 1, authors: 1, firstCommit: null, lastCommit: null, trackedFiles: 0 },
-      files: [],
+      totals: { commits: Math.max(1, commitsLastYear), commitsLastYear, authors: 1, firstCommit: null, lastCommit: null, trackedFiles: files.length },
+      files: files.map((file) => ({
+        path: file.path, commits: file.commitsLastYear, commitsLastYear: file.commitsLastYear, authors: 1,
+        firstCommit: "2026-01-01T00:00:00.000Z", lastCommit: "2026-06-01T00:00:00.000Z",
+      })),
     },
   };
 }
