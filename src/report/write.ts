@@ -29,7 +29,11 @@ export function checkOutDir(outDir: string, targetPath: string): string[] {
   return inside ? [`out directory ${outDir} is inside the audited repository ${targetPath}`] : [];
 }
 
-export function writeReports(outDir: string, contents: ReportContents): ReportContents {
+/** Writes the three reports, plus extra files under outDir (relative, forward-slash paths that stay inside it). */
+export function writeReports(outDir: string, contents: ReportContents, extra: readonly { path: string; content: string }[] = []): ReportContents {
+  for (const file of extra) {
+    if (path.isAbsolute(file.path) || file.path.split(/[\\/]/).includes("..")) throw new Error(`refusing to write ${file.path} outside ${outDir}`);
+  }
   mkdirSync(outDir, { recursive: true });
   const written = {
     markdown: path.join(outDir, REPORT_FILES.markdown),
@@ -37,5 +41,10 @@ export function writeReports(outDir: string, contents: ReportContents): ReportCo
     sarif: path.join(outDir, REPORT_FILES.sarif),
   };
   for (const kind of ["markdown", "json", "sarif"] as const) writeFileSync(written[kind], contents[kind], "utf8");
+  for (const file of extra) {
+    const target = path.join(outDir, ...file.path.split("/"));
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, file.content, "utf8");
+  }
   return written;
 }

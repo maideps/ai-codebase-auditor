@@ -530,7 +530,7 @@
     {
       "id": "feat-019",
       "name": "Generated harness files in the output directory",
-      "behavior": "With --out, writes a harness/ folder beside the reports, never into the audited repository: a Claude Code settings fragment with permissions.deny entries for the red paths, AGENTS.md rule snippets for each required and recommended adaptation, and a characterization-test checklist per yellow module listing its hotspots. Every generated item cites the plan item, factor score or zone behind it, and each roadmap step gets a check that re-auditing confirms (the factor and score it should reach). Same input gives identical bytes.",
+      "behavior": "With --out, writes a harness/ folder beside the reports, never into the audited repository: a Claude Code settings fragment with permissions.deny entries for the red paths, AGENTS.md rule snippets for each required and recommended adaptation, a characterization-test checklist for each yellow module and yellow path (hotspots exist only in green modules, D-019), and a roadmap check per step (the factor and score re-auditing should show), with a README mapping every generated item to the plan item, factor score or zone behind it. Same input gives identical bytes.",
       "verification": "Unit tests map each plan item and zone to its generated file content, including a repository with no red paths and no yellow modules. The e2e test audits a fixture repository and checks that the folder exists under --out and that nothing was written to the target.",
       "dependencies": [
         "feat-010",

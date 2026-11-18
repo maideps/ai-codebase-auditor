@@ -107,7 +107,8 @@ describe("audit", () => {
     const second = path.join(scratch, "report-2");
     expect(run("audit", repo, "--out", first).status).toBe(0);
     expect(run("audit", repo, "--out", second).status).toBe(0);
-    for (const name of ["ai-readiness-report.md", "ai-readiness-report.json", "ai-readiness-report.sarif"]) {
+    const harness = ["AGENTS.snippet.md", "README.md", "characterization-tests.md", "claude-settings.json", "roadmap-checks.json"].map((name) => `harness/${name}`);
+    for (const name of ["ai-readiness-report.md", "ai-readiness-report.json", "ai-readiness-report.sarif", ...harness]) {
       const a = readFileSync(path.join(first, name));
       expect(a.length).toBeGreaterThan(0);
       expect(a.equals(readFileSync(path.join(second, name)))).toBe(true);

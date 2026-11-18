@@ -460,3 +460,20 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: the tool can be installed from a tarball today, and the Action is ready for the Marketplace once published.
 - Negative: the Action builds the auditor on every run, which costs about a minute. The CI job is unverified until the next push.
+
+### D-024: Harness files are generated under --out, never applied
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-019.md.
+**Context:** the plan said what to change in the audited repository, but someone still had to write the `AGENTS.md` rules, deny rules and test checklist by hand. Factory's `/readiness-fix` writes such files into the repository; this tool must never write there (PRODUCT.md non-goals).
+**Decision:**
+- With `--out`, five files are written under `<out>/harness/`: `AGENTS.snippet.md` (one rule per plan item, citing its trigger), `claude-settings.json` (`permissions.deny` for the red paths), `characterization-tests.md` (yellow modules and yellow paths), `roadmap-checks.json` (the factor score a re-audit should show after each step), and a `README.md` that maps everything back to the plan item, score or zone behind it.
+- The writer refuses generated paths that are absolute or contain `..`, so files can only land inside `--out`.
+- The feat-019 declaration was reworded: checklists cover yellow modules and yellow paths, because hotspots exist only in green modules (D-019).
+**Alternatives considered:**
+- Applying the files to the target with a flag — Rejected: the tool never writes to the audited repository.
+- A runnable roadmap check script — Rejected: it would be code to install and run in the target. Data plus a re-audit is enough.
+- Comments in `claude-settings.json` to cite red paths — Rejected: JSON has no comments, and unknown keys could break the settings file. The README maps the rules instead.
+**Consequences:**
+- Positive: the plan becomes copy-ready, and every generated line can be traced.
+- Negative: the files are written for Claude Code and ai-harness-framework. Other agents' settings formats are not generated.

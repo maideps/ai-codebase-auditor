@@ -26,6 +26,7 @@ import { decide } from "./decision/decide.js";
 import { renderJson } from "./report/json.js";
 import { renderMarkdown } from "./report/markdown.js";
 import { renderSarif } from "./report/sarif.js";
+import { buildHarnessFiles, HARNESS_DIR } from "./plan/files.js";
 import { FAIL_ON_VALUES, isFailOn, verdictGate } from "./decision/gate.js";
 import { buildReport } from "./report/model.js";
 import { checkOutDir, writeReports } from "./report/write.js";
@@ -399,8 +400,11 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     roadmap,
   });
   try {
-    const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report), sarif: renderSarif(report, decisionConfig.value.weakMax) });
-    return gated({ exitCode: EXIT_OK, stdout: `${summary}\nReport written:\n  ${written.markdown}\n  ${written.json}\n  ${written.sarif}\n`, stderr: "" });
+    const harnessFiles = buildHarnessFiles({ tool: report.tool, auditDate, commit: report.target.head, verdict: decision.verdict.verdict, plan, zones: decision.zones, roadmap });
+    const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report), sarif: renderSarif(report, decisionConfig.value.weakMax) }, harnessFiles);
+    const harnessNames = harnessFiles.map((file) => file.path.slice(HARNESS_DIR.length + 1)).join(", ");
+    const harnessLine = `Harness files written (copy what fits; nothing was applied):\n  ${path.join(outDir, HARNESS_DIR)}${path.sep} (${harnessNames})\n`;
+    return gated({ exitCode: EXIT_OK, stdout: `${summary}\nReport written:\n  ${written.markdown}\n  ${written.json}\n  ${written.sarif}\n${harnessLine}`, stderr: "" });
   } catch (error) {
     return { exitCode: EXIT_FAILURE, stdout: summary, stderr: `error: cannot write the report to ${outDir}: ${(error as Error).message}\n` };
   }

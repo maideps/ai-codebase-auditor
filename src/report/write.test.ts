@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -47,5 +47,20 @@ describe("writeReports", () => {
     writeReports(out, { markdown: "old\n", json: "{}\n", sarif: "{}\n" });
     writeReports(out, { markdown: "new\n", json: "{}\n", sarif: "{}\n" });
     expect(readFileSync(path.join(out, REPORT_FILES.markdown), "utf8")).toBe("new\n");
+  });
+});
+
+describe("writeReports: extra files", () => {
+  it("writes extra files in subdirectories of the out directory", () => {
+    const out = path.join(scratch, "extra");
+    writeReports(out, { markdown: "m\n", json: "{}\n", sarif: "{}\n" }, [{ path: "harness/a.md", content: "a\n" }, { path: "harness/deep/b.json", content: "{}\n" }]);
+    expect(readFileSync(path.join(out, "harness", "a.md"), "utf8")).toBe("a\n");
+    expect(readFileSync(path.join(out, "harness", "deep", "b.json"), "utf8")).toBe("{}\n");
+  });
+
+  it.each([["../escape.md"], ["harness/../../escape.md"], ["harness\\..\\..\\escape.md"],[path.resolve(scratch, "abs.md")]])("refuses %s, before writing anything", (bad) => {
+    const out = path.join(scratch, "refused");
+    expect(() => writeReports(out, { markdown: "m\n", json: "{}\n", sarif: "{}\n" }, [{ path: bad, content: "x\n" }])).toThrow(/refusing to write/);
+    expect(existsSync(out)).toBe(false);
   });
 });

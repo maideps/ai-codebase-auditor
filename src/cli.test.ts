@@ -307,6 +307,8 @@ describe("runCli: report files", () => {
     const sarif = path.join(out, "ai-readiness-report.sarif");
     expect(result.stdout).toContain(`Report written:\n  ${markdown}\n  ${json}\n  ${sarif}\n`);
     expect(JSON.parse(readFileSync(sarif, "utf8"))).toMatchObject({ version: "2.1.0", runs: [{ tool: { driver: { name: "ai-codebase-auditor", version: "1.2.3" } } }] });
+    expect(result.stdout).toContain(`Harness files written (copy what fits; nothing was applied):\n  ${path.join(out, "harness")}${path.sep} (AGENTS.snippet.md, README.md, characterization-tests.md, claude-settings.json, roadmap-checks.json)\n`);
+    expect(JSON.parse(readFileSync(path.join(out, "harness", "claude-settings.json"), "utf8"))).toMatchObject({ permissions: { deny: expect.any(Array) } });
     expect(readFileSync(markdown, "utf8")).toMatch(/^# AI-readiness audit: /);
     const report = JSON.parse(readFileSync(json, "utf8")) as { tool: { version: string }; target: { path: string; head: string } };
     expect(report.tool.version).toBe("1.2.3");

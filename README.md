@@ -61,7 +61,7 @@ Modernization roadmap (by gain against effort):
   ...
 ```
 
-With `--out`, the same content is written as a Markdown report for people, a JSON report for CI or agents, and a SARIF file for code-scanning tools. Agents can also query a saved report over MCP before they edit a file:
+With `--out`, the same content is written as a Markdown report for people, a JSON report for CI or agents, and a SARIF file for code-scanning tools. A harness folder beside them holds copy-ready `AGENTS.md` rules, Claude Code deny rules for the red paths, a characterization-test checklist and the score each roadmap step should reach. They are never applied to the audited repository. Agents can also query a saved report over MCP before they edit a file:
 
 ```bash
 node dist/cli.js mcp ../audit-reports/some-legacy-repo/ai-readiness-report.json

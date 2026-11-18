@@ -245,6 +245,13 @@ The Markdown and JSON files come from one report model, so they hold the same co
 - signal summaries (the ten most changed files, size distribution and largest files, tests and docs, manifests and runtimes, dynamic calls, co-change, observability);
 - the method: inputs, every read-only command run, collector notes.
 
+`--out` also writes a `harness/` folder of copy-ready files, which are never applied to the audited repository (D-024):
+- `AGENTS.snippet.md`: one rule per plan item, citing its level and trigger;
+- `claude-settings.json`: `permissions.deny` rules for the red paths;
+- `characterization-tests.md`: a checklist of yellow modules and yellow paths, each with its reason;
+- `roadmap-checks.json`: per roadmap step, the factor score a re-audit should show;
+- `README.md`: what each file is for, and which red path each deny rule comes from.
+
 The SARIF file (2.1.0) is for code-scanning tools. It has one result per weak factor (`factor/<id>`: error when blocking, warning when constraining), yellow module and yellow path (warning), and red path (note), each with the report's rule and evidence. Zone results point at their file or directory; factor results describe the whole repository and have no location. The run's properties hold the verdict, readiness, audit date and commit.
 
 Per-file lists are left out, to keep reports small on large repositories. The JSON layout is `schema: "ai-codebase-auditor/report"`, `schemaVersion: 7`, documented in [sprints/feat-008.md](sprints/feat-008.md). Version 2 added `testFixture` to each runtime (D-013). Version 3 added `inputs.harnessRequirements`, `plan` and `roadmap` ([sprints/feat-010.md](sprints/feat-010.md), D-014). Version 4 added `signals.dynamicCalls` ([sprints/feat-011.md](sprints/feat-011.md), D-015). Version 5 added `signals.coChange` ([sprints/feat-012.md](sprints/feat-012.md), D-016). Version 6 added `signals.observability` ([sprints/feat-013.md](sprints/feat-013.md), D-017). Version 7 added `zones.yellowPaths`, `zones.hotspotNote` and `hotspots` on each module, and renamed `signals.gitHistory.hotspots` to `mostChanged` ([sprints/feat-014.md](sprints/feat-014.md), D-019).

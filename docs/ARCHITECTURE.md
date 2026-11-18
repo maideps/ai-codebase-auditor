@@ -33,7 +33,7 @@ src/
     observability.ts    logging calls, console output, logging configuration, observability imports
   scoring/            rules.ts (one rule per factor), score.ts (engine, deferrals, readiness), types.ts
   decision/           verdict.ts (adopt | adapt | prepare first), zones.ts (green / yellow modules, red and yellow paths), hotspots.ts (hotspots and test-name matching), gate.ts (--fail-on verdict gate), decide.ts
-  plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort)
+  plan/               plan.ts (harness adaptation plan), roadmap.ts (modernization steps by gain against effort), files.ts (copy-ready harness files for --out/harness/)
   report/             model.ts (one AuditReport model), json.ts, markdown.ts, sarif.ts (SARIF 2.1.0 for code scanning), write.ts (--out, target guard)
   mcp/                server.ts (read-only MCP tools over a saved report, JSON-RPC handling), stdio.ts (line transport)
 config/
@@ -64,7 +64,7 @@ repository (read-only)
 - `cli` may depend on every other module. Nothing depends on `cli`.
 - `result` and `config` depend on nothing in `src/` but each other; any module may use them (collectors use config types only, and receive loaded config such as the EOL table from `cli`). `target` is used only by `cli`.
 - Validation returns a `Result` with every problem found instead of throwing on the first one; the CLI turns errors into exit code 2.
-- `report` depends on collector, scoring, decision and plan output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target.
+- `report` depends on collector, scoring, decision and plan output types; it summarizes and formats, never computes scores. Both renderers read one `AuditReport` model, so the Markdown and JSON files carry the same content. Only `report/write.ts` writes files, and only to the `--out` directory, after `checkOutDir` has confirmed through real paths that it is outside the target; generated harness files with an absolute path or `..` are refused.
 - `mcp` depends on the report model and decision output types only; it answers from a parsed saved report and never audits, reads the target or spawns anything. `server.ts` is pure, and `stdio.ts` is the only transport.
 - The CLI takes one audit date (UTC) and passes the end of that day to every date-based step, so reports are byte-identical for the same repository, configs and date.
 - `decision` depends on `scoring` results, collector output types, `file-kinds` and loaded config (factors, decision); it is pure and never reads the repository.

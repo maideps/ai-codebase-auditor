@@ -60,7 +60,7 @@ describe("npm pack", () => {
     const run = npm(["exec", "--no", "--", "ai-codebase-auditor", "audit", repo, "--out", out], scratch);
     expect(run.status, run.stderr).toBe(0);
     expect(run.stdout).toContain("Verdict:");
-    expect(readdirSync(out).sort()).toEqual(["ai-readiness-report.json", "ai-readiness-report.md", "ai-readiness-report.sarif"]);
+    expect(readdirSync(out).sort()).toEqual(["ai-readiness-report.json", "ai-readiness-report.md", "ai-readiness-report.sarif", "harness"]);
     const version = npm(["exec", "--no", "--", "ai-codebase-auditor", "--version"], scratch);
     expect(version.stdout.trim()).toBe(pkg.version);
   }, 240_000);
