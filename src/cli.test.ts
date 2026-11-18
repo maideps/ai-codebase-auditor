@@ -420,3 +420,45 @@ describe("runCli: compare", () => {
     expect(JSON.parse(readFileSync(path.join(out, "ai-readiness-compare.json"), "utf8"))).toMatchObject({ schema: "ai-codebase-auditor/comparison", schemaVersion: 1 });
   });
 });
+
+describe("runCli: audit-batch", () => {
+  it("audits each listed repository into its own folder, records failures without stopping, and exits 1 when any failed", () => {
+    const healthy = createFixtureRepo([{ author: "a@example.com", date: "2024-01-01T00:00:00Z", files: { "src/app.js": "1\n", "src/app.test.js": "t\n" } }]);
+    const blocked = createFixtureRepo([{ author: "a@example.com", date: "2024-01-01T00:00:00Z", files: { "lib/x.py": "1\n" } }]);
+    const plainDir = path.join(root, "not-a-repo");
+    mkdirSync(plainDir, { recursive: true });
+    const out = path.join(root, "portfolio");
+    // A file where blocked's report folder would go makes its write throw: the audit-failure path.
+    mkdirSync(out, { recursive: true });
+    writeFileSync(path.join(out, path.basename(blocked)), "in the way\n");
+    const list = path.join(root, "repos.txt");
+    writeFileSync(list, `# portfolio\n${healthy}\n${path.join(root, "missing-repo")}\n\n${plainDir}\n${blocked}\n`);
+    const result = runCli(["audit-batch", list, "--out", out], "1.2.3", root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("error: 3 of 4 repositories could not be audited; see the portfolio\n");
+    expect(result.stdout).toContain(`  failed         missing-repo: target ${path.join(root, "missing-repo")} does not exist\n`);
+    expect(result.stdout).toContain(`  failed         not-a-repo: target ${plainDir} is not the root of a git working tree (no .git entry)\n`);
+    expect(result.stdout).toMatch(new RegExp(`failed {9}${path.basename(blocked)}: audit failed: `));
+    expect(existsSync(path.join(out, path.basename(healthy), "ai-readiness-report.json"))).toBe(true);
+    const portfolio = JSON.parse(readFileSync(path.join(out, "ai-readiness-portfolio.json"), "utf8")) as { counts: Record<string, number>; repositories: { status: string }[] };
+    expect(portfolio.counts.failed).toBe(3);
+    expect(portfolio.repositories.map((r) => r.status)).toEqual(["audited", "failed", "failed", "failed"]);
+    expect(readFileSync(path.join(out, "ai-readiness-portfolio.md"), "utf8")).toMatch(/^# AI-readiness portfolio\n/);
+  });
+
+  it.each([
+    [["audit-batch"], "error: audit-batch needs one list file of repository paths, got 0"],
+    [["audit-batch", "repos.txt"], "error: audit-batch needs --out <dir> for the reports"],
+    [["audit-batch", "nope.txt", "--out", "o"], "nope.txt: file not found"],
+  ])("exits 2 for %j", (args, message) => {
+    const result = runCli(args, "1.2.3", root);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(message);
+  });
+
+  it("exits 2 for a list with no paths", () => {
+    const empty = path.join(root, "empty.txt");
+    writeFileSync(empty, "# none\n");
+    expect(runCli(["audit-batch", empty, "--out", path.join(root, "o2")], "1.2.3", root).stderr).toContain(`${empty}: lists no repository paths`);
+  });
+});

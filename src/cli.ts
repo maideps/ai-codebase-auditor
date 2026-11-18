@@ -20,8 +20,8 @@ import { collectTestsDocs, type TestsDocs } from "./collectors/tests-docs.js";
 import type { Measurement } from "./collectors/types.js";
 import { DEFAULT_CONFIG_PATH, loadFactorConfig, type FactorConfig } from "./config/factors.js";
 import { checkDeferralFactors, loadDeferrals, type Deferral } from "./config/deferrals.js";
-import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable } from "./config/runtime-eol.js";
-import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig } from "./config/decision.js";
+import { DEFAULT_EOL_TABLE_PATH, loadRuntimeEolTable, type RuntimeEolTable } from "./config/runtime-eol.js";
+import { DEFAULT_DECISION_CONFIG_PATH, loadDecisionConfig, type DecisionConfig } from "./config/decision.js";
 import { decide } from "./decision/decide.js";
 import { renderJson } from "./report/json.js";
 import { renderMarkdown } from "./report/markdown.js";
@@ -31,7 +31,7 @@ import { FAIL_ON_VALUES, isFailOn, verdictGate } from "./decision/gate.js";
 import { buildReport } from "./report/model.js";
 import { checkOutDir, writeOutFiles, writeReports } from "./report/write.js";
 import type { Decision } from "./decision/types.js";
-import { checkRequirementFactors, DEFAULT_HARNESS_REQUIREMENTS_PATH, loadHarnessRequirements } from "./config/harness-requirements.js";
+import { checkRequirementFactors, DEFAULT_HARNESS_REQUIREMENTS_PATH, loadHarnessRequirements, type HarnessRequirements } from "./config/harness-requirements.js";
 import { buildPlan, type Plan } from "./plan/plan.js";
 import { buildRoadmap, type RoadmapStep } from "./plan/roadmap.js";
 import { checkThresholds, scoreFactors } from "./scoring/score.js";
@@ -40,6 +40,7 @@ import type { Result } from "./result.js";
 import { resolveTarget, type AuditTarget } from "./target.js";
 import type { ServerInfo } from "./mcp/server.js";
 import { parseSavedReport } from "./report/saved.js";
+import { auditedEntry, buildPortfolio, formatPortfolio, parseRepoList, PORTFOLIO_FILES, renderPortfolioJson, renderPortfolioMarkdown, type PortfolioEntry } from "./batch/batch.js";
 import { COMPARISON_FILES, compareReports, formatComparison, renderComparisonJson, renderComparisonMarkdown } from "./compare/compare.js";
 import { serveStdio } from "./mcp/stdio.js";
 import type { AuditReport } from "./report/model.js";
@@ -55,6 +56,7 @@ const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
 export const USAGE = `Usage: ai-codebase-auditor audit <repo-path> [--config <file>] [--deferrals <file>] [--harness <file>] [--out <dir>] [--fail-on <verdict>]
+       ai-codebase-auditor audit-batch <list-file> --out <dir> [--config <file>] [--deferrals <file>] [--harness <file>]
        ai-codebase-auditor compare <before.json> <after.json> [--out <dir>]
        ai-codebase-auditor mcp <report.json>
        ai-codebase-auditor --help | --version
@@ -64,6 +66,7 @@ read, never modified or executed.
 
 Commands:
   audit <repo-path>      Audit the git working tree at <repo-path>
+  audit-batch <list>     Audit every repository path in <list> (one per line) into <dir>/<name>/, plus a portfolio summary
   compare <a> <b>        Show what changed between two saved JSON reports of one repository
   mcp <report.json>      Serve a saved JSON report read-only to agents over MCP (stdio)
 
@@ -311,6 +314,110 @@ function formatSummary(
   ].join("\n");
 }
 
+/** Everything an audit reads besides the target: loaded and validated once, reused per repository. */
+interface AuditInputs {
+  config: FactorConfig;
+  configPath: string;
+  eolTable: RuntimeEolTable;
+  decisionConfig: DecisionConfig;
+  requirements: HarnessRequirements;
+  harnessPath: string;
+  deferrals: Deferral[];
+  deferralsPath: string | null;
+}
+
+interface AuditRun {
+  report: AuditReport;
+  decision: Decision;
+  plan: Plan;
+  roadmap: RoadmapStep[];
+  summary: string;
+}
+
+// The audit date (UTC) is the unit of time: every date-based rule uses the end
+// of that day, so two runs on the same day give the same report bytes.
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Collects, scores, decides and plans for one target; reads it, never writes to it. */
+function auditOne(target: AuditTarget, inputs: AuditInputs, version: string, auditDate: string): AuditRun {
+  const now = new Date(`${auditDate}T23:59:59.999Z`);
+  const collected: CollectorResults = {
+    history: collectGitHistory(target.path, { now }),
+    structure: collectCodeStructure(target.path),
+    testsDocs: collectTestsDocs(target.path),
+    dependencies: collectDependencies(target.path, { table: inputs.eolTable, now }),
+    dynamicCalls: collectDynamicCalls(target.path),
+    coChange: collectCoChange(target.path),
+    observability: collectObservability(target.path),
+  };
+  const scoring = scoreFactors(collected, inputs.config, { now, deferrals: inputs.deferrals, modules: inputs.decisionConfig });
+  const decision = decide(scoring, collected, inputs.config, inputs.decisionConfig);
+  const plan = buildPlan({ scoring, decision, results: collected, requirements: inputs.requirements, weakMax: inputs.decisionConfig.weakMax });
+  const roadmap = buildRoadmap({ scoring, results: collected, factors: inputs.config, decisionConfig: inputs.decisionConfig, eolTable: inputs.eolTable, auditDate });
+  const report = buildReport({
+    tool: { name: "ai-codebase-auditor", version },
+    auditDate,
+    targetPath: target.path,
+    inputs: {
+      factorConfig: inputs.configPath,
+      decisionConfig: DEFAULT_DECISION_CONFIG_PATH,
+      eolTable: { path: DEFAULT_EOL_TABLE_PATH, asOf: inputs.eolTable.asOf },
+      deferrals: inputs.deferralsPath,
+      harnessRequirements: inputs.harnessPath,
+    },
+    collected,
+    scoring,
+    decision,
+    plan,
+    roadmap,
+  });
+  const summary = formatSummary(target, inputs.configPath, inputs.config, collected, scoring, decision, plan, roadmap);
+  return { report, decision, plan, roadmap, summary };
+}
+
+/** Writes the three reports and the harness files; returns the lines that say where. */
+function writeAuditFiles(outDir: string, run: AuditRun, inputs: AuditInputs): string {
+  const { report } = run;
+  const harnessFiles = buildHarnessFiles({ tool: report.tool, auditDate: report.auditDate, commit: report.target.head, verdict: run.decision.verdict.verdict, plan: run.plan, zones: run.decision.zones, roadmap: run.roadmap });
+  const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report), sarif: renderSarif(report, inputs.decisionConfig.weakMax) }, harnessFiles);
+  const harnessNames = harnessFiles.map((file) => file.path.slice(HARNESS_DIR.length + 1)).join(", ");
+  return `Report written:
+  ${written.markdown}
+  ${written.json}
+  ${written.sarif}
+Harness files written (copy what fits; nothing was applied):
+  ${path.join(outDir, HARNESS_DIR)}${path.sep} (${harnessNames})
+`;
+}
+
+/** Loads and validates the configs an audit needs, from the --config, --deferrals and --harness values. */
+function loadAuditInputs(values: { config?: string; deferrals?: string; harness?: string }, cwd: string): Result<AuditInputs> {
+  const configPath = values.config === undefined ? DEFAULT_CONFIG_PATH : path.resolve(cwd, values.config);
+  const config = loadFactorConfig(configPath);
+  const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
+  const decisionConfig = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
+  const harnessPath = values.harness === undefined ? DEFAULT_HARNESS_REQUIREMENTS_PATH : path.resolve(cwd, values.harness);
+  const requirements = loadHarnessRequirements(harnessPath);
+  const deferralsPath = values.deferrals === undefined ? null : path.resolve(cwd, values.deferrals);
+  const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
+  const errors = [
+    ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
+    ...(eolTable.ok ? [] : eolTable.errors),
+    ...(decisionConfig.ok ? [] : decisionConfig.errors),
+    // Only a user's own --harness file must name configured factors: the default
+    // file meets a reduced --config, and the plan lists those as not assessed.
+    ...(requirements.ok ? (config.ok && values.harness !== undefined ? checkRequirementFactors(requirements.value, config.value, harnessPath) : []) : requirements.errors),
+    ...(deferrals.ok ? (config.ok && deferralsPath ? checkDeferralFactors(deferrals.value, config.value, deferralsPath) : []) : deferrals.errors),
+  ];
+  if (!config.ok || !eolTable.ok || !decisionConfig.ok || !requirements.ok || !deferrals.ok || errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    value: { config: config.value, configPath, eolTable: eolTable.value, decisionConfig: decisionConfig.value, requirements: requirements.value, harnessPath, deferrals: deferrals.value, deferralsPath },
+  };
+}
+
 function runAudit(args: readonly string[], version: string, cwd: string): CliResult {
   let parsed;
   try {
@@ -337,15 +444,8 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
   if (repoPath === undefined) return usageError(["audit needs a repository path"]);
   if (positionals.length > 1) return usageError([`audit takes one repository path, got ${positionals.length}`]);
 
-  const configPath = parsed.values.config === undefined ? DEFAULT_CONFIG_PATH : path.resolve(cwd, parsed.values.config);
   const target = resolveTarget(repoPath, cwd);
-  const config = loadFactorConfig(configPath);
-  const eolTable = loadRuntimeEolTable(DEFAULT_EOL_TABLE_PATH);
-  const decisionConfig = loadDecisionConfig(DEFAULT_DECISION_CONFIG_PATH);
-  const harnessPath = parsed.values.harness === undefined ? DEFAULT_HARNESS_REQUIREMENTS_PATH : path.resolve(cwd, parsed.values.harness);
-  const requirements = loadHarnessRequirements(harnessPath);
-  const deferralsPath = parsed.values.deferrals === undefined ? null : path.resolve(cwd, parsed.values.deferrals);
-  const deferrals: Result<Deferral[]> = deferralsPath === null ? { ok: true, value: [] } : loadDeferrals(deferralsPath);
+  const loaded = loadAuditInputs(parsed.values, cwd);
   const outDir = parsed.values.out === undefined ? null : path.resolve(cwd, parsed.values.out);
   const failOnValue = parsed.values["fail-on"];
   const failOn = failOnValue !== undefined && isFailOn(failOnValue) ? failOnValue : null;
@@ -353,64 +453,27 @@ function runAudit(args: readonly string[], version: string, cwd: string): CliRes
     ...(failOnValue !== undefined && failOn === null ? [`--fail-on must be ${FAIL_ON_VALUES.join(" or ")}, got ${failOnValue}`] : []),
     ...(target.ok ? [] : target.errors),
     ...(target.ok && outDir ? checkOutDir(outDir, target.value.path) : []),
-    ...(config.ok ? checkThresholds(config.value, configPath) : config.errors),
-    ...(eolTable.ok ? [] : eolTable.errors),
-    ...(decisionConfig.ok ? [] : decisionConfig.errors),
-    // Only a user's own --harness file must name configured factors: the default
-    // file meets a reduced --config, and the plan lists those as not assessed.
-    ...(requirements.ok ? (config.ok && parsed.values.harness !== undefined ? checkRequirementFactors(requirements.value, config.value, harnessPath) : []) : requirements.errors),
-    ...(deferrals.ok ? (config.ok && deferralsPath ? checkDeferralFactors(deferrals.value, config.value, deferralsPath) : []) : deferrals.errors),
+    ...(loaded.ok ? [] : loaded.errors),
   ];
-  if (!target.ok || !config.ok || !eolTable.ok || !decisionConfig.ok || !requirements.ok || !deferrals.ok || errors.length > 0) return usageError(errors);
-  // The audit date (UTC) is the unit of time: every date-based rule uses the end
-  // of that day, so two runs on the same day give the same report bytes.
-  const auditDate = new Date().toISOString().slice(0, 10);
-  const now = new Date(`${auditDate}T23:59:59.999Z`);
-  const collected: CollectorResults = {
-    history: collectGitHistory(target.value.path, { now }),
-    structure: collectCodeStructure(target.value.path),
-    testsDocs: collectTestsDocs(target.value.path),
-    dependencies: collectDependencies(target.value.path, { table: eolTable.value, now }),
-    dynamicCalls: collectDynamicCalls(target.value.path),
-    coChange: collectCoChange(target.value.path),
-    observability: collectObservability(target.value.path),
-  };
-  const scoring = scoreFactors(collected, config.value, { now, deferrals: deferrals.value, modules: decisionConfig.value });
-  const decision = decide(scoring, collected, config.value, decisionConfig.value);
-  const plan = buildPlan({ scoring, decision, results: collected, requirements: requirements.value, weakMax: decisionConfig.value.weakMax });
-  const roadmap = buildRoadmap({ scoring, results: collected, factors: config.value, decisionConfig: decisionConfig.value, eolTable: eolTable.value, auditDate });
+  if (!target.ok || !loaded.ok || errors.length > 0) return usageError(errors);
+  const inputs = loaded.value;
+  const run = auditOne(target.value, inputs, version, todayUtc());
+  const { decision } = run;
   const gate = failOn === null ? null : verdictGate(decision.verdict, failOn);
-  const summary = formatSummary(target.value, configPath, config.value, collected, scoring, decision, plan, roadmap) + (gate ? `\n${gate.line}\n` : "");
+  const summary = run.summary + (gate ? `
+${gate.line}
+` : "");
   // Without --fail-on, exit codes are unchanged; with it, a failed gate exits 1 after any report is written.
   const gated = (result: CliResult): CliResult =>
-    gate?.failed && result.exitCode === EXIT_OK ? { ...result, exitCode: EXIT_FAILURE, stderr: `${result.stderr}error: ${gate.line}\n` } : result;
+    gate?.failed && result.exitCode === EXIT_OK ? { ...result, exitCode: EXIT_FAILURE, stderr: `${result.stderr}error: ${gate.line}
+` } : result;
   if (outDir === null) return gated({ exitCode: EXIT_OK, stdout: summary, stderr: "" });
-
-  const report = buildReport({
-    tool: { name: "ai-codebase-auditor", version },
-    auditDate,
-    targetPath: target.value.path,
-    inputs: {
-      factorConfig: configPath,
-      decisionConfig: DEFAULT_DECISION_CONFIG_PATH,
-      eolTable: { path: DEFAULT_EOL_TABLE_PATH, asOf: eolTable.value.asOf },
-      deferrals: deferralsPath,
-      harnessRequirements: harnessPath,
-    },
-    collected,
-    scoring,
-    decision,
-    plan,
-    roadmap,
-  });
   try {
-    const harnessFiles = buildHarnessFiles({ tool: report.tool, auditDate, commit: report.target.head, verdict: decision.verdict.verdict, plan, zones: decision.zones, roadmap });
-    const written = writeReports(outDir, { markdown: renderMarkdown(report), json: renderJson(report), sarif: renderSarif(report, decisionConfig.value.weakMax) }, harnessFiles);
-    const harnessNames = harnessFiles.map((file) => file.path.slice(HARNESS_DIR.length + 1)).join(", ");
-    const harnessLine = `Harness files written (copy what fits; nothing was applied):\n  ${path.join(outDir, HARNESS_DIR)}${path.sep} (${harnessNames})\n`;
-    return gated({ exitCode: EXIT_OK, stdout: `${summary}\nReport written:\n  ${written.markdown}\n  ${written.json}\n  ${written.sarif}\n${harnessLine}`, stderr: "" });
+    return gated({ exitCode: EXIT_OK, stdout: `${summary}
+${writeAuditFiles(outDir, run, inputs)}`, stderr: "" });
   } catch (error) {
-    return { exitCode: EXIT_FAILURE, stdout: summary, stderr: `error: cannot write the report to ${outDir}: ${(error as Error).message}\n` };
+    return { exitCode: EXIT_FAILURE, stdout: summary, stderr: `error: cannot write the report to ${outDir}: ${(error as Error).message}
+` };
   }
 }
 
@@ -489,6 +552,75 @@ Comparison written:
   }
 }
 
+function runBatch(args: readonly string[], version: string, cwd: string): CliResult {
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: [...args],
+      options: { config: { type: "string", short: "c" }, deferrals: { type: "string", short: "d" }, harness: { type: "string" }, out: { type: "string", short: "o" } },
+      allowPositionals: true,
+      strict: true,
+    });
+  } catch (error) {
+    return usageError([(error as Error).message]);
+  }
+  const { positionals } = parsed;
+  if (positionals.length !== 1) return usageError([`audit-batch needs one list file of repository paths, got ${positionals.length}`]);
+  if (parsed.values.out === undefined) return usageError(["audit-batch needs --out <dir> for the reports"]);
+  const listPath = path.resolve(cwd, positionals[0] ?? "");
+  let listText: string;
+  try {
+    listText = readFileSync(listPath, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return usageError([`${listPath}: ${code === "ENOENT" ? "file not found" : `cannot read file (${code ?? "unknown error"})`}`]);
+  }
+  const listed = parseRepoList(listText, path.dirname(listPath));
+  const loaded = loadAuditInputs(parsed.values, cwd);
+  if (listed.length === 0) return usageError([`${listPath}: lists no repository paths`]);
+  if (!loaded.ok) return usageError(loaded.errors);
+  const outDir = path.resolve(cwd, parsed.values.out);
+  const auditDate = todayUtc();
+  // Each repository is audited on its own: a failure is recorded with its reason and the rest go on.
+  const entries: PortfolioEntry[] = listed.map((repo) => {
+    const failed = (error: string): PortfolioEntry => ({ status: "failed", folder: repo.folder, path: repo.path, error });
+    const target = resolveTarget(repo.path, cwd);
+    if (!target.ok) return failed(target.errors.join("; "));
+    const repoOut = path.join(outDir, repo.folder);
+    const inside = checkOutDir(repoOut, target.value.path);
+    if (inside.length > 0) return failed(inside.join("; "));
+    try {
+      const run = auditOne(target.value, loaded.value, version, auditDate);
+      writeAuditFiles(repoOut, run, loaded.value);
+      return auditedEntry(repo, run.report, loaded.value.decisionConfig.weakMax);
+    } catch (error) {
+      return failed(`audit failed: ${(error as Error).message}`);
+    }
+  });
+  const portfolio = buildPortfolio(entries, auditDate);
+  const text = formatPortfolio(portfolio);
+  try {
+    const [markdown, json] = writeOutFiles(outDir, [
+      { name: PORTFOLIO_FILES.markdown, content: renderPortfolioMarkdown(portfolio) },
+      { name: PORTFOLIO_FILES.json, content: renderPortfolioJson(portfolio) },
+    ]);
+    const failures = portfolio.counts.failed;
+    return {
+      exitCode: failures > 0 ? EXIT_FAILURE : EXIT_OK,
+      stdout: `${text}
+Portfolio written:
+  ${markdown}
+  ${json}
+`,
+      stderr: failures > 0 ? `error: ${failures} of ${listed.length} repositories could not be audited; see the portfolio
+` : "",
+    };
+  } catch (error) {
+    return { exitCode: EXIT_FAILURE, stdout: text, stderr: `error: cannot write the portfolio to ${outDir}: ${(error as Error).message}
+` };
+  }
+}
+
 export function runCli(args: readonly string[], version: string, cwd: string = process.cwd()): CliResult {
   const [command, ...rest] = args;
   if (command === undefined || command === "-h" || command === "--help") {
@@ -499,6 +631,7 @@ export function runCli(args: readonly string[], version: string, cwd: string = p
   }
   if (command === "audit") return runAudit(rest, version, cwd);
   if (command === "compare") return runCompare(rest, cwd);
+  if (command === "audit-batch") return runBatch(rest, version, cwd);
   if (command === "mcp") {
     // The server itself runs only as a process (see the main block); here the arguments and report are checked.
     const prepared = prepareMcp(rest, version, cwd);

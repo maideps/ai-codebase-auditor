@@ -211,3 +211,24 @@ describe("compare", () => {
     expect(comparison.before.commit).not.toBe(comparison.after.commit);
   });
 });
+
+describe("audit-batch", () => {
+  it("audits a portfolio with one broken entry and leaves every repository untouched", () => {
+    const second = createFixtureRepo([{ author: "b@example.com", date: "2024-03-01T00:00:00Z", files: { "app/main.py": "print(1)\n", "tests/test_main.py": "t\n" } }]);
+    const beforeFirst = snapshot(repo);
+    const beforeSecond = snapshot(second);
+    const list = path.join(scratch, "portfolio.txt");
+    writeFileSync(list, `${repo}\n${second}\n${path.join(scratch, "no-such-repo")}\n`);
+    const out = path.join(scratch, "portfolio");
+    const result = run("audit-batch", list, "--out", out);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/^Portfolio \(3 repositories, audited \d{4}-\d{2}-\d{2}\): /);
+    for (const dir of [path.basename(repo), path.basename(second)]) {
+      expect(readdirSync(path.join(out, dir)).sort()).toEqual(["ai-readiness-report.json", "ai-readiness-report.md", "ai-readiness-report.sarif", "harness"]);
+    }
+    const portfolio = JSON.parse(readFileSync(path.join(out, "ai-readiness-portfolio.json"), "utf8")) as { counts: { failed: number } };
+    expect(portfolio.counts.failed).toBe(1);
+    expect(snapshot(repo)).toEqual(beforeFirst);
+    expect(snapshot(second)).toEqual(beforeSecond);
+  });
+});

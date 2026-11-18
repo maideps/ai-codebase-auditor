@@ -498,3 +498,20 @@ Every module the declared rule would mark on the calibration set is a false posi
 **Consequences:**
 - Positive: roadmap progress becomes measurable, and CI can store the comparison next to the report.
 - Negative: two clones of one repository at different paths cannot be compared.
+
+### D-026: audit-batch audits a portfolio, one isolated repository at a time
+
+**Date:** 2026-11-18
+**Status:** accepted. Decided without a review round, at the user's request. Recorded in docs/sprints/feat-021.md.
+**Context:** teams with legacy code own many repositories, and CAST and AWS now assess portfolios (D-018). The October survey also proposed isolating failures per repository in batch runs.
+**Decision:**
+- `audit-batch <list-file> --out <dir>` audits each listed repository into `<dir>/<name>/` with the same reports and harness files as `audit`, and writes `ai-readiness-portfolio.md` and `.json`. Entries are sorted worst verdict first, with counts per verdict.
+- A missing path, a non-git directory, an out folder inside the target, or a failed audit or write is recorded for that repository. The rest still run, and the exit code is 1 when any repository failed. Configs are validated once, up front.
+- One audit date covers the run. `runAudit` was split into `loadAuditInputs`, `auditOne` and `writeAuditFiles`, so both commands share one pipeline.
+**Alternatives considered:**
+- Running audits in parallel processes — Deferred: the five calibration repositories take about 90 seconds in sequence. Parallel runs would compete for disk on large clones, and output order would need care.
+- Stopping at the first failure — Rejected: one broken entry would hide the rest of the portfolio.
+- `--fail-on` for batches — Not offered: which repository should fail the run is a portfolio policy; the counts are in the JSON for CI to decide.
+**Consequences:**
+- Positive: a portfolio is one command, and calibration runs reuse it (the five repositories: prepare first 1, adapt 2, adopt 2).
+- Negative: the run is sequential, so large portfolios take the sum of their audit times.

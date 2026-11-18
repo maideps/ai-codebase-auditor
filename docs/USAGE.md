@@ -13,6 +13,7 @@ node dist/cli.js audit <repo-path> --harness my-harness.json  # another harness'
 node dist/cli.js audit <repo-path> --out ../audit-reports/<name>  # write the Markdown, JSON and SARIF report
 node dist/cli.js audit <repo-path> --fail-on adapt  # exit 1 unless the verdict is adopt
 node dist/cli.js mcp ../audit-reports/<name>/ai-readiness-report.json  # serve the report to agents over MCP
+node dist/cli.js audit-batch repos.txt --out ../audit-reports/portfolio  # one path per line
 node dist/cli.js compare before/ai-readiness-report.json after/ai-readiness-report.json --out ../audit-reports/compare
 node dist/cli.js --help
 ```
@@ -207,6 +208,12 @@ Steps are ordered by **priority = gain × weight ÷ effort**:
 - **effort** counts S as 1, M as 2 and L as 3.
 
 Ties go to blocking factors, then config order. `verdictAfter` is the verdict the decision rules give with only that step applied, shown when it differs from today's.
+
+### Auditing a portfolio
+
+`audit-batch <list-file> --out <dir>` audits every repository path listed in the file, one per line, resolved against the file's directory; blank lines and `#` comments are skipped. Each repository gets the same reports and harness files as `audit`, in `<dir>/<directory name>/` (names that repeat get `-2`, `-3`). The portfolio summary, `ai-readiness-portfolio.md` and `.json`, sorts repositories worst verdict first and counts each verdict.
+
+A missing path, a directory that is not a git working tree, or an audit that fails is recorded with its reason, and the other repositories still run. The exit code is 1 when any repository failed, and 2 for argument, list or config errors (D-026). `--config`, `--deferrals` and `--harness` apply to every repository.
 
 ### Comparing two audits
 
